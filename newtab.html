@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title data-i18n="appShortName">Minimal Tab</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="background-overlay" aria-hidden="true"></div>
+
+    <main class="shell">
+      <header class="topbar">
+        <nav class="folder-row" id="folderRow" aria-label="Folders" data-i18n-aria-label="foldersNav">
+          <div class="folder-row-track" id="folderRowTrack"></div>
+        </nav>
+
+        <nav class="actions" aria-label="Actions" data-i18n-aria-label="actionsNav">
+          <button class="icon-button" id="addLinkButton" data-i18n-title="addSite" data-i18n-aria-label="addSite" type="button" title="Add site" aria-label="Add site">
+            <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
+          </button>
+          <button class="icon-button" id="addFolderButton" data-i18n-title="createFolder" data-i18n-aria-label="createFolder" type="button" title="Create folder" aria-label="Create folder">
+            <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z"></path>
+              <path d="M12 11v5M9.5 13.5h5"></path>
+            </svg>
+          </button>
+          <button class="icon-button" id="settingsButton" data-i18n-title="settings" data-i18n-aria-label="settings" type="button" title="Settings" aria-label="Settings">
+            <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
+              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.14.37.36.7.66.96.3.26.68.4 1.08.4H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15Z"></path>
+            </svg>
+          </button>
+        </nav>
+      </header>
+
+      <section class="content">
+        <div class="grid" id="linksGrid" aria-live="polite"></div>
+        <p class="empty" id="emptyState" data-i18n="emptyState" hidden>Add your first site with the + button.</p>
+      </section>
+    </main>
+
+    <a class="signature" href="https://github.com/nurfinn" rel="noreferrer">by nurfinn</a>
+
+    <dialog class="modal" id="linkDialog">
+      <form class="modal-inner" id="linkForm" method="dialog">
+        <header class="modal-header">
+          <h2 id="linkDialogTitle" data-i18n="addSiteDialog">Add site</h2>
+          <button class="ghost-button" type="button" data-close="linkDialog" aria-label="Close" data-i18n-aria-label="close">
+            <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="m6 6 12 12M18 6 6 18"></path>
+            </svg>
+          </button>
+        </header>
+
+        <label class="field">
+          <span><span data-i18n="titleLabel">Name</span> <small data-i18n="optional">optional</small></span>
+          <input id="linkTitle" data-i18n-placeholder="titlePlaceholder" name="title" type="text" placeholder="Generated from the address" autocomplete="off">
+        </label>
+
+        <label class="field">
+          <span data-i18n="urlLabel">Address</span>
+          <input id="linkUrl" name="url" type="text" placeholder="github.com" autocomplete="off" required>
+        </label>
+
+        <label class="field">
+          <span data-i18n="folderLabel">Folder</span>
+          <select id="linkFolder" name="folder"></select>
+        </label>
+
+        <footer class="modal-actions">
+          <button class="danger-text-button" id="deleteLinkButton" data-i18n="delete" type="button" hidden>Delete</button>
+          <div class="modal-action-end">
+            <button class="text-button" type="button" data-close="linkDialog" data-i18n="cancel">Cancel</button>
+            <button class="primary-button" id="linkSubmitButton" data-i18n="add" type="submit">Add</button>
+          </div>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="folderDialog">
+      <form class="modal-inner" id="folderForm" method="dialog">
+        <header class="modal-header">
+          <h2 data-i18n="foldersDialog">Folders</h2>
+          <button class="ghost-button" type="button" data-close="folderDialog" aria-label="Close" data-i18n-aria-label="close">
+            <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="m6 6 12 12M18 6 6 18"></path>
+            </svg>
+          </button>
+        </header>
+
+        <label class="field">
+          <span data-i18n="newFolderLabel">New folder</span>
+          <input id="folderName" data-i18n-placeholder="folderPlaceholder" name="folderName" type="text" placeholder="Work" autocomplete="off" required>
+        </label>
+
+        <div class="folder-manager" id="folderManager" hidden>
+          <div class="folder-list" id="folderList" aria-label="Folder list" data-i18n-aria-label="folderList"></div>
+        </div>
+
+        <footer class="modal-actions">
+          <button class="text-button" type="button" data-close="folderDialog" data-i18n="cancel">Cancel</button>
+          <button class="primary-button" type="submit" data-i18n="create">Create</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal settings-modal" id="settingsDialog">
+      <div class="modal-inner settings-modal-inner">
+        <header class="modal-header">
+          <h2 data-i18n="settingsDialog">Settings</h2>
+          <button class="ghost-button" type="button" data-close="settingsDialog" aria-label="Close" data-i18n-aria-label="close">
+            <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="m6 6 12 12M18 6 6 18"></path>
+            </svg>
+          </button>
+        </header>
+
+        <div class="settings-tabs" role="tablist" aria-label="Settings sections" data-i18n-aria-label="settingsSections">
+          <button class="settings-tab" id="backgroundSettingsTab" role="tab" aria-selected="true" aria-controls="backgroundSettingsPanel" tabindex="0" data-settings-tab="background" data-i18n="backgroundTab" type="button">Background</button>
+          <button class="settings-tab" id="backupSettingsTab" role="tab" aria-selected="false" aria-controls="backupSettingsPanel" tabindex="-1" data-settings-tab="backup" data-i18n="backupTab" type="button">Import and export</button>
+        </div>
+
+        <section class="settings-panel" id="backgroundSettingsPanel" role="tabpanel" aria-labelledby="backgroundSettingsTab">
+          <form id="backgroundForm">
+            <div class="background-preview" id="backgroundPreview">
+              <img id="backgroundPreviewImage" src="images/default-background.webp" alt="">
+              <div>
+                <span data-i18n="currentBackground">Current background</span>
+                <strong id="backgroundPreviewName" data-i18n="standardImage">Standard image</strong>
+              </div>
+            </div>
+
+            <label class="file-field">
+              <span data-i18n="imageLabel">Image</span>
+              <input id="backgroundImage" name="backgroundImage" type="file" accept="image/*">
+            </label>
+
+            <p id="backgroundImageError" role="alert" class="settings-error" hidden></p>
+
+            <label class="field compact-field">
+              <span data-i18n="overlayColor">Overlay color</span>
+              <input id="backgroundOverlayColor" name="backgroundOverlayColor" type="color" value="#f4f6f3">
+            </label>
+
+            <label class="field range-field">
+              <span data-i18n="opacity">Opacity</span>
+              <input id="backgroundOverlay" name="backgroundOverlay" type="range" min="0" max="100" value="0">
+              <output id="backgroundOverlayValue" for="backgroundOverlay">0%</output>
+            </label>
+
+            <footer class="modal-actions split-actions">
+              <button class="text-button" id="resetBackgroundButton" data-i18n="reset" type="button">Reset</button>
+              <div class="modal-action-end">
+                <button class="text-button" type="button" data-close="settingsDialog" data-i18n="cancel">Cancel</button>
+                <button class="primary-button" type="submit" data-i18n="save">Save</button>
+              </div>
+            </footer>
+          </form>
+        </section>
+
+        <section class="settings-panel" id="backupSettingsPanel" role="tabpanel" aria-labelledby="backupSettingsTab" hidden>
+          <div class="backup-stack">
+            <article class="backup-card">
+              <div>
+                <h3 data-i18n="exportTitle">Export</h3>
+                <p data-i18n="exportDescription">Save sites, folders, and their order to a JSON file. The background stays in this browser.</p>
+              </div>
+              <button class="text-button" id="exportBackupButton" data-i18n="downloadFile" type="button">Download file</button>
+            </article>
+
+            <article class="backup-card">
+              <div>
+                <h3 data-i18n="importTitle">Import</h3>
+                <p data-i18n="importDescription">Import replaces the current sites and folders. The background settings stay unchanged.</p>
+              </div>
+              <label class="file-field backup-file-field">
+                <span data-i18n="chooseJsonFile">Choose a JSON file</span>
+                <input id="importBackupInput" accept="application/json,.json" type="file">
+              </label>
+            </article>
+
+            <div class="backup-preview" id="importPreview" hidden>
+              <h3 data-i18n="importPreviewTitle">What will be imported</h3>
+              <dl>
+                <div><dt data-i18n="backupDate">Backup date</dt><dd id="importPreviewDate">—</dd></div>
+                <div><dt data-i18n="sitesCount">Sites</dt><dd id="importPreviewSites">0</dd></div>
+                <div><dt data-i18n="foldersCount">Folders</dt><dd id="importPreviewFolders">0</dd></div>
+              </dl>
+            </div>
+
+            <p class="settings-status" id="importStatus" role="status" hidden></p>
+            <p class="settings-error" id="importError" role="alert" hidden></p>
+
+            <footer class="modal-actions backup-actions">
+              <button class="text-button" id="cancelImportButton" data-i18n="cancelImport" type="button" hidden>Cancel import</button>
+              <button class="danger-button" id="confirmImportButton" data-i18n="replaceCurrentData" type="button" hidden>Replace current data</button>
+            </footer>
+          </div>
+        </section>
+      </div>
+    </dialog>
+
+    <script type="module" src="newtab.js"></script>
+  </body>
+</html>
