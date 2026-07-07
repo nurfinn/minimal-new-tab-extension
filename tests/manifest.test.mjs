@@ -6,8 +6,8 @@ const manifest = JSON.parse(
   await readFile(new URL('../manifest.json', import.meta.url), 'utf8'),
 );
 
-test('manifest is the localized minimum-permission 1.5.1 release', () => {
-  assert.equal(manifest.version, '1.5.1');
+test('manifest is the localized minimum-permission 1.5.2 release', () => {
+  assert.equal(manifest.version, '1.5.2');
   assert.equal(manifest.default_locale, 'en');
   assert.equal(manifest.name, '__MSG_appName__');
   assert.equal(manifest.short_name, '__MSG_appShortName__');

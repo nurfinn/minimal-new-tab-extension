@@ -1,41 +1,42 @@
 # Minimal New Tab by nurfinn
 
-Минималистичное расширение Chrome, которое заменяет стандартную новую вкладку и помогает держать избранные сайты в порядке.
+A minimal Chrome new tab extension for keeping favorite sites organized with folders, sync, custom backgrounds, and portable backups.
 
-## Возможности v1.5.1
+## Features in v1.5.2
 
-- добавление, редактирование, удаление и сортировка сайтов;
-- создание, переименование, удаление и сортировка папок;
-- корректный горизонтальный скролл длинного ряда папок;
-- автоматическое локальное название сайта, если название не введено;
-- favicon через Chrome Favicon API, затем Google favicon service и буквенный fallback;
-- стандартный или пользовательский фон и настраиваемая цветная подложка;
-- проверка пользовательского изображения: до 5 МБ и 10 000 px по стороне;
-- экспорт и импорт сайтов, папок и их порядка;
-- автоматический английский или русский интерфейс по языку Chrome;
-- безопасное восстановление состояния при повреждённой или частичной записи.
+- Add, edit, delete, and reorder favorite sites.
+- Create, rename, delete, and reorder folders.
+- Smooth horizontal scrolling for long folder rows.
+- Local title generation when a site name is not entered manually.
+- Favicons through the Chrome Favicon API, then Google favicon service, with a letter fallback.
+- Default solid background color `#457b9d`, custom local backgrounds, and configurable overlay color.
+- Custom background validation up to 5 MB and 10,000 px per side.
+- Export and import for sites, folders, and their order.
+- Automatic English or Russian interface based on the Chrome UI language.
+- Safe state recovery when synchronized storage is damaged or partially written.
+- Stable internal vertical scrolling with a comfortable bottom gap for long site lists.
 
-## Хранение данных
+## Data storage
 
-Сайты, папки, порядок, выбранная папка и лёгкие настройки хранятся через `chrome.storage.sync`. Синхронизация зависит от Chrome и включённого Chrome Sync; Brave и другие браузеры не получают данные из аккаунта Chrome. Для перехода между разными браузерами используйте экспорт и импорт.
+Sites, folders, ordering, selected folder, and lightweight interface settings are stored with `chrome.storage.sync`. Sync depends on Chrome Sync being enabled in Chrome. Brave and other browsers do not receive data from a Chrome account. To move settings between different browsers, use export and import.
 
-Пользовательское фоновое изображение хранится только на текущем устройстве через `chrome.storage.local`. Оно не попадает в sync и в JSON-экспорт. При импорте текущий фон сохраняется.
+Custom background images are stored only on the current device with `chrome.storage.local`. They are not stored in sync and are not included in JSON exports. Imported backups preserve the current background.
 
-Расширение не использует backend, OAuth, аналитику, рекламу и историю браузера.
+The extension does not use a backend, OAuth, analytics, advertising, or browsing history.
 
 ## Permissions
 
-- `storage` — сохраняет настройки, сайты и папки; пользовательский фон держит локально.
-- `favicon` — запрашивает иконку для адреса, который пользователь сохранил.
+- `storage` — saves settings, sites, folders, and the local custom background.
+- `favicon` — requests favicons for addresses saved by the user.
 
-Расширение не запрашивает доступ ко всем сайтам.
+The extension does not request access to all websites.
 
-## Установка локальной версии
+## Local installation
 
-1. Откройте `chrome://extensions`.
-2. Включите режим разработчика.
-3. Нажмите **Load unpacked / Загрузить распакованное расширение**.
-4. Выберите папку с файлами расширения.
-5. После обновления файлов нажмите **Reload / Обновить** у карточки расширения и откройте новую вкладку.
+1. Open `chrome://extensions`.
+2. Enable Developer mode.
+3. Click **Load unpacked**.
+4. Select the extension folder.
+5. After updating files, click **Reload** on the extension card and open a new tab.
 
-Версия в `manifest.json`: **1.5.1**.
+Version in `manifest.json`: **1.5.2**.

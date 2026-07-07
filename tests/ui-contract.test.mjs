@@ -116,6 +116,14 @@ test('keeps the import cancel binding safe during mixed unpacked updates', () =>
   );
 });
 
+test('links the signature to the product site instead of GitHub', () => {
+  assert.match(
+    html,
+    /<a\s+class=["']signature["']\s+href=["']https:\/\/nurfinn\.com\/?["'][^>]*>by nurfinn<\/a>/,
+  );
+  assert.doesNotMatch(html, /github\.com\/nurfinn/);
+});
+
 test('delegates persistence to the isolated sync storage service', () => {
   assert.match(
     script,
@@ -197,6 +205,39 @@ test('validates a custom background before mutating or persisting state', () => 
   assert.match(script, /URL\.revokeObjectURL\s*\(/);
 });
 
+test('uses a solid release color as the first-install background', () => {
+  assert.match(
+    script,
+    /background\s*:\s*\{\s*type\s*:\s*["']color["']\s*,\s*value\s*:\s*["']#457b9d["']\s*,\s*overlay\s*:\s*0\s*,\s*overlayColor\s*:\s*["']#457b9d["']/,
+  );
+  assert.doesNotMatch(script, /value\s*:\s*["']images\/default-background\.webp["']/);
+});
+
+test('renders color and image backgrounds without broken preview images', () => {
+  const applyBackgroundBlock = getCssBlock(script, /function\s+applyBackground\s*\(\s*\)/);
+  const updatePreviewBlock = getCssBlock(
+    script,
+    /function\s+updateBackgroundPreview\s*\(\s*\)/,
+  );
+
+  assert.match(applyBackgroundBlock, /state\.background\.type\s*===\s*["']image["']/);
+  assert.match(applyBackgroundBlock, /document\.body\.classList\.toggle\s*\(\s*["']has-image["']/);
+  assert.match(applyBackgroundBlock, /document\.documentElement\.style\.setProperty\s*\(\s*["']--bg["']\s*,\s*backgroundColor\s*\)/);
+  assert.match(applyBackgroundBlock, /document\.documentElement\.style\.removeProperty\s*\(\s*["']--bg-image["']\s*\)/);
+  assert.match(updatePreviewBlock, /elements\.backgroundPreviewImage\.removeAttribute\s*\(\s*["']src["']\s*\)/);
+  assert.match(updatePreviewBlock, /elements\.backgroundPreviewImage\.style\.background\s*=\s*state\.background\.value\s*;/);
+  assert.match(updatePreviewBlock, /elements\.backgroundPreviewImage\.src\s*=\s*state\.background\.value\s*;/);
+});
+
+test('keeps the URL field focused when adding a new site', () => {
+  const openLinkDialogBlock = getCssBlock(script, /function\s+openLinkDialog\s*\(\s*link\s*=\s*null\s*\)/);
+
+  assert.match(
+    openLinkDialogBlock,
+    /openDialog\s*\(\s*elements\.linkDialog\s*,\s*link\s*\?\s*elements\.linkTitle\s*:\s*elements\.linkUrl\s*\)\s*;/,
+  );
+});
+
 test('combines background and portable backup tools in accessible settings tabs', () => {
   assert.match(html, /id=["']addLinkButton["'][\s\S]*?<path\s+d=["']M12 5v14M5 12h14["']/);
   assert.match(
@@ -262,7 +303,7 @@ test('stages portable imports and commits them before replacing application stat
   assert.match(script, /aria-selected/);
   assert.match(script, /\.tabIndex\s*=/);
   assert.match(script, /function\s+openSettingsDialog\s*\(/);
-  assert.match(script, /elements\.backgroundPreviewImage\.src\s*=\s*state\.background\.value/);
+  assert.match(script, /updateBackgroundPreview\s*\(\s*\)/);
   assert.match(script, /elements\.backgroundPreviewName\.textContent\s*=/);
   assert.match(script, /normalizeLegacyColorBackground\s*\(/);
 
@@ -270,7 +311,7 @@ test('stages portable imports and commits them before replacing application stat
     script,
     /elements\.backgroundForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
   );
-  assert.match(backgroundSubmitBlock, /type\s*:\s*["']image["']/);
+  assert.match(backgroundSubmitBlock, /nextBackground\s*=/);
   assert.doesNotMatch(backgroundSubmitBlock, /activeBackgroundMode|backgroundColor/);
 
   const exportBlock = getCssBlock(script, /function\s+exportBackup\s*\(\s*\)/);
@@ -361,6 +402,31 @@ test('keeps folder scrolling usable and the active chip visible', () => {
   assert.match(styles, /\.folder-row\.can-scroll-right\b/);
 });
 
+test('uses an internal vertical scroller to keep the background stable', () => {
+  const htmlBodyRule = getCssBlock(styles, /html,\s*\nbody\s*(?=\{)/);
+  const bodyRule = getCssBlock(styles, /body\s*(?=\{)/);
+  const shellRule = getCssBlock(styles, /\.shell\s*(?=\{)/);
+  const contentRule = getCssBlock(styles, /\.content\s*(?=\{)/);
+  const imageRule = getCssBlock(styles, /body\.has-image\s*(?=\{)/);
+  const cardRule = getCssBlock(styles, /\.link-card\s*(?=\{)/);
+
+  assert.match(htmlBodyRule, /(?:^|;)\s*height\s*:\s*100%\s*(?:;|$)/);
+  assert.match(htmlBodyRule, /(?:^|;)\s*overflow\s*:\s*hidden\s*(?:;|$)/);
+  assert.match(bodyRule, /(?:^|;)\s*overscroll-behavior\s*:\s*none\s*(?:;|$)/);
+  assert.match(shellRule, /(?:^|;)\s*height\s*:\s*100vh\s*(?:;|$)/);
+  assert.match(shellRule, /(?:^|;)\s*--scroll-end-gap\s*:\s*54px\s*(?:;|$)/);
+  assert.match(shellRule, /(?:^|;)\s*overflow-y\s*:\s*auto\s*(?:;|$)/);
+  assert.match(shellRule, /(?:^|;)\s*overscroll-behavior-y\s*:\s*contain\s*(?:;|$)/);
+  assert.match(contentRule, /(?:^|;)\s*min-height\s*:\s*max-content\s*(?:;|$)/);
+  assert.match(
+    contentRule,
+    /(?:^|;)\s*padding\s*:\s*28px\s+0\s+calc\(\s*18px\s*\+\s*var\(\s*--scroll-end-gap\s*\)\s*\)\s*(?:;|$)/,
+  );
+  assert.doesNotMatch(styles, /\.shell::after\s*(?=\{)/);
+  assert.doesNotMatch(imageRule, /background-attachment\s*:\s*fixed/);
+  assert.match(cardRule, /(?:^|;)\s*content-visibility\s*:\s*auto\s*(?:;|$)/);
+});
+
 test('coalesces folder refresh work while preserving selection focus options', () => {
   const renderFoldersBlock = getCssBlock(script, /function\s+renderFolders\s*\(\s*\)/);
   const refreshBlock = getCssBlock(
@@ -433,6 +499,10 @@ test('stacks header controls before mobile card layout begins', () => {
   assert.doesNotMatch(mobileBreakpoint, /\.topbar\s*\{/);
   assert.doesNotMatch(mobileBreakpoint, /\.actions\s*\{/);
   assert.doesNotMatch(mobileBreakpoint, /\.folder-row\s*\{/);
+  assert.match(
+    mobileBreakpoint,
+    /\.shell\s*\{[\s\S]*?--scroll-end-gap\s*:\s*34px\s*;/,
+  );
 });
 
 test('renders accessible inline folder rename controls', () => {

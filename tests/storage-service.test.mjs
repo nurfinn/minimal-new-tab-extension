@@ -60,10 +60,10 @@ function makeDefaultState() {
       }
     ],
     background: {
-      type: "image",
-      value: "images/default-background.webp",
+      type: "color",
+      value: "#457b9d",
       overlay: 0,
-      overlayColor: "#f4f6f3"
+      overlayColor: "#457b9d"
     }
   };
 }

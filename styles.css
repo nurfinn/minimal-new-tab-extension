@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
-  --bg: #f4f6f3;
-  --bg-overlay-color: #f4f6f3;
+  --bg: #457b9d;
+  --bg-overlay-color: #457b9d;
   --bg-overlay-opacity: 0;
   --text: #1c2422;
   --muted: #6f7a76;
@@ -40,8 +40,9 @@
 html,
 body {
   width: 100%;
-  min-height: 100%;
-  overflow-x: hidden;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -52,6 +53,7 @@ body {
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
   letter-spacing: 0;
+  overscroll-behavior: none;
 }
 
 body.has-image {
@@ -76,7 +78,7 @@ body.has-image {
   background-image: var(--bg-image);
   background-position: center;
   background-size: cover;
-  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 button,
@@ -99,10 +101,15 @@ button {
 }
 
 .shell {
+  --scroll-end-gap: 54px;
   position: relative;
   z-index: 1;
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
   display: grid;
   grid-template-rows: auto 1fr;
   padding: 26px clamp(16px, 4vw, 48px) 54px;
@@ -165,11 +172,12 @@ button {
 .content {
   width: min(860px, calc(100vw - 32px));
   max-width: 100%;
-  min-height: 0;
+  min-height: max-content;
   margin: 0 auto;
   display: grid;
-  place-items: center;
-  padding: 28px 0 18px;
+  align-items: safe center;
+  justify-items: center;
+  padding: 28px 0 calc(18px + var(--scroll-end-gap));
 }
 
 .folder-row {
@@ -292,6 +300,9 @@ button {
   min-width: 0;
   min-height: 126px;
   isolation: isolate;
+  contain: layout paint;
+  content-visibility: auto;
+  contain-intrinsic-size: 126px 124px;
   border: 1px solid var(--card-border);
   border-radius: 10px;
   background: var(--card-bg);
@@ -505,6 +516,11 @@ body.has-image .signature {
   text-shadow: 0 1px 12px rgba(0, 0, 0, 0.28);
 }
 
+body.has-color .signature {
+  color: rgba(255, 255, 255, 0.78);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.22);
+}
+
 .modal {
   width: min(420px, calc(100vw - 32px));
   padding: 0;
@@ -635,6 +651,7 @@ body.has-image .signature {
   width: 108px;
   height: 62px;
   border-radius: 7px;
+  background: #457b9d;
   object-fit: cover;
 }
 
@@ -1013,6 +1030,7 @@ select:focus {
 
 @media (max-width: 760px) {
   .shell {
+    --scroll-end-gap: 34px;
     padding: 18px 14px 34px;
   }
 

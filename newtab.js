@@ -66,10 +66,10 @@ const defaultState = {
     }
   ],
   background: {
-    type: "image",
-    value: "images/default-background.webp",
+    type: "color",
+    value: "#457b9d",
     overlay: 0,
-    overlayColor: "#f4f6f3"
+    overlayColor: "#457b9d"
   }
 };
 
@@ -225,7 +225,7 @@ function bindEvents() {
     const overlay = Number(elements.backgroundOverlay.value);
     const overlayColor = elements.backgroundOverlayColor.value;
 
-    let imageValue;
+    let nextBackground;
 
     if (file) {
       const fileValidation = validateBackgroundImage({ type: file.type, size: file.size });
@@ -248,29 +248,40 @@ function bindEvents() {
           return;
         }
 
-        imageValue = await readFileAsDataUrl(file);
+        const imageValue = await readFileAsDataUrl(file);
+        nextBackground = {
+          type: "image",
+          value: imageValue,
+          overlay,
+          overlayColor
+        };
       } catch {
         showBackgroundImageError("decode-failed");
         return;
       }
+    } else if (state.background.type === "color") {
+      nextBackground = {
+        ...state.background,
+        overlay,
+        overlayColor
+      };
     } else {
-      imageValue =
-        state.background.type === "image"
-          ? state.background.value
-          : defaultState.background.value;
+      const imageValue =
+        state.background.type === "image" ? state.background.value : defaultState.background.value;
+      const customAssetId = state.background.customAssetId;
+      const customAssetAvailable = state.background.customAssetAvailable;
+
+      nextBackground = {
+        type: "image",
+        value: imageValue,
+        overlay,
+        overlayColor,
+        ...(customAssetId ? { customAssetId, customAssetAvailable } : {})
+      };
     }
 
     clearBackgroundImageError();
-    const customAssetId = file ? undefined : state.background.customAssetId;
-    const customAssetAvailable = file ? undefined : state.background.customAssetAvailable;
-
-    state.background = {
-      type: "image",
-      value: imageValue,
-      overlay,
-      overlayColor,
-      ...(customAssetId ? { customAssetId, customAssetAvailable } : {})
-    };
+    state.background = nextBackground;
 
     await saveAndRender();
     elements.backgroundForm.reset();
@@ -1071,7 +1082,15 @@ function reorderFolders(sourceId, targetId, after) {
 }
 
 function applyBackground() {
-  document.body.classList.add("has-image");
+  const backgroundColor =
+    state.background.type === "color" && /^#[0-9a-f]{6}$/i.test(state.background.value)
+      ? state.background.value
+      : defaultState.background.value;
+  const hasImageBackground = state.background.type === "image" && Boolean(state.background.value);
+
+  document.body.classList.toggle("has-image", hasImageBackground);
+  document.body.classList.toggle("has-color", !hasImageBackground);
+  document.documentElement.style.setProperty("--bg", backgroundColor);
   document.documentElement.style.setProperty(
     "--bg-overlay-color",
     state.background.overlayColor || defaultState.background.overlayColor
@@ -1080,7 +1099,11 @@ function applyBackground() {
     "--bg-overlay-opacity",
     String(state.background.overlay / 100)
   );
-  document.documentElement.style.setProperty("--bg-image", `url("${state.background.value}")`);
+  if (hasImageBackground) {
+    document.documentElement.style.setProperty("--bg-image", `url("${state.background.value}")`);
+  } else {
+    document.documentElement.style.removeProperty("--bg-image");
+  }
 }
 
 function openLinkDialog(link = null) {
@@ -1097,7 +1120,7 @@ function openLinkDialog(link = null) {
     : state.selectedFolderId === "all"
       ? ROOT_FOLDER_ID
       : state.selectedFolderId;
-  openDialog(elements.linkDialog, elements.linkTitle);
+  openDialog(elements.linkDialog, link ? elements.linkTitle : elements.linkUrl);
 }
 
 function openFolderDialog() {
@@ -1111,7 +1134,7 @@ function openSettingsDialog() {
     state.background.customAssetId && state.background.customAssetAvailable === false;
   const hasCustomBackground =
     state.background.customAssetId || state.background.value.startsWith("data:image/");
-  elements.backgroundPreviewImage.src = state.background.value;
+  updateBackgroundPreview();
   elements.backgroundPreviewName.textContent = customBackgroundMissing
     ? t("missingLocalBackground")
     : hasCustomBackground
@@ -1122,6 +1145,17 @@ function openSettingsDialog() {
     state.background.overlayColor || defaultState.background.overlayColor;
   updateOverlayLabel(state.background.overlay);
   openDialog(elements.settingsDialog, elements.backgroundImage);
+}
+
+function updateBackgroundPreview() {
+  if (state.background.type === "color") {
+    elements.backgroundPreviewImage.removeAttribute("src");
+    elements.backgroundPreviewImage.style.background = state.background.value;
+    return;
+  }
+
+  elements.backgroundPreviewImage.style.background = "";
+  elements.backgroundPreviewImage.src = state.background.value;
 }
 
 function setSettingsTab(tabName, { focus = false } = {}) {

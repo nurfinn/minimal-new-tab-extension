@@ -119,6 +119,10 @@ export function normalizeLegacyColorBackground(background, defaultBackground) {
     return structuredClone(background);
   }
 
+  if (defaultBackground?.type === 'color') {
+    return structuredClone(background);
+  }
+
   return {
     ...structuredClone(defaultBackground),
     overlay: 100,

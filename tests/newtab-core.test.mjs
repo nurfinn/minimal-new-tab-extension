@@ -117,6 +117,15 @@ test('maps a legacy solid color to the default image with a 100 percent overlay'
   assert.equal(legacy.type, 'color');
 });
 
+test('keeps a solid color background when the default background is also solid', () => {
+  const background = { type: 'color', value: '#123456', overlay: 0, overlayColor: '#123456' };
+  const defaults = { type: 'color', value: '#457b9d', overlay: 0, overlayColor: '#457b9d' };
+  const normalized = normalizeLegacyColorBackground(background, defaults);
+
+  assert.deepEqual(normalized, background);
+  assert.notEqual(normalized, background);
+});
+
 test('clones a non-color background without changing it', () => {
   const background = {
     type: 'image',

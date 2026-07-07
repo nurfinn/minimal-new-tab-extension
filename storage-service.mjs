@@ -223,6 +223,17 @@ export function createStorageService({
   }
 
   async function prepareBackground(background) {
+    if (
+      isNonEmptyString(background?.customAssetId, 200) &&
+      background.customAssetAvailable === false
+    ) {
+      return {
+        descriptor: { type: "custom", localAssetId: background.customAssetId },
+        localBackground,
+        removeLocalAfterCommit: false
+      };
+    }
+
     if (background?.type === "color" && COLOR_PATTERN.test(background.value || "")) {
       return {
         descriptor: { type: "color", value: background.value },
