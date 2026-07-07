@@ -371,6 +371,7 @@ test("stores custom background bytes only in local storage", async () => {
   assert.equal(getActivePayloadJson(syncArea).includes("base64"), false);
 
   const reloaded = await createStorageService({ syncArea, localArea }).load(defaults);
+  assert.equal(reloaded.state.background.type, "image");
   assert.equal(reloaded.state.background.value, state.background.value);
   assert.equal(reloaded.state.background.customAssetId, localMedia.id);
   assert.equal(reloaded.state.background.customAssetAvailable, true);

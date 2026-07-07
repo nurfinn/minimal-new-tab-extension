@@ -408,6 +408,7 @@ async function payloadToApplicationState(payload, defaultState, localArea, logge
     materializedLocalBackground = await readLocalBackground(localArea, localAssetId, logger);
     background = {
       ...defaultBackground,
+      type: materializedLocalBackground ? "image" : defaultBackground.type,
       value: materializedLocalBackground?.dataUrl || defaultBackground.value,
       overlay: clampOverlay(payload.theme.overlay),
       overlayColor: payload.theme.overlayColor,
