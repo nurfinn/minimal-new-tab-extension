@@ -20,6 +20,7 @@ export const ENGLISH_FALLBACKS = Object.freeze({
   urlLabel: 'Address',
   folderLabel: 'Folder',
   delete: 'Delete',
+  confirmDeletion: 'Confirm deletion',
   cancel: 'Cancel',
   add: 'Add',
   save: 'Save',

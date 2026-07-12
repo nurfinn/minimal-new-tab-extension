@@ -84,6 +84,7 @@ let folderDragState = null;
 let suppressLinkClicksUntil = 0;
 let activeSettingsTab = "background";
 let pendingImport = null;
+let pendingDeleteConfirmation = null;
 let renderedFolderSelection = null;
 let folderScrollFrame = null;
 let folderFocusRequest = null;
@@ -98,6 +99,10 @@ const elements = {
   addFolderButton: document.getElementById("addFolderButton"),
   settingsButton: document.getElementById("settingsButton"),
   linkDialog: document.getElementById("linkDialog"),
+  deleteConfirmDialog: document.getElementById("deleteConfirmDialog"),
+  deleteConfirmMessage: document.getElementById("deleteConfirmMessage"),
+  confirmDeleteButton: document.getElementById("confirmDeleteButton"),
+  cancelDeleteConfirmButtons: document.querySelectorAll("[data-cancel-delete-confirm]"),
   folderDialog: document.getElementById("folderDialog"),
   settingsDialog: document.getElementById("settingsDialog"),
   settingsTabs: document.querySelectorAll("[data-settings-tab]"),
@@ -159,6 +164,25 @@ function bindEvents() {
     button.addEventListener("click", () => {
       document.getElementById(button.dataset.close).close();
     });
+  });
+
+  elements.confirmDeleteButton.addEventListener("click", () => {
+    resolveDeleteConfirmation(true);
+  });
+  elements.cancelDeleteConfirmButtons.forEach((button) => {
+    button.addEventListener("click", () => resolveDeleteConfirmation(false));
+  });
+  elements.deleteConfirmDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    resolveDeleteConfirmation(false);
+  });
+  elements.deleteConfirmDialog.addEventListener("close", () => {
+    resolveDeleteConfirmation(false);
+  });
+  elements.deleteConfirmDialog.addEventListener("click", (event) => {
+    if (event.target === elements.deleteConfirmDialog) {
+      resolveDeleteConfirmation(false);
+    }
   });
 
   elements.linkForm.addEventListener("submit", async (event) => {
@@ -366,7 +390,12 @@ function bindEvents() {
 
   elements.deleteLinkButton.addEventListener("click", async () => {
     const link = state.links.find((item) => item.id === editingLinkId);
-    if (!link || !confirm(t("deleteSiteConfirm", [link.title]))) return;
+    if (!link) return;
+
+    const shouldDelete = await requestDeleteConfirmation(
+      t("deleteSiteConfirm", [link.title])
+    );
+    if (!shouldDelete) return;
 
     state.links = state.links.filter((item) => item.id !== link.id);
     editingLinkId = null;
@@ -414,7 +443,9 @@ function bindEvents() {
     const folder = state.folders.find((item) => item.id === deleteButton.dataset.deleteFolder);
     if (!folder) return;
 
-    const shouldDelete = confirm(t("deleteFolderConfirm", [folder.name]));
+    const shouldDelete = await requestDeleteConfirmation(
+      t("deleteFolderConfirm", [folder.name])
+    );
     if (!shouldDelete) return;
 
     removeFolder(folder.id);
@@ -1361,6 +1392,26 @@ function openDialog(dialog, focusTarget) {
   }
 
   focusTarget?.focus({ preventScroll: true });
+}
+
+function requestDeleteConfirmation(message) {
+  if (pendingDeleteConfirmation) return Promise.resolve(false);
+  elements.deleteConfirmMessage.textContent = message;
+
+  return new Promise((resolve) => {
+    pendingDeleteConfirmation = resolve;
+    elements.deleteConfirmDialog.showModal();
+    elements.confirmDeleteButton.focus({ preventScroll: true });
+  });
+}
+
+function resolveDeleteConfirmation(confirmed) {
+  const resolve = pendingDeleteConfirmation;
+  if (!resolve) return;
+
+  pendingDeleteConfirmation = null;
+  if (elements.deleteConfirmDialog.open) elements.deleteConfirmDialog.close();
+  resolve(Boolean(confirmed));
 }
 
 async function saveAndRender() {

@@ -37,6 +37,7 @@ test('English and Russian catalogs cover the same complete message set', () => {
     'cancel',
     'close',
     'delete',
+    'confirmDeletion',
     'backgroundImageError',
     'backgroundSaveFailed',
   ]) {
@@ -53,6 +54,7 @@ test('translator prefers Chrome messages and formats an English fallback', () =>
   });
 
   assert.equal(translate('settings'), 'Настройки');
+  assert.equal(translate('confirmDeletion'), 'Confirm deletion');
   assert.equal(translate('deleteSiteConfirm', ['Example']), 'Delete “Example”?');
   assert.equal(translate('missingMessage'), 'missingMessage');
 });

@@ -210,6 +210,69 @@ test('persists existing site and folder mutation flows without render-time write
   assert.doesNotMatch(renderBlock, /storageService\.save|saveAndRender/);
 });
 
+test('uses one accessible in-extension confirmation for site and folder deletion', () => {
+  assert.match(
+    html,
+    /<dialog\b(?=[^>]*\bid=["']deleteConfirmDialog["'])(?=[^>]*\baria-labelledby=["']deleteConfirmTitle["'])(?=[^>]*\baria-describedby=["']deleteConfirmMessage["'])[^>]*>/,
+  );
+  assert.match(html, /id=["']deleteConfirmTitle["'][^>]*data-i18n=["']confirmDeletion["']/);
+  assert.match(html, /id=["']deleteConfirmMessage["']/);
+  assert.match(html, /id=["']confirmDeleteButton["'][^>]*data-i18n=["']delete["']/);
+  assert.match(html, /data-cancel-delete-confirm[^>]*data-i18n=["']cancel["']/);
+  assert.match(styles, /\.confirmation-message\s*\{/);
+  assert.match(styles, /\.confirmation-actions\s*\{/);
+
+  assert.doesNotMatch(script, /\bconfirm\s*\(/);
+  assert.match(script, /function\s+requestDeleteConfirmation\s*\(\s*message\s*\)/);
+  assert.match(script, /function\s+resolveDeleteConfirmation\s*\(\s*confirmed\s*\)/);
+
+  const requestBlock = getCssBlock(
+    script,
+    /function\s+requestDeleteConfirmation\s*\(\s*message\s*\)/,
+  );
+  const resolveBlock = getCssBlock(
+    script,
+    /function\s+resolveDeleteConfirmation\s*\(\s*confirmed\s*\)/,
+  );
+  const linkDeleteBlock = getCssBlock(
+    script,
+    /elements\.deleteLinkButton\.addEventListener\s*\(\s*["']click["']\s*,\s*async\s*\(\s*\)\s*=>/,
+  );
+  const folderListBlock = getCssBlock(
+    script,
+    /elements\.folderList\.addEventListener\s*\(\s*["']click["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
+  );
+
+  assert.match(requestBlock, /if\s*\(\s*pendingDeleteConfirmation\s*\)\s*return\s+Promise\.resolve\s*\(\s*false\s*\)/);
+  assert.match(requestBlock, /deleteConfirmMessage\.textContent\s*=\s*message/);
+  assert.match(requestBlock, /deleteConfirmDialog\.showModal\s*\(\s*\)/);
+  assert.match(requestBlock, /confirmDeleteButton\.focus\s*\(\s*\{\s*preventScroll\s*:\s*true\s*\}\s*\)/);
+  assert.match(resolveBlock, /pendingDeleteConfirmation\s*=\s*null/);
+  assert.match(resolveBlock, /deleteConfirmDialog\.close\s*\(\s*\)/);
+  assert.match(resolveBlock, /resolve\s*\(\s*Boolean\s*\(\s*confirmed\s*\)\s*\)/);
+  assert.ok(
+    resolveBlock.indexOf('pendingDeleteConfirmation = null') <
+      resolveBlock.indexOf('elements.deleteConfirmDialog.close()'),
+  );
+
+  assert.match(script, /confirmDeleteButton\.addEventListener\s*\(\s*["']click["'][\s\S]*resolveDeleteConfirmation\s*\(\s*true\s*\)/);
+  assert.match(script, /cancelDeleteConfirmButtons\.forEach[\s\S]*resolveDeleteConfirmation\s*\(\s*false\s*\)/);
+  assert.match(script, /deleteConfirmDialog\.addEventListener\s*\(\s*["']cancel["'][\s\S]*event\.preventDefault\s*\(\s*\)[\s\S]*resolveDeleteConfirmation\s*\(\s*false\s*\)/);
+  assert.match(script, /deleteConfirmDialog\.addEventListener\s*\(\s*["']close["'][\s\S]*resolveDeleteConfirmation\s*\(\s*false\s*\)/);
+  assert.match(script, /event\.target\s*===\s*elements\.deleteConfirmDialog[\s\S]*resolveDeleteConfirmation\s*\(\s*false\s*\)/);
+
+  assert.match(linkDeleteBlock, /await\s+requestDeleteConfirmation\s*\(\s*t\s*\(\s*["']deleteSiteConfirm["']/);
+  assert.ok(
+    linkDeleteBlock.indexOf('await requestDeleteConfirmation') <
+      linkDeleteBlock.indexOf('state.links = state.links.filter'),
+  );
+  assert.match(folderListBlock, /await\s+requestDeleteConfirmation\s*\(\s*t\s*\(\s*["']deleteFolderConfirm["']/);
+  assert.ok(
+    folderListBlock.indexOf('await requestDeleteConfirmation') <
+      folderListBlock.indexOf('removeFolder(folder.id)'),
+  );
+});
+
 test('preserves custom background identity until an explicit reset', () => {
   const backgroundSubmitBlock = getCssBlock(
     script,

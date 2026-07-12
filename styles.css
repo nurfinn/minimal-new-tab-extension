@@ -536,6 +536,20 @@ body.has-color .signature {
   background: rgba(20, 25, 24, 0.24);
 }
 
+.confirmation-modal {
+  width: min(380px, calc(100vw - 32px));
+}
+
+.confirmation-message {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.confirmation-actions {
+  justify-content: flex-end;
+}
+
 .modal-inner {
   padding: 18px;
 }

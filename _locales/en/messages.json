@@ -20,6 +20,7 @@
   "urlLabel": { "message": "Address" },
   "folderLabel": { "message": "Folder" },
   "delete": { "message": "Delete" },
+  "confirmDeletion": { "message": "Confirm deletion" },
   "cancel": { "message": "Cancel" },
   "add": { "message": "Add" },
   "save": { "message": "Save" },
