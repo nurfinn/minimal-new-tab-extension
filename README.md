@@ -1,44 +1,57 @@
 # Minimal New Tab by nurfinn
 
-A minimal Chrome new tab extension for keeping favorite sites organized with folders, sync, custom backgrounds, and portable backups.
+A minimal new tab for quick access to your favorite sites. Organize links into folders, customize the background, and move your setup between browsers.
 
-## Features in v1.5.4
+Minimal New Tab replaces a busy default start page with a calm, focused space for the sites you use every day. Everything stays easy to reach without turning your new tab into another dashboard.
+
+[Visit nurfinn.com](https://nurfinn.com/?utm_source=github&utm_medium=referral)
+
+## Highlights
 
 - Add, edit, delete, and reorder favorite sites.
-- Create, rename, delete, and reorder folders.
-- Smooth horizontal scrolling for long folder rows.
-- Local title generation when a site name is not entered manually.
-- Favicons through the Chrome Favicon API, then Google favicon service, with a letter fallback.
-- Bundled default background, custom local backgrounds, and configurable overlay color.
-- Reliable custom background validation up to 3 MB and 4096 px per side.
-- Layout-independent keyboard shortcuts: `A` adds a site, `F` opens folders, and `S` opens settings.
-- Reliable in-extension confirmation before deleting a site or folder.
-- Export and import for sites, folders, and their order.
-- Automatic English or Russian interface based on the Chrome UI language.
-- Safe state recovery when synchronized storage is damaged or partially written.
-- Stable internal vertical scrolling with a comfortable bottom gap for long site lists.
+- Organize sites into folders and arrange folders in your preferred order.
+- Use a bundled default background or choose your own image and overlay.
+- Open Add site with `A`, Create folder with `F`, and Settings with `S` — from any keyboard layout.
+- See site favicons with a clean letter fallback when an icon is unavailable.
+- Automatically use English or Russian based on your browser language.
+- Keep lightweight settings synchronized between Chrome installations.
+- Export and import sites and folders when moving to another browser.
+- Enjoy smooth folder navigation and a stable layout with larger collections.
 
-## Data storage
+## What's New Since 1.5.2
 
-Sites, folders, ordering, selected folder, and lightweight interface settings are stored with `chrome.storage.sync`. Sync depends on Chrome Sync being enabled in Chrome. Brave and other browsers do not receive data from a Chrome account. To move settings between different browsers, use export and import.
+- New default background.
+- Keyboard shortcuts now work with any keyboard layout.
+- Deleting sites and folders is smoother and more reliable.
+- Improved custom background upload, preview, and saving.
 
-Custom background images are stored only on the current device with `chrome.storage.local`. They are not stored in sync and are not included in JSON exports. Imported backups preserve the current background.
+## Sync and moving between browsers
 
-The extension does not use a backend, OAuth, analytics, advertising, or browsing history.
+Chrome Sync can restore sites, folders, their order, the selected folder, colors, and other lightweight preferences between Chrome installations when you are signed in to the same Google account and sync is enabled.
+
+Chrome account data does not automatically transfer to Brave or other browsers. Use Export in Chrome and Import in the other browser to move your sites and folders.
+
+## Backgrounds
+
+The bundled default background is available on every installation. Custom background images are stored only on the current device, so large image data is never placed in Chrome Sync or JSON backups. If a local custom image is unavailable, the interface safely falls back to the standard background.
+
+## Privacy
+
+Minimal New Tab has no account system, backend, Google OAuth, analytics, advertising, or browsing-history collection. Your saved sites and preferences remain in browser storage controlled by you.
 
 ## Permissions
 
-- `storage` — saves settings, sites, folders, and the local custom background.
-- `favicon` — requests favicons for addresses saved by the user.
+- `storage` saves sites, folders, settings, and the local custom background.
+- `favicon` displays icons for addresses you have saved.
 
 The extension does not request access to all websites.
 
-## Local installation
+## Install locally
 
 1. Open `chrome://extensions`.
-2. Enable Developer mode.
+2. Enable **Developer mode**.
 3. Click **Load unpacked**.
 4. Select the extension folder.
 5. After updating files, click **Reload** on the extension card and open a new tab.
 
-Version in `manifest.json`: **1.5.4**.
+Current release: **1.5.4**.
