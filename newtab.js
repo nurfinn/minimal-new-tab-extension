@@ -66,10 +66,10 @@ const defaultState = {
     }
   ],
   background: {
-    type: "color",
-    value: "#457b9d",
+    type: "image",
+    value: "images/default-background.png",
     overlay: 0,
-    overlayColor: "#457b9d"
+    overlayColor: "#17122b"
   }
 };
 
@@ -1088,10 +1088,14 @@ function reorderFolders(sourceId, targetId, after) {
 }
 
 function applyBackground() {
+  const defaultBackgroundColor =
+    defaultState.background.type === "color"
+      ? defaultState.background.value
+      : defaultState.background.overlayColor;
   const backgroundColor =
     state.background.type === "color" && /^#[0-9a-f]{6}$/i.test(state.background.value)
       ? state.background.value
-      : defaultState.background.value;
+      : defaultBackgroundColor;
   const hasImageBackground = state.background.type === "image" && Boolean(state.background.value);
 
   document.body.classList.toggle("has-image", hasImageBackground);
@@ -1154,14 +1158,13 @@ function openSettingsDialog() {
 }
 
 function updateBackgroundPreview() {
-  if (state.background.type === "color") {
-    elements.backgroundPreviewImage.removeAttribute("src");
-    elements.backgroundPreviewImage.style.background = state.background.value;
-    return;
-  }
-
-  elements.backgroundPreviewImage.style.background = "";
-  elements.backgroundPreviewImage.src = state.background.value;
+  const hasImage = state.background.type === "image" && Boolean(state.background.value);
+  elements.backgroundPreviewImage.style.backgroundColor = hasImage
+    ? ""
+    : state.background.value;
+  elements.backgroundPreviewImage.style.backgroundImage = hasImage
+    ? `url("${state.background.value}")`
+    : "none";
 }
 
 function setSettingsTab(tabName, { focus = false } = {}) {

@@ -647,12 +647,14 @@ body.has-color .signature {
   background: rgba(255, 255, 255, 0.54);
 }
 
-.background-preview img {
+.background-preview-visual {
   width: 108px;
   height: 62px;
   border-radius: 7px;
   background: #457b9d;
-  object-fit: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .background-preview div {

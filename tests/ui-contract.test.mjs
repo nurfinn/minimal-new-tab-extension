@@ -230,15 +230,18 @@ test('commits a background only after storage accepts the candidate state', () =
   assert.doesNotMatch(backgroundSubmitBlock, /state\.background\s*=\s*nextBackground/);
 });
 
-test('uses a solid release color as the first-install background', () => {
+test('uses the supplied bundled image as the first-install background', () => {
   assert.match(
     script,
-    /background\s*:\s*\{\s*type\s*:\s*["']color["']\s*,\s*value\s*:\s*["']#457b9d["']\s*,\s*overlay\s*:\s*0\s*,\s*overlayColor\s*:\s*["']#457b9d["']/,
+    /background\s*:\s*\{\s*type\s*:\s*["']image["']\s*,\s*value\s*:\s*["']images\/default-background\.png["']\s*,\s*overlay\s*:\s*0\s*,\s*overlayColor\s*:\s*["']#17122b["']/,
   );
-  assert.doesNotMatch(script, /value\s*:\s*["']images\/default-background\.webp["']/);
+  assert.doesNotMatch(
+    script,
+    /background\s*:\s*\{\s*type\s*:\s*["']color["']\s*,\s*value\s*:\s*["']#457b9d["']/,
+  );
 });
 
-test('renders color and image backgrounds without broken preview images', () => {
+test('renders the preview through CSS without an image element or broken-image marker', () => {
   const applyBackgroundBlock = getCssBlock(script, /function\s+applyBackground\s*\(\s*\)/);
   const updatePreviewBlock = getCssBlock(
     script,
@@ -249,9 +252,15 @@ test('renders color and image backgrounds without broken preview images', () => 
   assert.match(applyBackgroundBlock, /document\.body\.classList\.toggle\s*\(\s*["']has-image["']/);
   assert.match(applyBackgroundBlock, /document\.documentElement\.style\.setProperty\s*\(\s*["']--bg["']\s*,\s*backgroundColor\s*\)/);
   assert.match(applyBackgroundBlock, /document\.documentElement\.style\.removeProperty\s*\(\s*["']--bg-image["']\s*\)/);
-  assert.match(updatePreviewBlock, /elements\.backgroundPreviewImage\.removeAttribute\s*\(\s*["']src["']\s*\)/);
-  assert.match(updatePreviewBlock, /elements\.backgroundPreviewImage\.style\.background\s*=\s*state\.background\.value\s*;/);
-  assert.match(updatePreviewBlock, /elements\.backgroundPreviewImage\.src\s*=\s*state\.background\.value\s*;/);
+  assert.match(
+    html,
+    /<div\b(?=[^>]*\bid=["']backgroundPreviewImage["'])(?=[^>]*\bclass=["'][^"']*background-preview-visual[^"']*["'])[^>]*>/,
+  );
+  assert.doesNotMatch(html, /<img\b[^>]*\bid=["']backgroundPreviewImage["']/);
+  assert.match(updatePreviewBlock, /elements\.backgroundPreviewImage\.style\.backgroundColor\s*=/);
+  assert.match(updatePreviewBlock, /elements\.backgroundPreviewImage\.style\.backgroundImage\s*=/);
+  assert.doesNotMatch(updatePreviewBlock, /\.src\s*=|removeAttribute\s*\(\s*["']src["']/);
+  assert.match(styles, /\.background-preview-visual\s*\{/);
 });
 
 test('keeps the URL field focused when adding a new site', () => {
