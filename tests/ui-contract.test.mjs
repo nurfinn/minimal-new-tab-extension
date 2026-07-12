@@ -155,6 +155,13 @@ test('exposes guarded A, F, and S shortcuts without changing button icons', () =
   assert.match(shortcutBlock, /document\.querySelector\s*\(\s*["']dialog\[open\]["']\s*\)/);
   assert.match(shortcutBlock, /event\.preventDefault\s*\(\s*\)/);
   assert.match(shortcutBlock, /button\.click\s*\(\s*\)/);
+
+  const editableTargetBlock = getCssBlock(
+    script,
+    /function\s+isEditableTarget\s*\(\s*target\s*\)/,
+  );
+  assert.match(editableTargetBlock, /editable\.closest\s*\(\s*["']dialog["']\s*\)/);
+  assert.match(editableTargetBlock, /!ownerDialog\s*\|\|\s*ownerDialog\.open/);
 });
 
 test('delegates persistence to the isolated sync storage service', () => {
@@ -298,11 +305,17 @@ test('renders the preview through CSS without an image element or broken-image m
 
 test('keeps the URL field focused when adding a new site', () => {
   const openLinkDialogBlock = getCssBlock(script, /function\s+openLinkDialog\s*\(\s*link\s*=\s*null\s*\)/);
+  const openDialogBlock = getCssBlock(
+    script,
+    /function\s+openDialog\s*\(\s*dialog\s*,\s*focusTarget\s*\)/,
+  );
 
   assert.match(
     openLinkDialogBlock,
     /openDialog\s*\(\s*elements\.linkDialog\s*,\s*link\s*\?\s*elements\.linkTitle\s*:\s*elements\.linkUrl\s*\)\s*;/,
   );
+  assert.match(openDialogBlock, /focusTarget\?\.focus\s*\(\s*\{\s*preventScroll\s*:\s*true\s*\}\s*\)\s*;/);
+  assert.doesNotMatch(openDialogBlock, /requestAnimationFrame\s*\(/);
 });
 
 test('combines background and portable backup tools in accessible settings tabs', () => {

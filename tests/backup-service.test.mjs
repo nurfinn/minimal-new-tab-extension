@@ -61,7 +61,7 @@ test('round-trips ordered sites and folders without background or storage intern
   assert.equal(document.format, BACKUP_FORMAT);
   assert.equal(document.backupVersion, BACKUP_VERSION);
   assert.equal(document.createdAt, fixedDate.toISOString());
-  assert.equal(document.appVersion, '1.5.2');
+  assert.equal(document.appVersion, '1.5.3');
   assert.deepEqual(Object.keys(document.data), ['selectedFolderId', 'folders', 'links']);
   assert.deepEqual(document.data.links.map(({ id }) => id), ['second', 'first']);
   assert.deepEqual(document.data.folders.map(({ id }) => id), ['root', 'work']);

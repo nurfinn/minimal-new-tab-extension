@@ -2,15 +2,16 @@
 
 A minimal Chrome new tab extension for keeping favorite sites organized with folders, sync, custom backgrounds, and portable backups.
 
-## Features in v1.5.2
+## Features in v1.5.3
 
 - Add, edit, delete, and reorder favorite sites.
 - Create, rename, delete, and reorder folders.
 - Smooth horizontal scrolling for long folder rows.
 - Local title generation when a site name is not entered manually.
 - Favicons through the Chrome Favicon API, then Google favicon service, with a letter fallback.
-- Default solid background color `#457b9d`, custom local backgrounds, and configurable overlay color.
-- Custom background validation up to 5 MB and 10,000 px per side.
+- Bundled default background, custom local backgrounds, and configurable overlay color.
+- Reliable custom background validation up to 3 MB and 4096 px per side.
+- Keyboard shortcuts: `A` adds a site, `F` opens folders, and `S` opens settings.
 - Export and import for sites, folders, and their order.
 - Automatic English or Russian interface based on the Chrome UI language.
 - Safe state recovery when synchronized storage is damaged or partially written.
@@ -39,4 +40,4 @@ The extension does not request access to all websites.
 4. Select the extension folder.
 5. After updating files, click **Reload** on the extension card and open a new tab.
 
-Version in `manifest.json`: **1.5.2**.
+Version in `manifest.json`: **1.5.3**.

@@ -1185,7 +1185,10 @@ function handleGlobalShortcut(event) {
 
 function isEditableTarget(target) {
   const editable = target?.closest?.("input, textarea, select, [contenteditable]");
-  return Boolean(editable && editable.getAttribute("contenteditable") !== "false");
+  if (!editable || editable.getAttribute("contenteditable") === "false") return false;
+
+  const ownerDialog = editable.closest("dialog");
+  return !ownerDialog || ownerDialog.open;
 }
 
 function updateBackgroundPreview() {
@@ -1356,7 +1359,7 @@ function openDialog(dialog, focusTarget) {
     dialog.showModal();
   }
 
-  requestAnimationFrame(() => focusTarget?.focus());
+  focusTarget?.focus({ preventScroll: true });
 }
 
 async function saveAndRender() {
