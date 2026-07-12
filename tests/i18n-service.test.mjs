@@ -35,6 +35,7 @@ test('English and Russian catalogs cover the same complete message set', () => {
     'close',
     'delete',
     'backgroundImageError',
+    'backgroundSaveFailed',
   ]) {
     assert.ok(english[key]?.message);
     assert.ok(russian[key]?.message);

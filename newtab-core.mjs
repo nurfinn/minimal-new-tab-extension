@@ -27,8 +27,8 @@ export function buildFaviconSources(value, runtime = globalThis.chrome?.runtime)
   return [...new Set(sources)];
 }
 
-export const MAX_BACKGROUND_BYTES = 5 * 1024 * 1024;
-export const MAX_BACKGROUND_DIMENSION = 10_000;
+export const MAX_BACKGROUND_BYTES = 3 * 1024 * 1024;
+export const MAX_BACKGROUND_DIMENSION = 4096;
 
 export function validateBackgroundImage({ type, size, width, height }) {
   if (typeof type !== 'string' || !type.startsWith('image/')) {

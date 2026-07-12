@@ -200,9 +200,34 @@ test('validates a custom background before mutating or persisting state', () => 
   assert.match(backgroundSubmitBlock, /showBackgroundImageError\s*\([^)]*\)\s*;[\s\S]*return\s*;/);
   assert.ok(
     backgroundSubmitBlock.indexOf('validateBackgroundImage') <
-      backgroundSubmitBlock.indexOf('state.background ='),
+      backgroundSubmitBlock.indexOf('const nextState'),
   );
   assert.match(script, /URL\.revokeObjectURL\s*\(/);
+});
+
+test('commits a background only after storage accepts the candidate state', () => {
+  const backgroundSubmitBlock = getCssBlock(
+    script,
+    /elements\.backgroundForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
+  );
+
+  assert.match(
+    backgroundSubmitBlock,
+    /const\s+nextState\s*=\s*\{\s*\.\.\.state\s*,\s*background\s*:\s*nextBackground\s*\}\s*;/,
+  );
+  assert.match(
+    backgroundSubmitBlock,
+    /const\s+saveResult\s*=\s*await\s+storageService\.save\s*\(\s*nextState\s*\)\s*;/,
+  );
+  assert.match(
+    backgroundSubmitBlock,
+    /if\s*\(\s*!saveResult\.ok\s*\)\s*\{[\s\S]*?showBackgroundImageError\s*\(\s*["']save-failed["']\s*\)\s*;[\s\S]*?return\s*;/,
+  );
+  assert.ok(
+    backgroundSubmitBlock.indexOf('await storageService.save(nextState)') <
+      backgroundSubmitBlock.indexOf('state = nextState'),
+  );
+  assert.doesNotMatch(backgroundSubmitBlock, /state\.background\s*=\s*nextBackground/);
 });
 
 test('uses a solid release color as the first-install background', () => {

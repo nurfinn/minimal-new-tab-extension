@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  MAX_BACKGROUND_BYTES,
+  MAX_BACKGROUND_DIMENSION,
   buildFaviconSources,
   deriveTitleFromUrl,
   getFolderRevealScrollLeft,
@@ -71,13 +73,16 @@ test('accepts loaded favicons larger than the service placeholder', () => {
   assert.equal(isUsableFavicon({ naturalWidth: 32, naturalHeight: 16 }), true);
 });
 
-test('validates safe custom background image metadata', () => {
+test('uses conservative custom background limits that fit local storage safely', () => {
+  assert.equal(MAX_BACKGROUND_BYTES, 3 * 1024 * 1024);
+  assert.equal(MAX_BACKGROUND_DIMENSION, 4096);
+
   assert.deepEqual(
     validateBackgroundImage({
       type: 'image/webp',
-      size: 5 * 1024 * 1024,
-      width: 10_000,
-      height: 10_000,
+      size: 3 * 1024 * 1024,
+      width: 4096,
+      height: 4096,
     }),
     { ok: true },
   );
@@ -86,11 +91,11 @@ test('validates safe custom background image metadata', () => {
     { ok: false, error: 'invalid-type' },
   );
   assert.deepEqual(
-    validateBackgroundImage({ type: 'image/png', size: 5 * 1024 * 1024 + 1 }),
+    validateBackgroundImage({ type: 'image/png', size: 3 * 1024 * 1024 + 1 }),
     { ok: false, error: 'file-too-large' },
   );
   assert.deepEqual(
-    validateBackgroundImage({ type: 'image/jpeg', size: 100, width: 10_001, height: 200 }),
+    validateBackgroundImage({ type: 'image/jpeg', size: 100, width: 4097, height: 200 }),
     { ok: false, error: 'dimensions-too-large' },
   );
   assert.deepEqual(

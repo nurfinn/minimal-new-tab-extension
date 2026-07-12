@@ -280,10 +280,16 @@ function bindEvents() {
       };
     }
 
-    clearBackgroundImageError();
-    state.background = nextBackground;
+    const nextState = { ...state, background: nextBackground };
+    const saveResult = await storageService.save(nextState);
+    if (!saveResult.ok) {
+      showBackgroundImageError("save-failed");
+      return;
+    }
 
-    await saveAndRender();
+    clearBackgroundImageError();
+    state = nextState;
+    render();
     elements.backgroundForm.reset();
     elements.settingsDialog.close();
   });
@@ -1290,7 +1296,8 @@ function showBackgroundImageError(error) {
     "invalid-type": "backgroundInvalidType",
     "file-too-large": "backgroundTooLarge",
     "dimensions-too-large": "backgroundDimensionsTooLarge",
-    "decode-failed": "backgroundDecodeFailed"
+    "decode-failed": "backgroundDecodeFailed",
+    "save-failed": "backgroundSaveFailed"
   };
   elements.backgroundImageError.textContent = t(
     messageKeys[error] || "backgroundDecodeFailed"

@@ -77,9 +77,10 @@
   "invalidBackupJson": { "message": "Выбранный файл не является корректным JSON-файлом настроек." },
   "storageReadWarning": { "message": "Не удалось прочитать синхронизированные настройки." },
   "storageSaveWarning": { "message": "Не удалось сохранить синхронизированные настройки." },
-  "backgroundImageError": { "message": "Выберите корректное изображение до 5 МБ и 10 000 пикселей по каждой стороне." },
+  "backgroundImageError": { "message": "Выберите корректное изображение до 3 МБ и 4096 пикселей по каждой стороне." },
   "backgroundInvalidType": { "message": "Выберите файл изображения." },
-  "backgroundTooLarge": { "message": "Размер изображения не должен превышать 5 МБ." },
-  "backgroundDimensionsTooLarge": { "message": "Размер изображения не должен превышать 10 000 пикселей по каждой стороне." },
-  "backgroundDecodeFailed": { "message": "Не удалось открыть это изображение." }
+  "backgroundTooLarge": { "message": "Размер изображения не должен превышать 3 МБ." },
+  "backgroundDimensionsTooLarge": { "message": "Размер изображения не должен превышать 4096 пикселей по каждой стороне." },
+  "backgroundDecodeFailed": { "message": "Не удалось открыть это изображение." },
+  "backgroundSaveFailed": { "message": "Не удалось сохранить изображение. Выберите файл меньшего размера и попробуйте снова." }
 }
