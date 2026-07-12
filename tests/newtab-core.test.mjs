@@ -84,6 +84,21 @@ test('maps plain A, F, and S keys to global actions', () => {
   assert.equal(getGlobalShortcutAction({ key: 'x' }), null);
 });
 
+test('maps physical A, F, and S keys independently of the active layout', () => {
+  const { getGlobalShortcutAction } = newtabCore;
+  assert.equal(getGlobalShortcutAction({ code: 'KeyA', key: 'ф' }), 'add-site');
+  assert.equal(getGlobalShortcutAction({ code: 'KeyF', key: 'а' }), 'add-folder');
+  assert.equal(getGlobalShortcutAction({ code: 'KeyS', key: 'ы' }), 'settings');
+  assert.equal(getGlobalShortcutAction({ code: 'KeyX', key: 'ч' }), null);
+});
+
+test('uses event.key only when a physical code is unavailable', () => {
+  const { getGlobalShortcutAction } = newtabCore;
+  assert.equal(getGlobalShortcutAction({ key: 'a' }), 'add-site');
+  assert.equal(getGlobalShortcutAction({ key: 'F' }), 'add-folder');
+  assert.equal(getGlobalShortcutAction({ code: 'KeyX', key: 'a' }), null);
+});
+
 test('ignores global shortcuts while editing, in dialogs, on repeats, or with modifiers', () => {
   assert.equal(typeof newtabCore.getGlobalShortcutAction, 'function');
   const { getGlobalShortcutAction } = newtabCore;

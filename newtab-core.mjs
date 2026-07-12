@@ -31,6 +31,7 @@ export const MAX_BACKGROUND_BYTES = 3 * 1024 * 1024;
 export const MAX_BACKGROUND_DIMENSION = 4096;
 
 export function getGlobalShortcutAction({
+  code,
   key,
   ctrlKey = false,
   metaKey = false,
@@ -51,6 +52,13 @@ export function getGlobalShortcutAction({
   ) {
     return null;
   }
+
+  const shortcutByCode = {
+    KeyA: 'add-site',
+    KeyF: 'add-folder',
+    KeyS: 'settings',
+  };
+  if (code) return shortcutByCode[code] || null;
 
   return {
     a: 'add-site',

@@ -1163,6 +1163,7 @@ function handleGlobalShortcut(event) {
   if (event.defaultPrevented) return;
 
   const action = getGlobalShortcutAction({
+    code: event.code,
     key: event.key,
     ctrlKey: event.ctrlKey,
     metaKey: event.metaKey,

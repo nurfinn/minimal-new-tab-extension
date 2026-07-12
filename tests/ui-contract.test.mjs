@@ -151,6 +151,8 @@ test('exposes guarded A, F, and S shortcuts without changing button icons', () =
     /function\s+handleGlobalShortcut\s*\(\s*event\s*\)/,
   );
   assert.match(shortcutBlock, /getGlobalShortcutAction\s*\(/);
+  assert.match(shortcutBlock, /code\s*:\s*event\.code/);
+  assert.match(shortcutBlock, /key\s*:\s*event\.key/);
   assert.match(shortcutBlock, /isEditableTarget\s*\(\s*event\.target\s*\)/);
   assert.match(shortcutBlock, /document\.querySelector\s*\(\s*["']dialog\[open\]["']\s*\)/);
   assert.match(shortcutBlock, /event\.preventDefault\s*\(\s*\)/);
