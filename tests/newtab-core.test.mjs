@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import * as newtabCore from '../newtab-core.mjs';
+
 import {
   MAX_BACKGROUND_BYTES,
   MAX_BACKGROUND_DIMENSION,
@@ -71,6 +73,31 @@ test('accepts loaded favicons larger than the service placeholder', () => {
   assert.equal(isUsableFavicon({ naturalWidth: 32, naturalHeight: 32 }), true);
   assert.equal(isUsableFavicon({ naturalWidth: 64, naturalHeight: 64 }), true);
   assert.equal(isUsableFavicon({ naturalWidth: 32, naturalHeight: 16 }), true);
+});
+
+test('maps plain A, F, and S keys to global actions', () => {
+  assert.equal(typeof newtabCore.getGlobalShortcutAction, 'function');
+  const { getGlobalShortcutAction } = newtabCore;
+  assert.equal(getGlobalShortcutAction({ key: 'a' }), 'add-site');
+  assert.equal(getGlobalShortcutAction({ key: 'F' }), 'add-folder');
+  assert.equal(getGlobalShortcutAction({ key: 's' }), 'settings');
+  assert.equal(getGlobalShortcutAction({ key: 'x' }), null);
+});
+
+test('ignores global shortcuts while editing, in dialogs, on repeats, or with modifiers', () => {
+  assert.equal(typeof newtabCore.getGlobalShortcutAction, 'function');
+  const { getGlobalShortcutAction } = newtabCore;
+  for (const blockedState of [
+    { isEditable: true },
+    { isDialogOpen: true },
+    { repeat: true },
+    { ctrlKey: true },
+    { metaKey: true },
+    { altKey: true },
+    { shiftKey: true },
+  ]) {
+    assert.equal(getGlobalShortcutAction({ key: 'a', ...blockedState }), null);
+  }
 });
 
 test('uses conservative custom background limits that fit local storage safely', () => {

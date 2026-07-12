@@ -30,6 +30,35 @@ export function buildFaviconSources(value, runtime = globalThis.chrome?.runtime)
 export const MAX_BACKGROUND_BYTES = 3 * 1024 * 1024;
 export const MAX_BACKGROUND_DIMENSION = 4096;
 
+export function getGlobalShortcutAction({
+  key,
+  ctrlKey = false,
+  metaKey = false,
+  altKey = false,
+  shiftKey = false,
+  repeat = false,
+  isEditable = false,
+  isDialogOpen = false,
+} = {}) {
+  if (
+    ctrlKey ||
+    metaKey ||
+    altKey ||
+    shiftKey ||
+    repeat ||
+    isEditable ||
+    isDialogOpen
+  ) {
+    return null;
+  }
+
+  return {
+    a: 'add-site',
+    f: 'add-folder',
+    s: 'settings',
+  }[String(key || '').toLowerCase()] || null;
+}
+
 export function validateBackgroundImage({ type, size, width, height }) {
   if (typeof type !== 'string' || !type.startsWith('image/')) {
     return { ok: false, error: 'invalid-type' };

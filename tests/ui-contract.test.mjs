@@ -37,7 +37,7 @@ test('loads the new tab script as an ES module', () => {
 
 test('marks the static interface for automatic Chrome localization', () => {
   assert.match(html, /<html\s+lang=["']en["']/);
-  assert.match(html, /id=["']addLinkButton["'][^>]*data-i18n-title=["']addSite["']/);
+  assert.match(html, /id=["']addLinkButton["'][^>]*data-i18n-title=["']addSiteShortcut["']/);
   assert.match(html, /id=["']settingsButton["'][^>]*data-i18n-aria-label=["']settings["']/);
   assert.match(html, /id=["']linkTitle["'][^>]*data-i18n-placeholder=["']titlePlaceholder["']/);
   assert.match(html, /id=["']backgroundSettingsTab["'][^>]*data-i18n=["']backgroundTab["']/);
@@ -119,9 +119,42 @@ test('keeps the import cancel binding safe during mixed unpacked updates', () =>
 test('links the signature to the product site instead of GitHub', () => {
   assert.match(
     html,
-    /<a\s+class=["']signature["']\s+href=["']https:\/\/nurfinn\.com\/?["'][^>]*>by nurfinn<\/a>/,
+    /<a\s+class=["']signature["']\s+href=["']https:\/\/nurfinn\.com\/\?utm_source=minimal_new_tab_extension&amp;utm_medium=referral["'][^>]*>by nurfinn<\/a>/,
   );
   assert.doesNotMatch(html, /github\.com\/nurfinn/);
+});
+
+test('exposes guarded A, F, and S shortcuts without changing button icons', () => {
+  assert.match(
+    html,
+    /id=["']addLinkButton["'][^>]*data-i18n-title=["']addSiteShortcut["'][^>]*aria-keyshortcuts=["']A["']/,
+  );
+  assert.match(
+    html,
+    /id=["']addFolderButton["'][^>]*data-i18n-title=["']createFolderShortcut["'][^>]*aria-keyshortcuts=["']F["']/,
+  );
+  assert.match(
+    html,
+    /id=["']settingsButton["'][^>]*data-i18n-title=["']settingsShortcut["'][^>]*aria-keyshortcuts=["']S["']/,
+  );
+  assert.match(
+    script,
+    /import\s*\{[^}]*\bgetGlobalShortcutAction\b[^}]*\}\s*from\s*["']\.\/newtab-core\.mjs["']\s*;/s,
+  );
+  assert.match(
+    script,
+    /document\.addEventListener\s*\(\s*["']keydown["']\s*,\s*handleGlobalShortcut\s*\)\s*;/,
+  );
+
+  const shortcutBlock = getCssBlock(
+    script,
+    /function\s+handleGlobalShortcut\s*\(\s*event\s*\)/,
+  );
+  assert.match(shortcutBlock, /getGlobalShortcutAction\s*\(/);
+  assert.match(shortcutBlock, /isEditableTarget\s*\(\s*event\.target\s*\)/);
+  assert.match(shortcutBlock, /document\.querySelector\s*\(\s*["']dialog\[open\]["']\s*\)/);
+  assert.match(shortcutBlock, /event\.preventDefault\s*\(\s*\)/);
+  assert.match(shortcutBlock, /button\.click\s*\(\s*\)/);
 });
 
 test('delegates persistence to the isolated sync storage service', () => {
@@ -280,7 +313,7 @@ test('combines background and portable backup tools in accessible settings tabs'
   );
   assert.match(
     html,
-    /<button\b(?=[^>]*\bid=["']settingsButton["'])(?=[^>]*\btitle=["']Settings["'])(?=[^>]*\baria-label=["']Settings["'])[^>]*>[\s\S]*?M12 15\.5/,
+    /<button\b(?=[^>]*\bid=["']settingsButton["'])(?=[^>]*\btitle=["']Settings — S["'])(?=[^>]*\baria-label=["']Settings["'])[^>]*>[\s\S]*?M12 15\.5/,
   );
   assert.doesNotMatch(html, /id=["']backgroundButton["']/);
   assert.match(html, /<dialog\b[^>]*\bid=["']settingsDialog["']/);

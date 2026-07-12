@@ -4,6 +4,7 @@ import {
   getFolderRevealScrollLeft,
   getFolderScrollState,
   getFolderWheelScrollLeft,
+  getGlobalShortcutAction,
   getWheelScrollDelta,
   isUsableFavicon,
   normalizeLegacyColorBackground,
@@ -152,6 +153,7 @@ function bindEvents() {
   elements.addLinkButton.addEventListener("click", () => openLinkDialog());
   elements.addFolderButton.addEventListener("click", () => openFolderDialog());
   elements.settingsButton.addEventListener("click", () => openSettingsDialog());
+  document.addEventListener("keydown", handleGlobalShortcut);
 
   document.querySelectorAll("[data-close]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1155,6 +1157,35 @@ function openSettingsDialog() {
     state.background.overlayColor || defaultState.background.overlayColor;
   updateOverlayLabel(state.background.overlay);
   openDialog(elements.settingsDialog, elements.backgroundImage);
+}
+
+function handleGlobalShortcut(event) {
+  if (event.defaultPrevented) return;
+
+  const action = getGlobalShortcutAction({
+    key: event.key,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+    altKey: event.altKey,
+    shiftKey: event.shiftKey,
+    repeat: event.repeat,
+    isEditable: isEditableTarget(event.target),
+    isDialogOpen: Boolean(document.querySelector("dialog[open]"))
+  });
+  const button = {
+    "add-site": elements.addLinkButton,
+    "add-folder": elements.addFolderButton,
+    settings: elements.settingsButton
+  }[action];
+
+  if (!button) return;
+  event.preventDefault();
+  button.click();
+}
+
+function isEditableTarget(target) {
+  const editable = target?.closest?.("input, textarea, select, [contenteditable]");
+  return Boolean(editable && editable.getAttribute("contenteditable") !== "false");
 }
 
 function updateBackgroundPreview() {
