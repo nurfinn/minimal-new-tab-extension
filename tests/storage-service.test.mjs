@@ -113,6 +113,37 @@ test("loads defaults without writing when sync storage is empty", async () => {
   assert.equal(syncArea.calls.some(({ method }) => method === "set"), false);
 });
 
+test("prefers the Promise-based Firefox browser storage namespace", async () => {
+  const originalBrowser = Object.getOwnPropertyDescriptor(globalThis, "browser");
+  const originalChrome = Object.getOwnPropertyDescriptor(globalThis, "chrome");
+  const browserSync = new FakeStorageArea();
+  const browserLocal = new FakeStorageArea();
+  const chromeSync = new FakeStorageArea();
+  const chromeLocal = new FakeStorageArea();
+
+  Object.defineProperty(globalThis, "browser", {
+    configurable: true,
+    value: { storage: { sync: browserSync, local: browserLocal } }
+  });
+  Object.defineProperty(globalThis, "chrome", {
+    configurable: true,
+    value: { storage: { sync: chromeSync, local: chromeLocal } }
+  });
+
+  try {
+    const result = await createStorageService({ logger: null }).load(makeDefaultState());
+
+    assert.equal(result.ok, true);
+    assert.equal(browserSync.calls.some(({ method }) => method === "get"), true);
+    assert.equal(browserLocal.calls.some(({ method }) => method === "get"), true);
+    assert.equal(chromeSync.calls.length, 0);
+    assert.equal(chromeLocal.calls.length, 0);
+  } finally {
+    restoreGlobal("browser", originalBrowser);
+    restoreGlobal("chrome", originalChrome);
+  }
+});
+
 test("commits chunks before the manifest and restores ordered state", async () => {
   const syncArea = new FakeStorageArea();
   const localArea = new FakeStorageArea();
@@ -500,3 +531,11 @@ test("keeps legacy data when migration cannot commit", async () => {
   assert.equal(result.state.links[0].title, "Legacy");
   assert.deepEqual(localArea.data[STORAGE_KEYS.legacyState], legacyState);
 });
+
+function restoreGlobal(name, descriptor) {
+  if (descriptor) {
+    Object.defineProperty(globalThis, name, descriptor);
+  } else {
+    delete globalThis[name];
+  }
+}

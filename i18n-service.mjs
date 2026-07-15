@@ -1,3 +1,5 @@
+import { getExtensionApi } from './extension-api.mjs';
+
 export const ENGLISH_FALLBACKS = Object.freeze({
   appName: 'Minimal New Tab by nurfinn',
   appShortName: 'Minimal Tab',
@@ -127,7 +129,7 @@ export function getUiLocale(getMessage = defaultGetMessage) {
 }
 
 function defaultGetMessage(id, substitutions) {
-  return globalThis.chrome?.i18n?.getMessage?.(id, substitutions) || '';
+  return getExtensionApi()?.i18n?.getMessage?.(id, substitutions) || '';
 }
 
 function formatFallback(template, substitutions) {

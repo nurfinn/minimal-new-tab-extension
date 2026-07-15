@@ -1,3 +1,5 @@
+import { getExtensionApi } from "./extension-api.mjs";
+
 export const STORAGE_VERSION = 1;
 
 const CHUNK_MAX_BYTES = 3500;
@@ -78,8 +80,8 @@ export function validateSyncPayload(value) {
 }
 
 export function createStorageService({
-  syncArea = globalThis.chrome?.storage?.sync,
-  localArea = globalThis.chrome?.storage?.local,
+  syncArea = getExtensionApi()?.storage?.sync,
+  localArea = getExtensionApi()?.storage?.local,
   logger = console
 } = {}) {
   let writable = Boolean(syncArea);

@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   ENGLISH_FALLBACKS,
   createTranslator,
+  getUiLocale,
   localizeDocument,
 } from '../i18n-service.mjs';
 
@@ -59,6 +60,44 @@ test('translator prefers Chrome messages and formats an English fallback', () =>
   assert.equal(translate('missingMessage'), 'missingMessage');
 });
 
+test('default localization prefers the Firefox browser namespace', () => {
+  const originalBrowser = Object.getOwnPropertyDescriptor(globalThis, 'browser');
+  const originalChrome = Object.getOwnPropertyDescriptor(globalThis, 'chrome');
+  const calls = [];
+
+  Object.defineProperty(globalThis, 'browser', {
+    configurable: true,
+    value: {
+      i18n: {
+        getMessage(id) {
+          calls.push(`browser:${id}`);
+          return id === '@@ui_locale' ? 'ru' : id === 'settings' ? 'Настройки Firefox' : '';
+        },
+      },
+    },
+  });
+  Object.defineProperty(globalThis, 'chrome', {
+    configurable: true,
+    value: {
+      i18n: {
+        getMessage(id) {
+          calls.push(`chrome:${id}`);
+          return 'Chrome message';
+        },
+      },
+    },
+  });
+
+  try {
+    assert.equal(createTranslator()('settings'), 'Настройки Firefox');
+    assert.equal(getUiLocale(), 'ru');
+    assert.deepEqual(calls, ['browser:settings', 'browser:@@ui_locale']);
+  } finally {
+    restoreGlobal('browser', originalBrowser);
+    restoreGlobal('chrome', originalChrome);
+  }
+});
+
 test('localizes text and supported attributes while setting the document language', () => {
   const elements = {
     '[data-i18n]': [{ dataset: { i18n: 'settings' }, textContent: '' }],
@@ -93,4 +132,12 @@ function makeAttributeElement(dataset) {
       this.attributes[name] = value;
     },
   };
+}
+
+function restoreGlobal(name, descriptor) {
+  if (descriptor) {
+    Object.defineProperty(globalThis, name, descriptor);
+  } else {
+    delete globalThis[name];
+  }
 }

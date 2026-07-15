@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const [html, script, styles, storageScript] = await Promise.all([
+const [html, script, styles, storageScript, i18nScript, extensionApiScript] = await Promise.all([
   readFile(new URL('../newtab.html', import.meta.url), 'utf8'),
   readFile(new URL('../newtab.js', import.meta.url), 'utf8'),
   readFile(new URL('../styles.css', import.meta.url), 'utf8'),
   readFile(new URL('../storage-service.mjs', import.meta.url), 'utf8'),
+  readFile(new URL('../i18n-service.mjs', import.meta.url), 'utf8'),
+  readFile(new URL('../extension-api.mjs', import.meta.url), 'utf8'),
 ]);
 
 function getCssBlock(source, prelude) {
@@ -175,8 +177,19 @@ test('delegates persistence to the isolated sync storage service', () => {
   assert.doesNotMatch(script, /\blocalStorage\b/);
   assert.doesNotMatch(script, /\bchrome\.storage\b/);
   assert.doesNotMatch(script, /\b(?:chunk|generation|backupManifest|SyncManifest)\b/i);
-  assert.match(storageScript, /globalThis\.chrome\?\.storage\?\.sync/);
-  assert.match(storageScript, /globalThis\.chrome\?\.storage\?\.local/);
+  assert.match(
+    storageScript,
+    /import\s*\{\s*getExtensionApi\s*\}\s*from\s*["']\.\/extension-api\.mjs["']/,
+  );
+  assert.match(storageScript, /getExtensionApi\s*\(\s*\)\?\.storage\?\.sync/);
+  assert.match(storageScript, /getExtensionApi\s*\(\s*\)\?\.storage\?\.local/);
+  assert.match(
+    i18nScript,
+    /import\s*\{\s*getExtensionApi\s*\}\s*from\s*["']\.\/extension-api\.mjs["']/,
+  );
+  assert.match(i18nScript, /getExtensionApi\s*\(\s*\)\?\.i18n\?\.getMessage/);
+  assert.match(extensionApiScript, /browserApi\s*=\s*globalThis\.browser/);
+  assert.match(extensionApiScript, /chromeApi\s*=\s*globalThis\.chrome/);
 
   const initBlock = getCssBlock(script, /async\s+function\s+init\s*\(\s*\)/);
   assert.match(initBlock, /await\s+storageService\.load\s*\(\s*defaultState\s*\)/);
