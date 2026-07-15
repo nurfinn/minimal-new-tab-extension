@@ -18,7 +18,7 @@ test('Firefox manifest is localized and AMO-ready with minimum permissions', () 
   assert.deepEqual(manifest.browser_specific_settings, {
     gecko: {
       id: 'minimal-new-tab@nurfinn.com',
-      strict_min_version: '140.0',
+      strict_min_version: '142.0',
       data_collection_permissions: { required: ['none'] },
     },
   });
