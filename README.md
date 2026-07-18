@@ -11,7 +11,7 @@ A calm, customizable new tab for Chrome and Firefox. Keep favorite sites in fold
 | Chrome | 1.5.4 | Shared files in the repository root |
 | Firefox | 1.5.5 | Shared root files plus the isolated `firefox/` overlay |
 
-Chrome and Firefox live in one repository because most product logic is shared. Browser-specific manifests, favicon providers, permissions, UI additions, and release assets remain isolated. Tests freeze the published Chrome source while Firefox builds are produced separately.
+Chrome and Firefox live in one repository because most product logic is shared. Browser-specific manifests, favicon providers, permissions, UI additions, and release assets remain isolated. Both store archives are produced from explicit allowlists and validated independently before release.
 
 Release tags and archives should include the platform:
 
@@ -68,7 +68,9 @@ Neither build requests access to all websites.
 ├── manifest.json              Chrome manifest
 ├── newtab.* / services       Shared application source
 ├── firefox/                  Firefox-only manifest, providers, UI, locales, and icons
+├── scripts/build-chrome.mjs  Reproducible Chrome release builder
 ├── scripts/build-firefox.mjs Deterministic Firefox release builder
+├── .github/workflows/        Automated tests and browser release validation
 └── tests/                    Shared and browser-isolation tests
 ```
 
@@ -78,6 +80,18 @@ Neither build requests access to all websites.
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
 4. Select the repository root.
+
+## Build Chrome
+
+The output directory and ZIP must be outside the source tree, and the archive name must include `chrome`.
+
+```bash
+node scripts/build-chrome.mjs \
+  --output-dir /absolute/path/minimal-new-tab-chrome \
+  --archive /absolute/path/minimal-new-tab-chrome-v1.5.4.zip
+```
+
+The generated directory can be loaded unpacked in Chrome, and the generated root-level ZIP is ready for Chrome Web Store upload.
 
 ## Build Firefox
 
@@ -93,7 +107,15 @@ Load the output directory temporarily from `about:debugging#/runtime/this-firefo
 
 ## Validation
 
+GitHub Actions runs the complete tests, builds both browser archives, verifies ZIP integrity, and lints the Firefox package. The same checks can be run locally:
+
 ```bash
 node --test tests/*.test.mjs
+node scripts/build-chrome.mjs \
+  --output-dir /absolute/path/minimal-new-tab-chrome \
+  --archive /absolute/path/minimal-new-tab-chrome-v1.5.4.zip
+node scripts/build-firefox.mjs \
+  --output-dir /absolute/path/minimal-new-tab-firefox \
+  --archive /absolute/path/minimal-new-tab-firefox-v1.5.5.zip
 npx web-ext lint --source-dir /absolute/path/minimal-new-tab-firefox
 ```
