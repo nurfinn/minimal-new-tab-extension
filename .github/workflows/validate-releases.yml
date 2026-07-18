@@ -1,0 +1,59 @@
+name: Validate browser releases
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "firefox/**"
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Unit and contract tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/*.test.mjs
+
+  chrome-release:
+    name: Chrome release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build Chrome archive
+        run: |
+          node scripts/build-chrome.mjs \
+            --output-dir "$RUNNER_TEMP/minimal-new-tab-chrome" \
+            --archive "$RUNNER_TEMP/minimal-new-tab-chrome-v1.5.4.zip"
+          unzip -t "$RUNNER_TEMP/minimal-new-tab-chrome-v1.5.4.zip"
+
+  firefox-release:
+    name: Firefox release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build Firefox archive
+        run: |
+          node scripts/build-firefox.mjs \
+            --output-dir "$RUNNER_TEMP/minimal-new-tab-firefox" \
+            --archive "$RUNNER_TEMP/minimal-new-tab-firefox-v1.5.5.zip"
+          unzip -t "$RUNNER_TEMP/minimal-new-tab-firefox-v1.5.5.zip"
+      - name: Lint Firefox package
+        run: >-
+          npx --yes --cache "$RUNNER_TEMP/npm-cache" web-ext@10.5.0 lint
+          --source-dir "$RUNNER_TEMP/minimal-new-tab-firefox"

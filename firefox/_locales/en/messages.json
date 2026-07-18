@@ -1,0 +1,12 @@
+{
+  "siteIconsTitle": { "message": "Site icons" },
+  "siteIconsLocalOnly": { "message": "Local icons + letters" },
+  "siteIconsLocalRemote": { "message": "Local + downloaded icons" },
+  "siteIconsConfigure": { "message": "Configure" },
+  "siteIconsRemoteToggle": { "message": "Load missing site icons" },
+  "siteIconsOff": { "message": "Off" },
+  "siteIconsOn": { "message": "On" },
+  "siteIconsPrivacy": { "message": "Only the domain is sent to load an icon. The full link is not sent." },
+  "siteIconsUnavailable": { "message": "Remote icon loading is unavailable in this Firefox version." },
+  "siteIconsPermissionError": { "message": "Firefox could not change this permission. Local icons and letters are still available." }
+}

@@ -1,0 +1,12 @@
+{
+  "siteIconsTitle": { "message": "Иконки сайтов" },
+  "siteIconsLocalOnly": { "message": "Локальные + буквы" },
+  "siteIconsLocalRemote": { "message": "Локальные + загружаемые" },
+  "siteIconsConfigure": { "message": "Настроить" },
+  "siteIconsRemoteToggle": { "message": "Загружать недостающие иконки" },
+  "siteIconsOff": { "message": "Выключено" },
+  "siteIconsOn": { "message": "Включено" },
+  "siteIconsPrivacy": { "message": "Для загрузки передаётся только домен. Полная ссылка не отправляется." },
+  "siteIconsUnavailable": { "message": "Загрузка иконок недоступна в этой версии Firefox." },
+  "siteIconsPermissionError": { "message": "Firefox не смог изменить разрешение. Локальные иконки и буквы по-прежнему доступны." }
+}
