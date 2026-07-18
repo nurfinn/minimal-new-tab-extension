@@ -1,0 +1,36 @@
+<section class="favicon-settings-row" id="faviconSettingsRow" aria-labelledby="faviconSettingsTitle">
+  <div class="favicon-settings-summary">
+    <div class="favicon-settings-samples" aria-hidden="true">
+      <img src="site-icons/google-sheets.svg" alt="">
+      <img src="site-icons/reddit.svg" alt="">
+      <img src="site-icons/github.svg" alt="">
+      <img src="site-icons/x.svg" alt="">
+      <img src="site-icons/openai.png" alt="">
+    </div>
+    <div class="favicon-settings-copy">
+      <strong id="faviconSettingsTitle" data-i18n="siteIconsTitle">Site icons</strong>
+      <span id="faviconSettingsMode" data-i18n="siteIconsLocalOnly">Local icons + letters</span>
+    </div>
+    <button
+      class="text-button favicon-settings-configure"
+      id="faviconSettingsConfigure"
+      type="button"
+      aria-expanded="false"
+      aria-controls="faviconSettingsDisclosure"
+      data-i18n="siteIconsConfigure"
+    >Configure</button>
+  </div>
+
+  <div class="favicon-settings-disclosure" id="faviconSettingsDisclosure" hidden>
+    <label class="favicon-settings-switch" for="remoteFaviconToggle">
+      <span data-i18n="siteIconsRemoteToggle">Load missing site icons</span>
+      <span class="favicon-settings-switch-control">
+        <input id="remoteFaviconToggle" type="checkbox">
+        <span class="favicon-settings-switch-track" aria-hidden="true"></span>
+      </span>
+      <strong id="remoteFaviconStatus" data-i18n="siteIconsOff">Off</strong>
+    </label>
+    <p data-i18n="siteIconsPrivacy">Only the domain is sent to load an icon. The full link is not sent.</p>
+    <p class="settings-error" id="faviconSettingsError" role="status" hidden></p>
+  </div>
+</section>

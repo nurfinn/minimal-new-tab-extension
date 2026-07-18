@@ -1,0 +1,186 @@
+.favicon-settings-row {
+  margin: -2px 0 18px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.54);
+}
+
+.favicon-settings-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+}
+
+.favicon-settings-samples {
+  display: flex;
+  align-items: center;
+}
+
+.favicon-settings-samples img {
+  box-sizing: border-box;
+  width: 27px;
+  height: 27px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  object-fit: contain;
+}
+
+.favicon-settings-samples img + img {
+  margin-left: -5px;
+}
+
+.favicon-settings-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.favicon-settings-copy strong {
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.favicon-settings-copy span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favicon-settings-configure {
+  min-height: 32px;
+  padding-inline: 10px;
+}
+
+.favicon-settings-disclosure {
+  display: grid;
+  gap: 9px;
+  margin-top: 11px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.favicon-settings-disclosure[hidden] {
+  display: none;
+}
+
+.favicon-settings-switch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.favicon-settings-switch > strong {
+  min-width: 68px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.favicon-settings-switch-control {
+  position: relative;
+  width: 38px;
+  height: 22px;
+}
+
+.favicon-settings-switch-control input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.favicon-settings-switch-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(28, 36, 34, 0.18);
+  transition: background-color 150ms ease;
+}
+
+.favicon-settings-switch-track::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(28, 36, 34, 0.2);
+  content: "";
+  transition: transform 150ms ease;
+}
+
+.favicon-settings-switch-control input:checked + .favicon-settings-switch-track {
+  background: var(--accent);
+}
+
+.favicon-settings-switch-control input:checked + .favicon-settings-switch-track::after {
+  transform: translateX(16px);
+}
+
+.favicon-settings-switch-control input:focus-visible + .favicon-settings-switch-track {
+  outline: 2px solid rgba(39, 107, 98, 0.62);
+  outline-offset: 2px;
+}
+
+.favicon-settings-switch-control input:disabled + .favicon-settings-switch-track {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.favicon-settings-disclosure > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.favicon-settings-disclosure > .settings-error {
+  color: var(--danger);
+}
+
+@media (max-width: 560px) {
+  .favicon-settings-summary {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .favicon-settings-copy {
+    grid-row: 1;
+    grid-column: 1 / -1;
+  }
+
+  .favicon-settings-samples {
+    grid-row: 2;
+  }
+
+  .favicon-settings-configure {
+    grid-row: 2;
+    justify-self: end;
+  }
+
+  .favicon-settings-switch {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .favicon-settings-switch > strong {
+    grid-column: 1 / -1;
+    min-width: 0;
+    text-align: left;
+  }
+}
