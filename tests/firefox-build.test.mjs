@@ -37,6 +37,14 @@ test('rejects release paths that could mutate the source or package itself', () 
     }),
     /must not be created inside the output directory/,
   );
+  assert.throws(
+    () => builderModule.assertSafeReleasePaths({
+      source,
+      output,
+      archive: join(tmpdir(), 'v1.5.4-store.zip'),
+    }),
+    /Firefox archive name/,
+  );
 });
 
 test('builds a clean Firefox directory and root-level ZIP from an allowlist', async (t) => {
@@ -45,7 +53,7 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
 
   const tempRoot = await mkdtemp(join(tmpdir(), 'minimal-new-tab-firefox-build-'));
   const outputDir = join(tempRoot, 'release');
-  const archivePath = join(tempRoot, 'minimal-new-tab-firefox-v1.5.4.zip');
+  const archivePath = join(tempRoot, 'minimal-new-tab-firefox-v1.5.5.zip');
   t.after(() => rm(tempRoot, { recursive: true, force: true }));
 
   await mkdir(outputDir, { recursive: true });
@@ -57,7 +65,11 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
     '_locales',
     'backup-service.mjs',
     'extension-api.mjs',
+    'favicon-catalog.mjs',
     'favicon-service.mjs',
+    'favicon-settings.css',
+    'favicon-settings.mjs',
+    'firefox-bootstrap.mjs',
     'i18n-service.mjs',
     'icons',
     'images',
@@ -65,6 +77,7 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
     'newtab-core.mjs',
     'newtab.html',
     'newtab.js',
+    'site-icons',
     'storage-service.mjs',
     'styles.css',
   ]);
@@ -77,11 +90,44 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
     await readFile(join(outputDir, 'favicon-service.mjs')),
     await readFile(join(sourceRoot, 'firefox/favicon-service.mjs')),
   );
+
+  const builtHtml = await readFile(join(outputDir, 'newtab.html'), 'utf8');
+  const builtScript = await readFile(join(outputDir, 'newtab.js'), 'utf8');
+  const builtSettings = await readFile(
+    join(outputDir, 'favicon-settings.mjs'),
+    'utf8',
+  );
+  const builtEnglish = JSON.parse(
+    await readFile(join(outputDir, '_locales/en/messages.json'), 'utf8'),
+  );
+  const builtRussian = JSON.parse(
+    await readFile(join(outputDir, '_locales/ru/messages.json'), 'utf8'),
+  );
+
+  assert.match(builtHtml, /href="favicon-settings\.css"/);
+  assert.match(builtHtml, /id="faviconSettingsRow"/);
+  assert.match(builtHtml, /src="firefox-bootstrap\.mjs"/);
+  assert.doesNotMatch(builtHtml, /type="module" src="newtab\.js"/);
+  assert.match(
+    builtScript,
+    /document\.addEventListener\("firefox-favicon-sources-changed", renderLinks\)/,
+  );
+  assert.match(builtSettings, /from '\.\/extension-api\.mjs'/);
+  assert.match(builtSettings, /from '\.\/i18n-service\.mjs'/);
+  assert.doesNotMatch(builtSettings, /from '\.\.\//);
+  assert.equal(
+    builtEnglish.siteIconsRemoteToggle.message,
+    'Load missing site icons',
+  );
+  assert.equal(
+    builtRussian.siteIconsRemoteToggle.message,
+    'Загружать недостающие иконки',
+  );
+
   for (const relativePath of [
-    'newtab.html',
     'styles.css',
-    '_locales/en/messages.json',
-    '_locales/ru/messages.json',
+    'storage-service.mjs',
+    'newtab-core.mjs',
     'images/default-background.png',
     'icons/icon-128.png',
   ]) {
@@ -93,7 +139,9 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
   }
 
   const packagedSources = await readTextSources(outputDir);
-  assert.doesNotMatch(packagedSources, /google\.com\/s2\/favicons|\/_favicon\/|chrome-extension:/i);
+  assert.match(packagedSources, /google\.com\/s2\/favicons/);
+  assert.doesNotMatch(packagedSources, /\/_favicon\/|chrome-extension:/i);
+  assert.doesNotMatch(packagedSources, /storage\.(?:sync|local).*favicon/i);
 
   const archiveList = spawnSync('/usr/bin/unzip', ['-Z1', archivePath], {
     encoding: 'utf8',

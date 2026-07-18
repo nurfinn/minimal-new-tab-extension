@@ -1,6 +1,22 @@
 import { spawnSync } from 'node:child_process';
-import { cp, mkdir, readdir, rm } from 'node:fs/promises';
-import { dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path';
+import {
+  cp,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  parse,
+  relative,
+  resolve,
+  sep,
+} from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
@@ -19,6 +35,14 @@ export const FIREFOX_RELEASE_FILES = Object.freeze([
   'newtab.js',
   'storage-service.mjs',
   'styles.css',
+]);
+
+export const FIREFOX_OVERLAY_FILES = Object.freeze([
+  'favicon-catalog.mjs',
+  'favicon-settings.css',
+  'favicon-settings.mjs',
+  'firefox-bootstrap.mjs',
+  'site-icons',
 ]);
 
 export async function buildFirefoxRelease({
@@ -52,6 +76,18 @@ export async function buildFirefoxRelease({
     preserveTimestamps: true,
   });
 
+  for (const entry of FIREFOX_OVERLAY_FILES) {
+    await cp(join(source, `firefox/${entry}`), join(output, entry), {
+      recursive: true,
+      preserveTimestamps: true,
+    });
+  }
+
+  await applyFirefoxModuleOverlay({ output });
+  await applyFirefoxHtmlOverlay({ source, output });
+  await applyFirefoxScriptOverlay({ output });
+  await mergeFirefoxLocales({ source, output });
+
   await mkdir(dirname(archive), { recursive: true });
   await rm(archive, { force: true });
   const files = await listRelativeFiles(output);
@@ -82,6 +118,104 @@ export function assertSafeReleasePaths({ source, output, archive }) {
   }
   if (isSameOrWithin(output, archive)) {
     throw new Error('Firefox archive must not be created inside the output directory');
+  }
+  if (!basename(archive).toLowerCase().includes('firefox')) {
+    throw new Error('Firefox archive name must contain "firefox"');
+  }
+}
+
+function replaceExactlyOnce(source, anchor, replacement, label) {
+  const first = source.indexOf(anchor);
+  if (first === -1 || source.indexOf(anchor, first + anchor.length) !== -1) {
+    throw new Error(`Could not apply Firefox ${label} overlay exactly once`);
+  }
+  return `${source.slice(0, first)}${replacement}${source.slice(first + anchor.length)}`;
+}
+
+async function applyFirefoxModuleOverlay({ output }) {
+  const settingsPath = join(output, 'favicon-settings.mjs');
+  let settings = await readFile(settingsPath, 'utf8');
+  settings = replaceExactlyOnce(
+    settings,
+    "from '../extension-api.mjs'",
+    "from './extension-api.mjs'",
+    'extension API import',
+  );
+  settings = replaceExactlyOnce(
+    settings,
+    "from '../i18n-service.mjs'",
+    "from './i18n-service.mjs'",
+    'i18n import',
+  );
+  await writeFile(settingsPath, settings);
+}
+
+async function applyFirefoxHtmlOverlay({ source, output }) {
+  const htmlPath = join(output, 'newtab.html');
+  const fragment = await readFile(
+    join(source, 'firefox/favicon-settings.fragment.html'),
+    'utf8',
+  );
+  const indentedFragment = fragment
+    .trim()
+    .split('\n')
+    .map((line) => `        ${line}`)
+    .join('\n');
+
+  let html = await readFile(htmlPath, 'utf8');
+  html = replaceExactlyOnce(
+    html,
+    '    <link rel="stylesheet" href="styles.css">',
+    [
+      '    <link rel="stylesheet" href="styles.css">',
+      '    <link rel="stylesheet" href="favicon-settings.css">',
+    ].join('\n'),
+    'stylesheet',
+  );
+  html = replaceExactlyOnce(
+    html,
+    '        <div class="settings-tabs"',
+    `${indentedFragment}\n\n        <div class="settings-tabs"`,
+    'settings fragment',
+  );
+  html = replaceExactlyOnce(
+    html,
+    '<script type="module" src="newtab.js"></script>',
+    '<script type="module" src="firefox-bootstrap.mjs"></script>',
+    'bootstrap',
+  );
+  await writeFile(htmlPath, html);
+}
+
+async function applyFirefoxScriptOverlay({ output }) {
+  const scriptPath = join(output, 'newtab.js');
+  const script = await readFile(scriptPath, 'utf8');
+  const updated = replaceExactlyOnce(
+    script,
+    '  document.addEventListener("keydown", handleGlobalShortcut);',
+    [
+      '  document.addEventListener("keydown", handleGlobalShortcut);',
+      '  document.addEventListener("firefox-favicon-sources-changed", renderLinks);',
+    ].join('\n'),
+    'favicon refresh',
+  );
+  await writeFile(scriptPath, updated);
+}
+
+async function mergeFirefoxLocales({ source, output }) {
+  for (const locale of ['en', 'ru']) {
+    const outputPath = join(output, `_locales/${locale}/messages.json`);
+    const baseMessages = JSON.parse(await readFile(outputPath, 'utf8'));
+    const firefoxMessages = JSON.parse(
+      await readFile(
+        join(source, `firefox/_locales/${locale}/messages.json`),
+        'utf8',
+      ),
+    );
+    await writeFile(
+      outputPath,
+      `${JSON.stringify({ ...baseMessages, ...firefoxMessages }, null, 2)}\n`,
+    );
   }
 }
 
