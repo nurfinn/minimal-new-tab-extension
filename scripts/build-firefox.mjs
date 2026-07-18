@@ -42,6 +42,7 @@ export const FIREFOX_OVERLAY_FILES = Object.freeze([
   'favicon-settings.css',
   'favicon-settings.mjs',
   'firefox-bootstrap.mjs',
+  'platform.css',
   'site-icons',
 ]);
 
@@ -168,6 +169,7 @@ async function applyFirefoxHtmlOverlay({ source, output }) {
     '    <link rel="stylesheet" href="styles.css">',
     [
       '    <link rel="stylesheet" href="styles.css">',
+      '    <link rel="stylesheet" href="platform.css">',
       '    <link rel="stylesheet" href="favicon-settings.css">',
     ].join('\n'),
     'stylesheet',
