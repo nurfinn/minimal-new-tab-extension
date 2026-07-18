@@ -128,9 +128,18 @@ test('implements approved option C without a third settings tab', () => {
   assert.match(fragment, /id="faviconSettingsConfigure"[^>]+aria-expanded="false"/s);
   assert.match(fragment, /id="faviconSettingsDisclosure"[^>]+hidden/);
   assert.match(fragment, /id="remoteFaviconToggle"[^>]+type="checkbox"/);
+  assert.match(
+    fragment,
+    /id="faviconSettingsTitle"[\s\S]+class="favicon-settings-samples"[\s\S]+id="faviconSettingsMode"[\s\S]+id="faviconSettingsConfigure"/,
+  );
+  assert.match(
+    fragment,
+    /data-i18n="siteIconsRemoteToggle"[\s\S]+id="remoteFaviconStatus"[\s\S]+class="favicon-settings-switch-control"/,
+  );
   assert.doesNotMatch(fragment, /role="tab"|data-settings-tab/);
   assert.match(styles, /\.favicon-settings-row/);
   assert.match(styles, /\.favicon-settings-disclosure/);
+  assert.match(styles, /\.favicon-settings-configure\s*\{[^}]+border:/s);
 });
 
 test('does not persist consent or favicon data', () => {
