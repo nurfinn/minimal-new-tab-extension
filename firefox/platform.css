@@ -1,0 +1,8 @@
+/*
+ * Firefox can resolve an inherited button font size differently from Chrome.
+ * Pin folder labels to the published Chrome baseline while keeping the shared
+ * Chrome stylesheet byte-for-byte unchanged.
+ */
+.folder-select {
+  font-size: 16px;
+}

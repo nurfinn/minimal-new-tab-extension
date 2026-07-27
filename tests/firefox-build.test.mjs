@@ -53,7 +53,7 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
 
   const tempRoot = await mkdtemp(join(tmpdir(), 'minimal-new-tab-firefox-build-'));
   const outputDir = join(tempRoot, 'release');
-  const archivePath = join(tempRoot, 'minimal-new-tab-firefox-v1.5.5.zip');
+  const archivePath = join(tempRoot, 'minimal-new-tab-firefox-v1.5.6.zip');
   t.after(() => rm(tempRoot, { recursive: true, force: true }));
 
   await mkdir(outputDir, { recursive: true });
@@ -77,6 +77,7 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
     'newtab-core.mjs',
     'newtab.html',
     'newtab.js',
+    'platform.css',
     'site-icons',
     'storage-service.mjs',
     'styles.css',
@@ -104,6 +105,7 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
     await readFile(join(outputDir, '_locales/ru/messages.json'), 'utf8'),
   );
 
+  assert.match(builtHtml, /href="platform\.css"/);
   assert.match(builtHtml, /href="favicon-settings\.css"/);
   assert.match(builtHtml, /id="faviconSettingsRow"/);
   assert.match(builtHtml, /src="firefox-bootstrap\.mjs"/);

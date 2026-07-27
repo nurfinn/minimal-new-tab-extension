@@ -9,14 +9,14 @@ A calm, customizable new tab for Chrome and Firefox. Keep favorite sites in fold
 | Browser | Current version | Source |
 | --- | ---: | --- |
 | Chrome | 1.5.4 | Shared files in the repository root |
-| Firefox | 1.5.5 | Shared root files plus the isolated `firefox/` overlay |
+| Firefox | 1.5.6 | Shared root files plus the isolated `firefox/` overlay |
 
 Chrome and Firefox live in one repository because most product logic is shared. Browser-specific manifests, favicon providers, permissions, UI additions, and release assets remain isolated. Both store archives are produced from explicit allowlists and validated independently before release.
 
 Release tags and archives should include the platform:
 
 - `chrome-v1.5.4` → `minimal-new-tab-chrome-v1.5.4.zip`
-- `firefox-v1.5.5` → `minimal-new-tab-firefox-v1.5.5.zip`
+- `firefox-v1.5.6` → `minimal-new-tab-firefox-v1.5.6.zip`
 
 ## Highlights
 
@@ -33,7 +33,7 @@ Release tags and archives should include the platform:
 
 Chrome uses its browser-provided favicon capability with a lightweight hostname fallback.
 
-Firefox 1.5.5 includes local icons for popular services, so they work without a network request. Unknown sites keep their letter fallback. Users can optionally enable **Load missing site icons** in Settings; it is off by default, and only the saved hostname is used for the request.
+Firefox includes local icons for popular services, so they work without a network request. Unknown sites keep their letter fallback. Users can optionally enable **Load missing site icons** in Settings; it is off by default, and only the saved hostname is used for the request.
 
 ## Sync and moving between browsers
 
@@ -100,7 +100,7 @@ The output directory and ZIP must be outside the source tree, and the archive na
 ```bash
 node scripts/build-firefox.mjs \
   --output-dir /absolute/path/minimal-new-tab-firefox \
-  --archive /absolute/path/minimal-new-tab-firefox-v1.5.5.zip
+  --archive /absolute/path/minimal-new-tab-firefox-v1.5.6.zip
 ```
 
 Load the output directory temporarily from `about:debugging#/runtime/this-firefox`, or submit the generated ZIP to Firefox Add-ons.
@@ -116,6 +116,10 @@ node scripts/build-chrome.mjs \
   --archive /absolute/path/minimal-new-tab-chrome-v1.5.4.zip
 node scripts/build-firefox.mjs \
   --output-dir /absolute/path/minimal-new-tab-firefox \
-  --archive /absolute/path/minimal-new-tab-firefox-v1.5.5.zip
+  --archive /absolute/path/minimal-new-tab-firefox-v1.5.6.zip
 npx web-ext lint --source-dir /absolute/path/minimal-new-tab-firefox
 ```
+
+## License
+
+The project source code is licensed under the Mozilla Public License 2.0. See [LICENSE](LICENSE). Third-party site icon assets retain their own notices in `firefox/site-icons/THIRD_PARTY_NOTICES.md`.
