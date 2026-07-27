@@ -119,3 +119,7 @@ node scripts/build-firefox.mjs \
   --archive /absolute/path/minimal-new-tab-firefox-v1.5.6.zip
 npx web-ext lint --source-dir /absolute/path/minimal-new-tab-firefox
 ```
+
+## License
+
+The project source code is licensed under the Mozilla Public License 2.0. See [LICENSE](LICENSE). Third-party site icon assets retain their own notices in `firefox/site-icons/THIRD_PARTY_NOTICES.md`.
