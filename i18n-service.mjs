@@ -105,7 +105,7 @@ export function createTranslator({ getMessage = defaultGetMessage, fallbacks = E
 }
 
 export function localizeDocument(root, translate, locale = 'en') {
-  root.documentElement.lang = String(locale || 'en').replace('_', '-');
+  root.documentElement.lang = normalizeUiLocale(locale);
   root.querySelectorAll('[data-i18n]').forEach((element) => {
     element.textContent = translate(element.dataset.i18n);
   });
@@ -122,7 +122,16 @@ export function localizeDocument(root, translate, locale = 'en') {
 
 export function getUiLocale(getMessage = defaultGetMessage) {
   try {
-    return getMessage?.('@@ui_locale') || 'en';
+    return normalizeUiLocale(getMessage?.('@@ui_locale'));
+  } catch {
+    return 'en';
+  }
+}
+
+export function normalizeUiLocale(locale) {
+  const candidate = String(locale || 'en').trim().replaceAll('_', '-');
+  try {
+    return Intl.getCanonicalLocales(candidate)[0] || 'en';
   } catch {
     return 'en';
   }

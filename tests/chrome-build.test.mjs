@@ -57,7 +57,7 @@ test('builds a complete root-level Chrome archive from an allowlist', async (t) 
 
   const tempRoot = await mkdtemp(join(tmpdir(), 'minimal-new-tab-chrome-build-'));
   const outputDir = join(tempRoot, 'release');
-  const archivePath = join(tempRoot, 'minimal-new-tab-chrome-v1.5.4.zip');
+  const archivePath = join(tempRoot, 'minimal-new-tab-chrome-v1.5.5.zip');
   t.after(() => rm(tempRoot, { recursive: true, force: true }));
 
   await mkdir(outputDir, { recursive: true });

@@ -1281,34 +1281,41 @@ function exportBackup() {
 
 async function loadImportFile(event) {
   const file = event.target.files?.[0];
-  resetImportState();
+  clearImportPreviewState();
   if (!file) return;
 
   if (file.size > MAX_BACKUP_BYTES) {
+    elements.importBackupInput.value = "";
     showImportError(t("backupTooLargeDetailed"));
     return;
   }
 
+  let contents;
   try {
-    const result = parseBackupText(await file.text());
-    if (!result.ok) {
-      showImportError(getImportErrorMessage(result.error));
-      return;
-    }
-
-    pendingImport = result;
-    elements.importPreviewDate.textContent = new Intl.DateTimeFormat(uiLocale || undefined, {
-      dateStyle: "medium",
-      timeStyle: "short"
-    }).format(new Date(result.preview.createdAt));
-    elements.importPreviewSites.textContent = String(result.preview.siteCount);
-    elements.importPreviewFolders.textContent = String(result.preview.folderCount);
-    elements.importPreview.hidden = false;
-    elements.confirmImportButton.hidden = false;
-    elements.cancelImportButton.hidden = false;
+    contents = await file.text();
   } catch {
+    resetImportState();
     showImportError(t("fileReadError"));
+    return;
   }
+
+  resetImportState();
+  const result = parseBackupText(contents);
+  if (!result.ok) {
+    showImportError(getImportErrorMessage(result.error));
+    return;
+  }
+
+  pendingImport = result;
+  elements.importPreviewDate.textContent = new Intl.DateTimeFormat(uiLocale, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(result.preview.createdAt));
+  elements.importPreviewSites.textContent = String(result.preview.siteCount);
+  elements.importPreviewFolders.textContent = String(result.preview.folderCount);
+  elements.importPreview.hidden = false;
+  elements.confirmImportButton.hidden = false;
+  elements.cancelImportButton.hidden = false;
 }
 
 async function confirmImport() {
@@ -1331,8 +1338,12 @@ async function confirmImport() {
 }
 
 function resetImportState() {
-  pendingImport = null;
   elements.importBackupInput.value = "";
+  clearImportPreviewState();
+}
+
+function clearImportPreviewState() {
+  pendingImport = null;
   elements.importPreview.hidden = true;
   elements.confirmImportButton.hidden = true;
   elements.confirmImportButton.disabled = false;

@@ -8,15 +8,15 @@ A calm, customizable new tab for Chrome and Firefox. Keep favorite sites in fold
 
 | Browser | Current version | Source |
 | --- | ---: | --- |
-| Chrome | 1.5.4 | Shared files in the repository root |
-| Firefox | 1.5.6 | Shared root files plus the isolated `firefox/` overlay |
+| Chrome | 1.5.5 | Shared files in the repository root |
+| Firefox | 1.5.6.1 | Shared root files plus the isolated `firefox/` overlay |
 
 Chrome and Firefox live in one repository because most product logic is shared. Browser-specific manifests, favicon providers, permissions, UI additions, and release assets remain isolated. Both store archives are produced from explicit allowlists and validated independently before release.
 
 Release tags and archives should include the platform:
 
-- `chrome-v1.5.4` → `minimal-new-tab-chrome-v1.5.4.zip`
-- `firefox-v1.5.6` → `minimal-new-tab-firefox-v1.5.6.zip`
+- `chrome-v1.5.5` → `minimal-new-tab-chrome-v1.5.5.zip`
+- `firefox-v1.5.6.1` → `minimal-new-tab-firefox-v1.5.6.1.zip`
 
 ## Highlights
 
@@ -88,7 +88,7 @@ The output directory and ZIP must be outside the source tree, and the archive na
 ```bash
 node scripts/build-chrome.mjs \
   --output-dir /absolute/path/minimal-new-tab-chrome \
-  --archive /absolute/path/minimal-new-tab-chrome-v1.5.4.zip
+  --archive /absolute/path/minimal-new-tab-chrome-v1.5.5.zip
 ```
 
 The generated directory can be loaded unpacked in Chrome, and the generated root-level ZIP is ready for Chrome Web Store upload.
@@ -100,7 +100,7 @@ The output directory and ZIP must be outside the source tree, and the archive na
 ```bash
 node scripts/build-firefox.mjs \
   --output-dir /absolute/path/minimal-new-tab-firefox \
-  --archive /absolute/path/minimal-new-tab-firefox-v1.5.6.zip
+  --archive /absolute/path/minimal-new-tab-firefox-v1.5.6.1.zip
 ```
 
 Load the output directory temporarily from `about:debugging#/runtime/this-firefox`, or submit the generated ZIP to Firefox Add-ons.
@@ -113,10 +113,10 @@ GitHub Actions runs the complete tests, builds both browser archives, verifies Z
 node --test tests/*.test.mjs
 node scripts/build-chrome.mjs \
   --output-dir /absolute/path/minimal-new-tab-chrome \
-  --archive /absolute/path/minimal-new-tab-chrome-v1.5.4.zip
+  --archive /absolute/path/minimal-new-tab-chrome-v1.5.5.zip
 node scripts/build-firefox.mjs \
   --output-dir /absolute/path/minimal-new-tab-firefox \
-  --archive /absolute/path/minimal-new-tab-firefox-v1.5.6.zip
+  --archive /absolute/path/minimal-new-tab-firefox-v1.5.6.1.zip
 npx web-ext lint --source-dir /absolute/path/minimal-new-tab-firefox
 ```
 
