@@ -98,6 +98,23 @@ test('default localization prefers the Firefox browser namespace', () => {
   }
 });
 
+test('normalizes Chrome region locales before they reach Intl APIs', () => {
+  for (const [browserLocale, expected] of [
+    ['en_US', 'en-US'],
+    ['pt_BR', 'pt-BR'],
+    ['zh_CN', 'zh-CN'],
+  ]) {
+    const locale = getUiLocale(() => browserLocale);
+
+    assert.equal(locale, expected);
+    assert.doesNotThrow(() => new Intl.DateTimeFormat(locale));
+  }
+});
+
+test('falls back to English when the browser returns an invalid locale', () => {
+  assert.equal(getUiLocale(() => 'not_a_locale_#'), 'en');
+});
+
 test('localizes text and supported attributes while setting the document language', () => {
   const elements = {
     '[data-i18n]': [{ dataset: { i18n: 'settings' }, textContent: '' }],

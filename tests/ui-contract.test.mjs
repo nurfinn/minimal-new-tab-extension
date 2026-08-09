@@ -118,6 +118,20 @@ test('keeps the import cancel binding safe during mixed unpacked updates', () =>
   );
 });
 
+test('reads an import file before clearing its file input', () => {
+  const loadImportFileBlock = getCssBlock(
+    script,
+    /async\s+function\s+loadImportFile\s*\(\s*event\s*\)/,
+  );
+
+  const readIndex = loadImportFileBlock.indexOf('await file.text()');
+  const resetIndex = loadImportFileBlock.indexOf('resetImportState()');
+
+  assert.notEqual(readIndex, -1);
+  assert.notEqual(resetIndex, -1);
+  assert.ok(readIndex < resetIndex);
+});
+
 test('links the signature to the product site instead of GitHub', () => {
   assert.match(
     html,
