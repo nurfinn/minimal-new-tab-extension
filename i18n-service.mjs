@@ -13,6 +13,8 @@ export const ENGLISH_FALLBACKS = Object.freeze({
   settings: 'Settings',
   settingsShortcut: 'Settings — S',
   emptyState: 'Add your first site with the + button.',
+  emptyAll: 'No sites yet. Add one with the + button.',
+  emptyFolder: 'No sites in “$1” yet. Add one with the + button.',
   addSiteDialog: 'Add site',
   editSiteDialog: 'Edit site',
   close: 'Close',

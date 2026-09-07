@@ -165,12 +165,12 @@ assert.equal(selected.state.links.some(item => item.id === site.id), true);
 **Interfaces:**
 - Produces: sticky `.topbar`; internally scrolling `.folder-list`; contextual `emptyAll` / `emptyFolder` copy.
 
-- [ ] **Step 1: Write failing contracts** for sticky header structure, bounded folder manager scrolling, and two empty-state messages.
-- [ ] **Step 2: Run `node --test tests/ui-contract.test.mjs` and confirm red.**
-- [ ] **Step 3: Make the topbar sticky with a subtle backdrop that uses current variables.** Preserve folder-track horizontal scrolling and the existing 54/34px end gaps.
-- [ ] **Step 4: Keep New folder and Create adjacent/sticky while `.folder-list` scrolls; update the empty-state text according to selected folder.**
-- [ ] **Step 5: Run the contract tests and verify green.**
-- [ ] **Step 6: Commit with `git commit -m "fix: keep actions and folder creation reachable"`.**
+- [x] **Step 1: Write failing contracts** for sticky header structure, bounded folder manager scrolling, and two empty-state messages.
+- [x] **Step 2: Run `node --test tests/ui-contract.test.mjs` and confirm red.**
+- [x] **Step 3: Make the topbar sticky with a subtle backdrop that uses current variables.** Preserve folder-track horizontal scrolling and the existing 54/34px end gaps.
+- [x] **Step 4: Keep New folder and Create adjacent/sticky while `.folder-list` scrolls; update the empty-state text according to selected folder.**
+- [x] **Step 5: Run the contract tests and verify green.**
+- [x] **Step 6: Commit with `git commit -m "fix: keep actions and folder creation reachable"`.**
 
 ### Task 7: Background and import feedback, reduced motion
 

@@ -802,6 +802,41 @@ test('uses an internal vertical scroller to keep the background stable', () => {
   assert.match(cardRule, /(?:^|;)\s*content-visibility\s*:\s*auto\s*(?:;|$)/);
 });
 
+test('keeps navigation and actions visible while long site lists scroll', () => {
+  const topbarRule = getCssBlock(styles, /\.topbar\s*(?=\{)/);
+
+  assert.match(topbarRule, /(?:^|;)\s*position\s*:\s*sticky\s*(?:;|$)/);
+  assert.match(topbarRule, /(?:^|;)\s*top\s*:\s*0\s*(?:;|$)/);
+  assert.match(topbarRule, /(?:^|;)\s*z-index\s*:\s*10\s*(?:;|$)/);
+  assert.match(styles, /body\.has-image\s+\.topbar\s*\{/);
+});
+
+test('keeps folder creation beside its action while only the folder list scrolls', () => {
+  const folderListRule = getCssBlock(styles, /\.folder-list\s*(?=\{)/);
+  const folderManagerRule = getCssBlock(styles, /\.folder-manager\s*(?=\{)/);
+  const createInputIndex = html.indexOf('id="folderName"');
+  const createButtonIndex = html.indexOf('id="createFolderSubmitButton"');
+  const managerIndex = html.indexOf('id="folderManager"');
+
+  assert.notEqual(createInputIndex, -1);
+  assert.notEqual(createButtonIndex, -1);
+  assert.notEqual(managerIndex, -1);
+  assert.ok(createInputIndex < createButtonIndex && createButtonIndex < managerIndex);
+  assert.match(styles, /\.folder-create-row\s*\{/);
+  assert.match(folderManagerRule, /(?:^|;)\s*min-height\s*:\s*0\s*(?:;|$)/);
+  assert.match(folderListRule, /(?:^|;)\s*max-height\s*:/);
+  assert.match(folderListRule, /(?:^|;)\s*overflow-y\s*:\s*auto\s*(?:;|$)/);
+});
+
+test('uses a contextual empty message for all sites and individual folders', () => {
+  const renderLinksBlock = getCssBlock(script, /function\s+renderLinks\s*\(\s*\)/);
+
+  assert.match(renderLinksBlock, /state\.selectedFolderId\s*===\s*["']all["']/);
+  assert.match(renderLinksBlock, /t\s*\(\s*["']emptyAll["']\s*\)/);
+  assert.match(renderLinksBlock, /t\s*\(\s*["']emptyFolder["']/);
+  assert.match(html, /id=["']emptyState["'][^>]*aria-live=["']polite["']/);
+});
+
 test('coalesces folder refresh work while preserving selection focus options', () => {
   const renderFoldersBlock = getCssBlock(script, /function\s+renderFolders\s*\(\s*\)/);
   const refreshBlock = getCssBlock(

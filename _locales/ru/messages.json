@@ -11,6 +11,8 @@
   "settings": { "message": "Настройки" },
   "settingsShortcut": { "message": "Настройки — S" },
   "emptyState": { "message": "Добавьте первый сайт через кнопку +." },
+  "emptyAll": { "message": "Здесь пока нет сайтов. Добавьте первый через кнопку +." },
+  "emptyFolder": { "message": "В папке «$NAME$» пока нет сайтов. Добавьте первый через кнопку +.", "placeholders": { "name": { "content": "$1" } } },
   "addSiteDialog": { "message": "Добавить сайт" },
   "editSiteDialog": { "message": "Редактировать сайт" },
   "close": { "message": "Закрыть" },

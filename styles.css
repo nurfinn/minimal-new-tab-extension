@@ -157,18 +157,32 @@ input[aria-invalid="true"] {
 }
 
 .topbar {
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  isolation: isolate;
   min-width: 0;
   min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: -6px -8px 0;
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 1px 0 rgba(28, 36, 34, 0.06);
+  backdrop-filter: blur(22px) saturate(1.08);
+}
+
+body.has-image .topbar {
+  background: rgba(9, 13, 12, 0.2);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .actions {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 6px;
+  right: 8px;
   display: flex;
   gap: 8px;
 }
@@ -824,6 +838,8 @@ body.has-color .signature {
 }
 
 .folder-manager {
+  min-height: 0;
+  overflow: hidden;
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
@@ -832,6 +848,42 @@ body.has-color .signature {
 .folder-list {
   display: grid;
   gap: 8px;
+  max-height: min(320px, 40vh);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding-right: 4px;
+}
+
+.folder-modal {
+  max-height: calc(100vh - 32px);
+}
+
+.folder-modal .modal-inner {
+  max-height: calc(100vh - 34px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.folder-create-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.folder-create-row .field {
+  min-width: 0;
+  margin-top: 0;
+}
+
+.folder-create-row .primary-button {
+  min-height: 44px;
+}
+
+.folder-dialog-actions {
+  justify-content: flex-end;
+  margin-top: 14px;
 }
 
 .folder-list-item {

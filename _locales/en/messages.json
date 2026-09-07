@@ -11,6 +11,8 @@
   "settings": { "message": "Settings" },
   "settingsShortcut": { "message": "Settings — S" },
   "emptyState": { "message": "Add your first site with the + button." },
+  "emptyAll": { "message": "No sites yet. Add one with the + button." },
+  "emptyFolder": { "message": "No sites in “$NAME$” yet. Add one with the + button.", "placeholders": { "name": { "content": "$1" } } },
   "addSiteDialog": { "message": "Add site" },
   "editSiteDialog": { "message": "Edit site" },
   "close": { "message": "Close" },

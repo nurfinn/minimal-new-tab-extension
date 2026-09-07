@@ -933,6 +933,12 @@ function renderLinks() {
 
   const cards = visibleLinks.map((link) => createLinkCard(link));
   elements.linksGrid.replaceChildren(...cards);
+  if (state.selectedFolderId === "all") {
+    elements.emptyState.textContent = t("emptyAll");
+  } else {
+    const folderName = state.folders.find((folder) => folder.id === state.selectedFolderId)?.name;
+    elements.emptyState.textContent = t("emptyFolder", [folderName || t("favoriteFolder")]);
+  }
   elements.emptyState.hidden = visibleLinks.length > 0;
 }
 

@@ -40,7 +40,7 @@
 
       <section class="content">
         <div class="grid" id="linksGrid" aria-live="polite"></div>
-        <p class="empty" id="emptyState" data-i18n="emptyState" hidden>Add your first site with the + button.</p>
+        <p class="empty" id="emptyState" data-i18n="emptyAll" aria-live="polite" hidden>No sites yet. Add one with the + button.</p>
       </section>
     </main>
 
@@ -106,7 +106,7 @@
       </div>
     </dialog>
 
-    <dialog class="modal" id="folderDialog" aria-labelledby="folderDialogTitle">
+    <dialog class="modal folder-modal" id="folderDialog" aria-labelledby="folderDialogTitle">
       <form class="modal-inner" id="folderForm" method="dialog" novalidate>
         <header class="modal-header">
           <h2 id="folderDialogTitle" data-i18n="foldersDialog">Folders</h2>
@@ -117,10 +117,13 @@
           </button>
         </header>
 
-        <label class="field">
-          <span data-i18n="newFolderLabel">New folder</span>
-          <input id="folderName" data-i18n-placeholder="folderPlaceholder" name="folderName" type="text" maxlength="200" aria-describedby="folderFormError" placeholder="Work" autocomplete="off" required>
-        </label>
+        <div class="folder-create-row">
+          <label class="field">
+            <span data-i18n="newFolderLabel">New folder</span>
+            <input id="folderName" data-i18n-placeholder="folderPlaceholder" name="folderName" type="text" maxlength="200" aria-describedby="folderFormError" placeholder="Work" autocomplete="off" required>
+          </label>
+          <button class="primary-button" id="createFolderSubmitButton" type="submit" data-i18n="create">Create</button>
+        </div>
 
         <p class="field-error" id="folderFormError" role="alert" hidden></p>
 
@@ -128,9 +131,8 @@
           <div class="folder-list" id="folderList" aria-label="Folder list" data-i18n-aria-label="folderList"></div>
         </div>
 
-        <footer class="modal-actions">
+        <footer class="modal-actions folder-dialog-actions">
           <button class="text-button" type="button" data-close="folderDialog" data-i18n="cancel">Cancel</button>
-          <button class="primary-button" type="submit" data-i18n="create">Create</button>
         </footer>
       </form>
     </dialog>
