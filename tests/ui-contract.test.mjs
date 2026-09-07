@@ -318,6 +318,20 @@ test('shows storage failures and keeps form completion behind a successful commi
   }
 });
 
+test('gives every primary dialog an accessible visible name', () => {
+  for (const [dialogId, titleId] of [
+    ['linkDialog', 'linkDialogTitle'],
+    ['folderDialog', 'folderDialogTitle'],
+    ['settingsDialog', 'settingsDialogTitle'],
+  ]) {
+    assert.match(
+      html,
+      new RegExp(`<dialog\\b(?=[^>]*\\bid=["']${dialogId}["'])(?=[^>]*\\baria-labelledby=["']${titleId}["'])[^>]*>`),
+    );
+    assert.match(html, new RegExp(`<h2\\b[^>]*\\bid=["']${titleId}["']`));
+  }
+});
+
 test('uses one accessible in-extension confirmation for site and folder deletion', () => {
   assert.match(
     html,
@@ -326,6 +340,7 @@ test('uses one accessible in-extension confirmation for site and folder deletion
   assert.match(html, /id=["']deleteConfirmTitle["'][^>]*data-i18n=["']confirmDeletion["']/);
   assert.match(html, /id=["']deleteConfirmMessage["']/);
   assert.match(html, /id=["']confirmDeleteButton["'][^>]*data-i18n=["']delete["']/);
+  assert.match(html, /id=["']cancelDeleteButton["'][^>]*data-cancel-delete-confirm/);
   assert.match(html, /data-cancel-delete-confirm[^>]*data-i18n=["']cancel["']/);
   assert.match(styles, /\.confirmation-message\s*\{/);
   assert.match(styles, /\.confirmation-actions\s*\{/);
@@ -354,9 +369,11 @@ test('uses one accessible in-extension confirmation for site and folder deletion
   assert.match(requestBlock, /if\s*\(\s*pendingDeleteConfirmation\s*\)\s*return\s+Promise\.resolve\s*\(\s*false\s*\)/);
   assert.match(requestBlock, /deleteConfirmMessage\.textContent\s*=\s*message/);
   assert.match(requestBlock, /deleteConfirmDialog\.showModal\s*\(\s*\)/);
-  assert.match(requestBlock, /confirmDeleteButton\.focus\s*\(\s*\{\s*preventScroll\s*:\s*true\s*\}\s*\)/);
+  assert.match(requestBlock, /cancelDeleteButton\.focus\s*\(\s*\{\s*preventScroll\s*:\s*true\s*\}\s*\)/);
+  assert.match(requestBlock, /deleteConfirmationReturnFocus\s*=\s*document\.activeElement/);
   assert.match(resolveBlock, /pendingDeleteConfirmation\s*=\s*null/);
   assert.match(resolveBlock, /deleteConfirmDialog\.close\s*\(\s*\)/);
+  assert.match(resolveBlock, /returnFocus\?\.focus\s*\(\s*\{\s*preventScroll\s*:\s*true\s*\}\s*\)/);
   assert.match(resolveBlock, /resolve\s*\(\s*Boolean\s*\(\s*confirmed\s*\)\s*\)/);
   assert.ok(
     resolveBlock.indexOf('pendingDeleteConfirmation = null') <

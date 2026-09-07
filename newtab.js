@@ -87,6 +87,7 @@ let suppressLinkClicksUntil = 0;
 let activeSettingsTab = "background";
 let pendingImport = null;
 let pendingDeleteConfirmation = null;
+let deleteConfirmationReturnFocus = null;
 let renderedFolderSelection = null;
 let folderScrollFrame = null;
 let folderFocusRequest = null;
@@ -106,6 +107,7 @@ const elements = {
   deleteConfirmDialog: document.getElementById("deleteConfirmDialog"),
   deleteConfirmMessage: document.getElementById("deleteConfirmMessage"),
   confirmDeleteButton: document.getElementById("confirmDeleteButton"),
+  cancelDeleteButton: document.getElementById("cancelDeleteButton"),
   cancelDeleteConfirmButtons: document.querySelectorAll("[data-cancel-delete-confirm]"),
   folderDialog: document.getElementById("folderDialog"),
   settingsDialog: document.getElementById("settingsDialog"),
@@ -1534,12 +1536,13 @@ function openDialog(dialog, focusTarget) {
 
 function requestDeleteConfirmation(message) {
   if (pendingDeleteConfirmation) return Promise.resolve(false);
+  deleteConfirmationReturnFocus = document.activeElement;
   elements.deleteConfirmMessage.textContent = message;
 
   return new Promise((resolve) => {
     pendingDeleteConfirmation = resolve;
     elements.deleteConfirmDialog.showModal();
-    elements.confirmDeleteButton.focus({ preventScroll: true });
+    elements.cancelDeleteButton.focus({ preventScroll: true });
   });
 }
 
@@ -1547,8 +1550,11 @@ function resolveDeleteConfirmation(confirmed) {
   const resolve = pendingDeleteConfirmation;
   if (!resolve) return;
 
+  const returnFocus = deleteConfirmationReturnFocus;
   pendingDeleteConfirmation = null;
+  deleteConfirmationReturnFocus = null;
   if (elements.deleteConfirmDialog.open) elements.deleteConfirmDialog.close();
+  returnFocus?.focus({ preventScroll: true });
   resolve(Boolean(confirmed));
 }
 

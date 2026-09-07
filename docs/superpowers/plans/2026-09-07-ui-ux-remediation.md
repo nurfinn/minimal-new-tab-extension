@@ -96,11 +96,11 @@ assert.equal(selected.state.links.some(item => item.id === site.id), true);
 - Consumes: visible heading IDs.
 - Produces: named `linkDialog`, `folderDialog`, and `settingsDialog`; initial confirmation focus on Cancel.
 
-- [ ] **Step 1: Write failing contract tests** for `aria-labelledby` on all primary dialogs and a stable cancel-button ID.
-- [ ] **Step 2: Run `node --test tests/ui-contract.test.mjs` and confirm expected failure.**
-- [ ] **Step 3: Add heading IDs and relationships; focus Cancel in `requestDeleteConfirmation`; preserve focus restoration after cancel/confirm.**
-- [ ] **Step 4: Run the contract tests and verify green.**
-- [ ] **Step 5: Commit with `git commit -m "fix: name dialogs and default destructive focus to cancel"`.**
+- [x] **Step 1: Write failing contract tests** for `aria-labelledby` on all primary dialogs and a stable cancel-button ID.
+- [x] **Step 2: Run `node --test tests/ui-contract.test.mjs` and confirm expected failure.**
+- [x] **Step 3: Add heading IDs and relationships; focus Cancel in `requestDeleteConfirmation`; preserve focus restoration after cancel/confirm.**
+- [x] **Step 4: Run the contract tests and verify green.**
+- [x] **Step 5: Commit with `git commit -m "fix: name dialogs and default destructive focus to cancel"`.**
 
 ### Task 4: Keyboard reordering and optional single-key shortcuts
 

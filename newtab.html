@@ -45,7 +45,7 @@
 
     <a class="signature" href="https://nurfinn.com/?utm_source=minimal_new_tab_extension&amp;utm_medium=referral" rel="noreferrer">by nurfinn</a>
 
-    <dialog class="modal" id="linkDialog">
+    <dialog class="modal" id="linkDialog" aria-labelledby="linkDialogTitle">
       <form class="modal-inner" id="linkForm" method="dialog" novalidate>
         <header class="modal-header">
           <h2 id="linkDialogTitle" data-i18n="addSiteDialog">Add site</h2>
@@ -99,16 +99,16 @@
         <p class="confirmation-message" id="deleteConfirmMessage"></p>
 
         <footer class="modal-actions confirmation-actions">
-          <button class="text-button" type="button" data-cancel-delete-confirm data-i18n="cancel">Cancel</button>
+          <button class="text-button" id="cancelDeleteButton" type="button" data-cancel-delete-confirm data-i18n="cancel">Cancel</button>
           <button class="danger-button" id="confirmDeleteButton" type="button" data-i18n="delete">Delete</button>
         </footer>
       </div>
     </dialog>
 
-    <dialog class="modal" id="folderDialog">
+    <dialog class="modal" id="folderDialog" aria-labelledby="folderDialogTitle">
       <form class="modal-inner" id="folderForm" method="dialog" novalidate>
         <header class="modal-header">
-          <h2 data-i18n="foldersDialog">Folders</h2>
+          <h2 id="folderDialogTitle" data-i18n="foldersDialog">Folders</h2>
           <button class="ghost-button" type="button" data-close="folderDialog" aria-label="Close" data-i18n-aria-label="close">
             <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
               <path d="m6 6 12 12M18 6 6 18"></path>
@@ -134,10 +134,10 @@
       </form>
     </dialog>
 
-    <dialog class="modal settings-modal" id="settingsDialog">
+    <dialog class="modal settings-modal" id="settingsDialog" aria-labelledby="settingsDialogTitle">
       <div class="modal-inner settings-modal-inner">
         <header class="modal-header">
-          <h2 data-i18n="settingsDialog">Settings</h2>
+          <h2 id="settingsDialogTitle" data-i18n="settingsDialog">Settings</h2>
           <button class="ghost-button" type="button" data-close="settingsDialog" aria-label="Close" data-i18n-aria-label="close">
             <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
               <path d="m6 6 12 12M18 6 6 18"></path>
