@@ -19,10 +19,10 @@ test('keeps Chrome release sources byte-for-byte unchanged', async () => {
 test('records the current Chrome store archive checksum', () => {
   assert.equal(
     baseline.archive.sha256,
-    '44b182dd570df171147f73feaf1add1659c3578cfd81895b653076fd7bd46ad9',
+    '075ea3c7c0757a78bd7117198ff07274da2ca98934935bb447cb1fdd99126c28',
   );
   assert.equal(
     baseline.archive.path,
-    '/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/minimal-new-tab-chrome-v1.5.5.zip',
+    '/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/minimal-new-tab-chrome-v1.6.zip',
   );
 });

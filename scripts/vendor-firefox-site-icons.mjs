@@ -39,7 +39,7 @@ for (const [asset, source] of [...uniqueAssets].sort(([left], [right]) =>
   left.localeCompare(right))) {
   const response = await fetch(source, {
     redirect: 'follow',
-    headers: { 'user-agent': 'Minimal-New-Tab-asset-vendor/1.5.6.1' },
+    headers: { 'user-agent': 'Minimal-New-Tab-asset-vendor/1.6' },
   });
   if (!response.ok) {
     throw new Error(`${asset} returned HTTP ${response.status}`);

@@ -1,3 +1,61 @@
+# Header revision — 2026-09-08
+
+Final result: passed for the scoped header redesign and scrolling behavior.
+
+Spacing follow-up: raised the entire control row by 6 CSS px using relative
+positioning. Browser measurements in Chromium and Firefox at 1280, 900, and
+390 px confirm unchanged header height, card viewport, and initial card
+position, with 6 px more clearance below the controls. Scroll and Settings
+checks pass; all 143 tests pass.
+
+## Design target and comparison
+
+The user's September 8 screenshot rejects the full-width dark glass band and
+its dividing line. The revised target is the product's existing floating folder
+chips and action buttons over an uninterrupted background. Glass is confined
+to those controls. Cards scroll in a separate, softly clipped area below them.
+
+Reviewed the supplied complaint screenshot alongside the new initial and
+scrolled browser captures. This is a redesign, not a pixel-for-pixel clone.
+The reference is a cropped Earth-background view; the current live Chrome tab
+shows the bundled purple background. Background fidelity to the Earth image
+was not verified, and the screenshot crops/densities are not equivalent.
+
+## Evidence
+
+Evidence folder: `../header-design-2026-09-08/`.
+
+- `chromium-1280-image-0.png`: initial layout, no continuous header surface.
+- `chromium-1280-image-300.png`: scrolled cards fade below the folder controls.
+- `chromium-390-image-300.png`: stacked action buttons and horizontally scrolling folders.
+- `firefox-1280-image-300.png`: equivalent card clipping in Firefox.
+- `chrome-live-current-background.png`: OS capture verified to show the user's active Minimal Tab in Chrome, with 40 saved sites. This capture preceded the final empty-grid-only correction.
+
+## Findings and checks
+
+- Removed the full-width paint, border, shadow, and filter from the header.
+- Navigation occupies its own grid row. Cards cannot render above it, even
+  when the browser does not render backdrop blur.
+- Folder and site typography, site-card dimensions, labels, and button icons
+  are retained. Existing source icons are reused; no generated assets added.
+- Inactive folder chips have a restrained inset highlight. Active, hover,
+  and keyboard focus styles remain distinct.
+- The card scroller has a 16 px top fade and 12 px bottom fade, with end spacing
+  included in the card grid's height. Empty grids do not leave a padded row.
+- Chromium and Firefox: 1280, 900, and 390 px widths; image and solid backgrounds;
+  five scroll positions; short and long lists; empty folders; creation of five
+  folders; header hit targets; opening Settings; no page errors.
+- Browser checks use isolated in-memory extension storage. The Firefox scroll
+  check waits for offscreen cards to resolve their actual heights before
+  measuring the final bottom gap.
+- All 143 existing tests pass, including the adjusted scrolling contracts.
+
+No outstanding P0/P1/P2 findings in this scoped verification. Firefox's test
+renderer does not reliably render backdrop blur; the layout and readability
+do not rely on it. Live Firefox installation was not refreshed in this pass.
+
+---
+
 # Firefox v1.5.5 design QA
 
 ## Evidence

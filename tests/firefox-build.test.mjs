@@ -53,7 +53,7 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
 
   const tempRoot = await mkdtemp(join(tmpdir(), 'minimal-new-tab-firefox-build-'));
   const outputDir = join(tempRoot, 'release');
-  const archivePath = join(tempRoot, 'minimal-new-tab-firefox-v1.5.6.1.zip');
+  const archivePath = join(tempRoot, 'minimal-new-tab-firefox-v1.6.zip');
   t.after(() => rm(tempRoot, { recursive: true, force: true }));
 
   await mkdir(outputDir, { recursive: true });

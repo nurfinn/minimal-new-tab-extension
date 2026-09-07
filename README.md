@@ -8,15 +8,27 @@ A calm, customizable new tab for Chrome and Firefox. Keep favorite sites in fold
 
 | Browser | Current version | Source |
 | --- | ---: | --- |
-| Chrome | 1.5.5 | Shared files in the repository root |
-| Firefox | 1.5.6.1 | Shared root files plus the isolated `firefox/` overlay |
+| Chrome | 1.6 | Shared files in the repository root |
+| Firefox | 1.6 | Shared root files plus the isolated `firefox/` overlay |
 
 Chrome and Firefox live in one repository because most product logic is shared. Browser-specific manifests, favicon providers, permissions, UI additions, and release assets remain isolated. Both store archives are produced from explicit allowlists and validated independently before release.
 
 Release tags and archives should include the platform:
 
-- `chrome-v1.5.5` → `minimal-new-tab-chrome-v1.5.5.zip`
-- `firefox-v1.5.6.1` → `minimal-new-tab-firefox-v1.5.6.1.zip`
+- `chrome-v1.6` → `minimal-new-tab-chrome-v1.6.zip`
+- `firefox-v1.6` → `minimal-new-tab-firefox-v1.6.zip`
+
+## What's new in 1.6
+
+- A lighter header with floating folder buttons and more breathing room.
+- Sites scroll below the navigation, with soft edges and comfortable bottom spacing.
+- More reliable saving when several new tabs are open.
+- Reorder sites and folders with the keyboard, and turn single-key shortcuts off in Settings.
+- Clearer messages for invalid addresses, background uploads, backups, and saving errors.
+- More consistent typography and easier-to-use dialogs across Chrome and Firefox.
+
+Both browser editions now use the same version number. Your existing sites,
+folders, and settings remain compatible. Permissions have not changed.
 
 ## Highlights
 
@@ -88,7 +100,7 @@ The output directory and ZIP must be outside the source tree, and the archive na
 ```bash
 node scripts/build-chrome.mjs \
   --output-dir /absolute/path/minimal-new-tab-chrome \
-  --archive /absolute/path/minimal-new-tab-chrome-v1.5.5.zip
+  --archive /absolute/path/minimal-new-tab-chrome-v1.6.zip
 ```
 
 The generated directory can be loaded unpacked in Chrome, and the generated root-level ZIP is ready for Chrome Web Store upload.
@@ -100,7 +112,7 @@ The output directory and ZIP must be outside the source tree, and the archive na
 ```bash
 node scripts/build-firefox.mjs \
   --output-dir /absolute/path/minimal-new-tab-firefox \
-  --archive /absolute/path/minimal-new-tab-firefox-v1.5.6.1.zip
+  --archive /absolute/path/minimal-new-tab-firefox-v1.6.zip
 ```
 
 Load the output directory temporarily from `about:debugging#/runtime/this-firefox`, or submit the generated ZIP to Firefox Add-ons.
@@ -113,10 +125,10 @@ GitHub Actions runs the complete tests, builds both browser archives, verifies Z
 node --test tests/*.test.mjs
 node scripts/build-chrome.mjs \
   --output-dir /absolute/path/minimal-new-tab-chrome \
-  --archive /absolute/path/minimal-new-tab-chrome-v1.5.5.zip
+  --archive /absolute/path/minimal-new-tab-chrome-v1.6.zip
 node scripts/build-firefox.mjs \
   --output-dir /absolute/path/minimal-new-tab-firefox \
-  --archive /absolute/path/minimal-new-tab-firefox-v1.5.6.1.zip
+  --archive /absolute/path/minimal-new-tab-firefox-v1.6.zip
 npx web-ext lint --source-dir /absolute/path/minimal-new-tab-firefox
 ```
 

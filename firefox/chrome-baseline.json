@@ -1,19 +1,19 @@
 {
   "files": {
-    "manifest.json": "23f551a64b0f27734eea7a7459c07868d7eee01794e727590ce23d114ba57339",
-    "backup-service.mjs": "47e787a68aabf032c82b76c351b31282b44b1d983742cc1ada9baffa6be05907",
+    "manifest.json": "685f7afe1c108311737a6ca3d4f7d6593ff8f5b39668ecf3eb08278b3d77b51e",
+    "backup-service.mjs": "8a1140ba4ca7de314d3dc19f322bc2c7e406f0a845634bbb790f567c3d133c24",
     "favicon-service.mjs": "69f5215fb94e93505be864700031a9a257e19b6b02c8b60ac06581a09389bc66",
     "i18n-service.mjs": "e888bd351e599c624ff78260f09066d52b7ae0473a0a64cac1a58d4fe18f74ca",
     "newtab-core.mjs": "66a3f478d4fa334ec8f8c0369f5997e3abac19f9fc325a6e82a3cc15d095e692",
     "newtab.html": "658cefea6780d2d0e84185d92b61b1b4631110a8ee1f6d7bc4158107f7516869",
     "newtab.js": "e90e0068394f07427e4326fc93e3f5430c665c23a9337e06498f19c3cec314c5",
     "storage-service.mjs": "134dacfe20a8f86d1fc218f3e1cb5962fb869ac0165bd1afc7dbe1d2962db778",
-    "styles.css": "e0dbdf39659858db01ddf3427040eae7427c10d89ee0a1772413c8373610ee45",
+    "styles.css": "1de5e9200d678d0cc72a7eb1a75e3cbbf15677c008784aa892c28a29db99365f",
     "_locales/en/messages.json": "c606a4b635dab84a43f1188ba2a1d15048e0805f35cd2b7bab514f7de6f5602b",
     "_locales/ru/messages.json": "3f56d26e7f3351133a54345c41a625c21b821f03334fd8f12fcd686d80495784"
   },
   "archive": {
-    "path": "/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/minimal-new-tab-chrome-v1.5.5.zip",
-    "sha256": "44b182dd570df171147f73feaf1add1659c3578cfd81895b653076fd7bd46ad9"
+    "path": "/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/minimal-new-tab-chrome-v1.6.zip",
+    "sha256": "075ea3c7c0757a78bd7117198ff07274da2ca98934935bb447cb1fdd99126c28"
   }
 }

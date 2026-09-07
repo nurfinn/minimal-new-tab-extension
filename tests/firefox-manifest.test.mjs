@@ -8,7 +8,7 @@ const manifest = JSON.parse(
 
 test('Firefox manifest is localized and AMO-ready with minimum permissions', () => {
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, '1.5.6.1');
+  assert.equal(manifest.version, '1.6');
   assert.equal(manifest.default_locale, 'en');
   assert.equal(manifest.name, '__MSG_appName__');
   assert.equal(manifest.short_name, '__MSG_appShortName__');

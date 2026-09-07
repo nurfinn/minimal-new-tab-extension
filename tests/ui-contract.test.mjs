@@ -863,31 +863,35 @@ test('uses an internal vertical scroller to keep the background stable', () => {
   const contentRule = getCssBlock(styles, /\.content\s*(?=\{)/);
   const imageRule = getCssBlock(styles, /body\.has-image\s*(?=\{)/);
   const cardRule = getCssBlock(styles, /\.link-card\s*(?=\{)/);
+  const gridRule = getCssBlock(styles, /\.grid\s*(?=\{)/);
 
   assert.match(htmlBodyRule, /(?:^|;)\s*height\s*:\s*100%\s*(?:;|$)/);
   assert.match(htmlBodyRule, /(?:^|;)\s*overflow\s*:\s*hidden\s*(?:;|$)/);
   assert.match(bodyRule, /(?:^|;)\s*overscroll-behavior\s*:\s*none\s*(?:;|$)/);
   assert.match(shellRule, /(?:^|;)\s*height\s*:\s*100vh\s*(?:;|$)/);
   assert.match(shellRule, /(?:^|;)\s*--scroll-end-gap\s*:\s*54px\s*(?:;|$)/);
-  assert.match(shellRule, /(?:^|;)\s*overflow-y\s*:\s*auto\s*(?:;|$)/);
-  assert.match(shellRule, /(?:^|;)\s*overscroll-behavior-y\s*:\s*contain\s*(?:;|$)/);
-  assert.match(contentRule, /(?:^|;)\s*min-height\s*:\s*max-content\s*(?:;|$)/);
+  assert.match(shellRule, /(?:^|;)\s*overflow\s*:\s*hidden\s*(?:;|$)/);
+  assert.match(contentRule, /(?:^|;)\s*overflow-y\s*:\s*auto\s*(?:;|$)/);
+  assert.match(contentRule, /(?:^|;)\s*overscroll-behavior-y\s*:\s*contain\s*(?:;|$)/);
+  assert.match(contentRule, /(?:^|;)\s*min-height\s*:\s*0\s*(?:;|$)/);
   assert.match(
     contentRule,
-    /(?:^|;)\s*padding\s*:\s*28px\s+0\s+calc\(\s*18px\s*\+\s*var\(\s*--scroll-end-gap\s*\)\s*\)\s*(?:;|$)/,
+    /(?:^|;)\s*padding\s*:\s*28px\s+var\(--shell-inline-space\)\s+18px\s*(?:;|$)/,
   );
+  assert.match(gridRule, /padding-bottom\s*:\s*var\(--scroll-end-gap\)/);
   assert.doesNotMatch(styles, /\.shell::after\s*(?=\{)/);
   assert.doesNotMatch(imageRule, /background-attachment\s*:\s*fixed/);
   assert.match(cardRule, /(?:^|;)\s*content-visibility\s*:\s*auto\s*(?:;|$)/);
 });
 
-test('keeps navigation and actions visible while long site lists scroll', () => {
+test('keeps navigation outside the card scroller without painting a full-width band', () => {
   const topbarRule = getCssBlock(styles, /\.topbar\s*(?=\{)/);
+  const shellRule = getCssBlock(styles, /\.shell\s*(?=\{)/);
 
-  assert.match(topbarRule, /(?:^|;)\s*position\s*:\s*sticky\s*(?:;|$)/);
-  assert.match(topbarRule, /(?:^|;)\s*top\s*:\s*0\s*(?:;|$)/);
+  assert.match(topbarRule, /(?:^|;)\s*position\s*:\s*relative\s*(?:;|$)/);
+  assert.match(shellRule, /grid-template-rows\s*:\s*auto\s+minmax\(0,\s*1fr\)/);
   assert.match(topbarRule, /(?:^|;)\s*z-index\s*:\s*10\s*(?:;|$)/);
-  assert.match(styles, /body\.has-image\s+\.topbar\s*\{/);
+  assert.doesNotMatch(topbarRule, /(?:background|backdrop-filter|box-shadow)\s*:/);
 });
 
 test('keeps folder creation beside its action while only the folder list scrolls', () => {
