@@ -145,12 +145,12 @@ assert.equal(selected.state.links.some(item => item.id === site.id), true);
 - Produces: Chrome favicon sources ordered Google hostname → Chrome `/_favicon/`; no persisted favicon data.
 - Produces: explicit shared `body`/folder font baseline and accessible full-name tooltip behavior.
 
-- [ ] **Step 1: Change existing tests first** to expect Google before Chrome and Firefox folder labels to equal the shared 12px Chrome baseline; run and observe red.
-- [ ] **Step 2: Implement provider order and remove the Firefox 16px override.** Keep the fallback letter visible until `isUsableFavicon` accepts a result.
-- [ ] **Step 3: Add failing UI/CSS tests** for full title/host exposure and image-mode card variables that meet 4.5:1 on a white background.
-- [ ] **Step 4: Add `title`/accessible full labels and raise the dark image-card surface opacity while retaining the current blur/radius/spacing.**
-- [ ] **Step 5: Run the four target files and verify green, including Chrome byte-isolation tests.**
-- [ ] **Step 6: Commit with `git commit -m "fix: align browser typography and site recognition"`.**
+- [x] **Step 1: Change existing tests first** to expect Google before Chrome and Firefox folder labels to equal the shared 12px Chrome baseline; run and observe red.
+- [x] **Step 2: Implement provider order and remove the Firefox 16px override.** Keep the fallback letter visible until `isUsableFavicon` accepts a result.
+- [x] **Step 3: Add failing UI/CSS tests** for full title/host exposure and image-mode card variables that meet 4.5:1 on a white background.
+- [x] **Step 4: Add `title`/accessible full labels and raise the dark image-card surface opacity while retaining the current blur/radius/spacing.**
+- [x] **Step 5: Run the four target files and verify green, including Chrome byte-isolation tests.**
+- [x] **Step 6: Commit with `git commit -m "fix: align browser typography and site recognition"`.**
 
 ### Task 6: Long-list navigation, folder manager, and empty states
 

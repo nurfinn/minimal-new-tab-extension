@@ -1020,10 +1020,15 @@ function createLinkCard(link) {
   const title = document.createElement("span");
   title.className = "link-title";
   title.textContent = link.title;
+  title.title = link.title;
 
   const host = document.createElement("span");
   host.className = "link-host";
-  host.textContent = getHost(link.url);
+  const hostText = getHost(link.url);
+  host.textContent = hostText;
+  host.title = hostText;
+  openLink.title = `${link.title} — ${hostText}`;
+  openLink.setAttribute("aria-label", `${link.title} — ${hostText}`);
 
   text.append(title, host);
   openLink.append(favicon, text);

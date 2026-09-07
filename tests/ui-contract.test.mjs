@@ -30,6 +30,31 @@ function getCssBlock(source, prelude) {
   return '';
 }
 
+function readRgbaVariable(block, name) {
+  const match = block.match(
+    new RegExp(`--${name}\\s*:\\s*rgba\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*([\\d.]+)\\s*\\)`),
+  );
+  assert.ok(match, `Missing rgba variable --${name}`);
+  return [...match.slice(1, 4).map(Number), Number(match[4])];
+}
+
+function composite([red, green, blue, alpha], background) {
+  return [red, green, blue].map((channel, index) =>
+    channel * alpha + background[index] * (1 - alpha));
+}
+
+function contrastRatio(first, second) {
+  const luminance = (rgb) => {
+    const channels = rgb.map((channel) => {
+      const value = channel / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  };
+  const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
+  return (values[0] + 0.05) / (values[1] + 0.05);
+}
+
 test('loads the new tab script as an ES module', () => {
   assert.match(
     html,
@@ -108,6 +133,29 @@ test('cycles through favicon sources before showing the fallback', () => {
     createLinkCardBlock,
     /if\s*\(\s*!source\s*\)\s*\{[\s\S]*faviconImage\.removeAttribute\s*\(\s*["']src["']\s*\)[\s\S]*favicon\.classList\.add\s*\(\s*["']fallback["']\s*\)/,
   );
+});
+
+test('keeps full truncated site names and hosts available on hover and focus', () => {
+  const createLinkCardBlock = getCssBlock(script, /function\s+createLinkCard\s*\(\s*link\s*\)/);
+
+  assert.match(createLinkCardBlock, /const\s+hostText\s*=\s*getHost\s*\(\s*link\.url\s*\)\s*;/);
+  assert.match(createLinkCardBlock, /title\.title\s*=\s*link\.title\s*;/);
+  assert.match(createLinkCardBlock, /host\.title\s*=\s*hostText\s*;/);
+  assert.match(
+    createLinkCardBlock,
+    /openLink\.setAttribute\s*\(\s*["']aria-label["']\s*,\s*`\$\{link\.title\} — \$\{hostText\}`\s*\)/,
+  );
+});
+
+test('keeps image-background card text above 4.5 to 1 on a white image', () => {
+  const imageRule = getCssBlock(styles, /body\.has-image\s*(?=\{)/);
+  const white = [255, 255, 255];
+  const cardSurface = composite(readRgbaVariable(imageRule, 'card-bg'), white);
+  const title = composite(readRgbaVariable(imageRule, 'card-text'), cardSurface);
+  const host = composite(readRgbaVariable(imageRule, 'card-muted'), cardSurface);
+
+  assert.ok(contrastRatio(title, cardSurface) >= 4.5);
+  assert.ok(contrastRatio(host, cardSurface) >= 4.5);
 });
 
 test('keeps the import cancel binding safe during mixed unpacked updates', () => {

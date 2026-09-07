@@ -110,7 +110,7 @@ test('derives concise titles locally without reading website content', () => {
   assert.equal(deriveTitleFromUrl('not a url', 'Site'), 'Site');
 });
 
-test('uses the page-specific Chrome favicon before the Google hostname fallback', () => {
+test('uses the Google hostname favicon before the page-specific Chrome fallback', () => {
   const runtime = {
     getURL(path) {
       return `chrome-extension://test-extension${path}`;
@@ -118,8 +118,8 @@ test('uses the page-specific Chrome favicon before the Google hostname fallback'
   };
 
   const sources = buildFaviconSources(pageUrl, runtime);
-  const chromeSource = new URL(sources[0]);
-  const googleSource = new URL(sources[1]);
+  const googleSource = new URL(sources[0]);
+  const chromeSource = new URL(sources[1]);
 
   assert.equal(googleSource.origin, 'https://www.google.com');
   assert.equal(googleSource.pathname, '/s2/favicons');
