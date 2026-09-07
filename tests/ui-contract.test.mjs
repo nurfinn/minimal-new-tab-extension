@@ -30,10 +30,46 @@ function getCssBlock(source, prelude) {
   return '';
 }
 
+function readRgbaVariable(block, name) {
+  const match = block.match(
+    new RegExp(`--${name}\\s*:\\s*rgba\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*([\\d.]+)\\s*\\)`),
+  );
+  assert.ok(match, `Missing rgba variable --${name}`);
+  return [...match.slice(1, 4).map(Number), Number(match[4])];
+}
+
+function composite([red, green, blue, alpha], background) {
+  return [red, green, blue].map((channel, index) =>
+    channel * alpha + background[index] * (1 - alpha));
+}
+
+function contrastRatio(first, second) {
+  const luminance = (rgb) => {
+    const channels = rgb.map((channel) => {
+      const value = channel / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  };
+  const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
+  return (values[0] + 0.05) / (values[1] + 0.05);
+}
+
 test('loads the new tab script as an ES module', () => {
   assert.match(
     html,
     /<script\s+type\s*=\s*["']module["']\s+src\s*=\s*["']newtab\.js["']\s*>\s*<\/script>/,
+  );
+});
+
+test('gives the page a primary heading and keeps the product credit in a landmark', () => {
+  assert.match(
+    html,
+    /<main\b[^>]*>[\s\S]*?<h1\b(?=[^>]*\bclass=["']visually-hidden["'])(?=[^>]*\bdata-i18n=["']appShortName["'])[^>]*>Minimal Tab<\/h1>/,
+  );
+  assert.match(
+    html,
+    /<footer\b[^>]*>[\s\S]*?<a\b(?=[^>]*\bclass=["']signature["'])(?=[^>]*>by nurfinn<\/a>)[^>]*>[\s\S]*?<\/footer>/,
   );
 });
 
@@ -110,6 +146,29 @@ test('cycles through favicon sources before showing the fallback', () => {
   );
 });
 
+test('keeps full truncated site names and hosts available on hover and focus', () => {
+  const createLinkCardBlock = getCssBlock(script, /function\s+createLinkCard\s*\(\s*link\s*\)/);
+
+  assert.match(createLinkCardBlock, /const\s+hostText\s*=\s*getHost\s*\(\s*link\.url\s*\)\s*;/);
+  assert.match(createLinkCardBlock, /title\.title\s*=\s*link\.title\s*;/);
+  assert.match(createLinkCardBlock, /host\.title\s*=\s*hostText\s*;/);
+  assert.match(
+    createLinkCardBlock,
+    /openLink\.setAttribute\s*\(\s*["']aria-label["']\s*,\s*`\$\{link\.title\} — \$\{hostText\}`\s*\)/,
+  );
+});
+
+test('keeps image-background card text above 4.5 to 1 on a white image', () => {
+  const imageRule = getCssBlock(styles, /body\.has-image\s*(?=\{)/);
+  const white = [255, 255, 255];
+  const cardSurface = composite(readRgbaVariable(imageRule, 'card-bg'), white);
+  const title = composite(readRgbaVariable(imageRule, 'card-text'), cardSurface);
+  const host = composite(readRgbaVariable(imageRule, 'card-muted'), cardSurface);
+
+  assert.ok(contrastRatio(title, cardSurface) >= 4.5);
+  assert.ok(contrastRatio(host, cardSurface) >= 4.5);
+});
+
 test('keeps the import cancel binding safe during mixed unpacked updates', () => {
   assert.match(html, /id=["']cancelImportButton["']/);
   assert.match(
@@ -182,10 +241,74 @@ test('exposes guarded A, F, and S shortcuts without changing button icons', () =
   assert.match(editableTargetBlock, /!ownerDialog\s*\|\|\s*ownerDialog\.open/);
 });
 
+test('supports keyboard reordering and announces the committed position', () => {
+  assert.match(
+    script,
+    /import\s*\{[^}]*\bmoveItemByDelta\b[^}]*\}\s*from\s*["']\.\/newtab-core\.mjs["']\s*;/s,
+  );
+  assert.match(
+    html,
+    /id=["']reorderStatus["'][^>]*aria-live=["']polite["'][^>]*aria-atomic=["']true["']/,
+  );
+  assert.match(styles, /\.visually-hidden\s*\{/);
+  assert.match(
+    script,
+    /elements\.linksGrid\.addEventListener\s*\(\s*["']keydown["']\s*,\s*handleLinkReorderKeydown\s*\)/,
+  );
+
+  const linkKeyboardBlock = getCssBlock(
+    script,
+    /async\s+function\s+handleLinkReorderKeydown\s*\(\s*event\s*\)/,
+  );
+  const folderKeyboardBlock = getCssBlock(
+    script,
+    /async\s+function\s+handleFolderReorderKeydown\s*\(\s*event\s*\)/,
+  );
+  assert.match(linkKeyboardBlock, /["']ArrowLeft["']/);
+  assert.match(linkKeyboardBlock, /["']ArrowRight["']/);
+  assert.match(linkKeyboardBlock, /moveItemByDelta\s*\(/);
+  assert.match(linkKeyboardBlock, /await\s+commitStateChange\s*\(/);
+  assert.match(linkKeyboardBlock, /focusReorderHandle\s*\(/);
+  assert.match(linkKeyboardBlock, /announceReorder\s*\(/);
+  assert.match(folderKeyboardBlock, /["']ArrowUp["']/);
+  assert.match(folderKeyboardBlock, /["']ArrowDown["']/);
+  assert.match(folderKeyboardBlock, /moveItemByDelta\s*\(/);
+  assert.match(folderKeyboardBlock, /await\s+commitStateChange\s*\(/);
+  assert.match(folderKeyboardBlock, /focusReorderHandle\s*\(/);
+  assert.match(folderKeyboardBlock, /announceReorder\s*\(/);
+});
+
+test('lets users disable single-key A, F, and S shortcuts in Background settings', () => {
+  assert.match(
+    html,
+    /id=["']singleKeyShortcuts["'][^>]*type=["']checkbox["']/,
+  );
+  assert.match(html, /data-i18n=["']singleKeyShortcutsLabel["']/);
+  assert.match(html, /data-i18n=["']singleKeyShortcutsDescription["']/);
+  assert.match(styles, /\.toggle-field\s*\{/);
+
+  const shortcutBlock = getCssBlock(script, /function\s+handleGlobalShortcut\s*\(\s*event\s*\)/);
+  const backgroundSubmitBlock = getCssBlock(
+    script,
+    /elements\.backgroundForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
+  );
+  const renderPreferenceBlock = getCssBlock(
+    script,
+    /function\s+renderShortcutPreference\s*\(\s*\)/,
+  );
+
+  assert.match(shortcutBlock, /if\s*\(\s*!state\.shortcutsEnabled\s*\)\s*return\s*;/);
+  assert.match(backgroundSubmitBlock, /const\s+shortcutsEnabled\s*=\s*elements\.singleKeyShortcuts\.checked\s*;/);
+  assert.match(backgroundSubmitBlock, /latestState\.shortcutsEnabled\s*=\s*shortcutsEnabled\s*;/);
+  assert.match(renderPreferenceBlock, /const\s+enabled\s*=\s*state\.shortcutsEnabled\s*;/);
+  assert.match(renderPreferenceBlock, /elements\.singleKeyShortcuts\.checked\s*=\s*enabled\s*;/);
+  assert.match(renderPreferenceBlock, /removeAttribute\s*\(\s*["']aria-keyshortcuts["']\s*\)/);
+});
+
 test('delegates persistence to the isolated sync storage service', () => {
   assert.match(
     script,
-    /import\s*\{[^}]*\bcreateStorageService\b[^}]*\bnormalizeWebUrl\b[^}]*\}\s*from\s*["']\.\/storage-service\.mjs["']\s*;/s,
+    /import\s*\{[^}]*\bcreateStorageService\b[^}]*\}\s*from\s*["']\.\/storage-service\.mjs["']\s*;/s,
   );
   assert.match(script, /const\s+storageService\s*=\s*createStorageService\s*\(/);
   assert.doesNotMatch(script, /\blocalStorage\b/);
@@ -209,15 +332,73 @@ test('delegates persistence to the isolated sync storage service', () => {
   assert.match(initBlock, /await\s+storageService\.load\s*\(\s*defaultState\s*\)/);
   assert.match(initBlock, /state\s*=\s*normalizeState\s*\(\s*result\.state\s*\)/);
 
-  const saveBlock = getCssBlock(script, /async\s+function\s+saveAndRender\s*\(\s*\)/);
-  assert.match(saveBlock, /await\s+storageService\.save\s*\(\s*state\s*\)/);
-  assert.match(saveBlock, /if\s*\(\s*!result\.ok\b/);
-  assert.match(saveBlock, /render\s*\(\s*\)/);
-  assert.match(script, /normalizeWebUrl\s*\(\s*elements\.linkUrl\.value\s*\)/);
+  const commitBlock = getCssBlock(
+    script,
+    /async\s+function\s+commitStateChange\s*\(\s*transform\s*,\s*options\s*=\s*\{\s*\}\s*\)/,
+  );
+  assert.match(commitBlock, /await\s+storageService\.update\s*\(\s*defaultState\s*,\s*transform\s*\)/);
+  assert.match(commitBlock, /if\s*\(\s*!result\.ok\b/);
+  assert.match(commitBlock, /state\s*=\s*normalizeState\s*\(\s*result\.state\s*\)/);
+  assert.match(commitBlock, /render\s*\(\s*\)/);
+  assert.doesNotMatch(script, /storageService\.save\s*\(/);
+  assert.match(script, /validateSiteDraft\s*\(\s*\{[\s\S]*title:\s*elements\.linkTitle\.value[\s\S]*url:\s*elements\.linkUrl\.value[\s\S]*\}\s*\)/);
   assert.doesNotMatch(script, /function\s+normalizeUrl\s*\(/);
 });
 
-test('persists existing site and folder mutation flows without render-time writes', () => {
+test('explains invalid site and folder input without discarding the draft', () => {
+  assert.match(
+    script,
+    /import\s*\{[^}]*\bvalidateFolderName\b[^}]*\bvalidateSiteDraft\b[^}]*\}\s*from\s*["']\.\/newtab-core\.mjs["']\s*;/s,
+  );
+  assert.match(
+    html,
+    /<form\b(?=[^>]*\bid=["']linkForm["'])(?=[^>]*\bnovalidate\b)[^>]*>/,
+  );
+  assert.match(
+    html,
+    /id=["']linkTitle["'][^>]*maxlength=["']500["'][^>]*aria-describedby=["']linkTitleError["']/,
+  );
+  assert.match(
+    html,
+    /id=["']linkUrl["'][^>]*aria-describedby=["']linkUrlError["']/,
+  );
+  assert.match(html, /id=["']linkTitleError["'][^>]*role=["']alert["'][^>]*hidden/);
+  assert.match(html, /id=["']linkUrlError["'][^>]*role=["']alert["'][^>]*hidden/);
+  assert.match(
+    html,
+    /id=["']folderName["'][^>]*maxlength=["']200["'][^>]*aria-describedby=["']folderFormError["']/,
+  );
+
+  const linkSubmitBlock = getCssBlock(
+    script,
+    /elements\.linkForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
+  );
+  const folderSubmitBlock = getCssBlock(
+    script,
+    /elements\.folderForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
+  );
+  const showInputErrorBlock = getCssBlock(
+    script,
+    /function\s+showInputError\s*\(\s*input\s*,\s*errorElement\s*,\s*message\s*\)/,
+  );
+  const clearInputErrorBlock = getCssBlock(
+    script,
+    /function\s+clearInputError\s*\(\s*input\s*,\s*errorElement\s*\)/,
+  );
+
+  assert.match(linkSubmitBlock, /const\s+validation\s*=\s*validateSiteDraft\s*\(/);
+  assert.match(linkSubmitBlock, /if\s*\(\s*!validation\.ok\s*\)/);
+  assert.match(folderSubmitBlock, /const\s+validation\s*=\s*validateFolderName\s*\(/);
+  assert.match(folderSubmitBlock, /if\s*\(\s*!validation\.ok\s*\)/);
+  assert.match(showInputErrorBlock, /input\.setAttribute\s*\(\s*["']aria-invalid["']\s*,\s*["']true["']\s*\)/);
+  assert.match(showInputErrorBlock, /input\.focus\s*\(/);
+  assert.match(clearInputErrorBlock, /input\.removeAttribute\s*\(\s*["']aria-invalid["']\s*\)/);
+  assert.match(script, /elements\.linkTitle\.addEventListener\s*\(\s*["']input["']/);
+  assert.match(script, /elements\.linkUrl\.addEventListener\s*\(\s*["']input["']/);
+  assert.match(script, /elements\.folderName\.addEventListener\s*\(\s*["']input["']/);
+});
+
+test('commits all site and folder mutations against the latest stored state', () => {
   const linkSubmitBlock = getCssBlock(
     script,
     /elements\.linkForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
@@ -230,11 +411,48 @@ test('persists existing site and folder mutation flows without render-time write
   const folderReorderBlock = getCssBlock(script, /async\s+function\s+finishFolderDrag\s*\(\s*event\s*\)/);
   const renderBlock = getCssBlock(script, /function\s+render\s*\(\s*\)/);
 
-  assert.match(linkSubmitBlock, /await\s+saveAndRender\s*\(\s*\)/);
-  assert.match(linkDeleteBlock, /await\s+saveAndRender\s*\(\s*\)/);
-  assert.match(linkReorderBlock, /reorderVisibleLinks[\s\S]*await\s+saveAndRender\s*\(\s*\)/);
-  assert.match(folderReorderBlock, /reorderFolders[\s\S]*await\s+saveAndRender\s*\(\s*\)/);
-  assert.doesNotMatch(renderBlock, /storageService\.save|saveAndRender/);
+  assert.match(linkSubmitBlock, /await\s+commitStateChange\s*\(/);
+  assert.match(linkDeleteBlock, /await\s+commitStateChange\s*\(/);
+  assert.match(linkReorderBlock, /await\s+commitStateChange\s*\([\s\S]*reorderVisibleLinks/);
+  assert.match(folderReorderBlock, /await\s+commitStateChange\s*\([\s\S]*reorderFolders/);
+  assert.doesNotMatch(renderBlock, /storageService\.(?:save|update)|commitStateChange/);
+});
+
+test('shows storage failures and keeps form completion behind a successful commit', () => {
+  assert.match(
+    html,
+    /id=["']appStatus["'][^>]*role=["']alert["'][^>]*hidden/,
+  );
+  assert.match(styles, /\.app-status\s*\{/);
+
+  const linkSubmitBlock = getCssBlock(
+    script,
+    /elements\.linkForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
+  );
+  const folderSubmitBlock = getCssBlock(
+    script,
+    /elements\.folderForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
+  );
+
+  for (const block of [linkSubmitBlock, folderSubmitBlock]) {
+    assert.match(block, /const\s+saved\s*=\s*await\s+commitStateChange\s*\(/);
+    assert.match(block, /if\s*\(\s*!saved\s*\)\s*return\s*;/);
+    assert.ok(block.indexOf('if (!saved) return') < block.indexOf('.close()'));
+  }
+});
+
+test('gives every primary dialog an accessible visible name', () => {
+  for (const [dialogId, titleId] of [
+    ['linkDialog', 'linkDialogTitle'],
+    ['folderDialog', 'folderDialogTitle'],
+    ['settingsDialog', 'settingsDialogTitle'],
+  ]) {
+    assert.match(
+      html,
+      new RegExp(`<dialog\\b(?=[^>]*\\bid=["']${dialogId}["'])(?=[^>]*\\baria-labelledby=["']${titleId}["'])[^>]*>`),
+    );
+    assert.match(html, new RegExp(`<h2\\b[^>]*\\bid=["']${titleId}["']`));
+  }
 });
 
 test('uses one accessible in-extension confirmation for site and folder deletion', () => {
@@ -245,6 +463,7 @@ test('uses one accessible in-extension confirmation for site and folder deletion
   assert.match(html, /id=["']deleteConfirmTitle["'][^>]*data-i18n=["']confirmDeletion["']/);
   assert.match(html, /id=["']deleteConfirmMessage["']/);
   assert.match(html, /id=["']confirmDeleteButton["'][^>]*data-i18n=["']delete["']/);
+  assert.match(html, /id=["']cancelDeleteButton["'][^>]*data-cancel-delete-confirm/);
   assert.match(html, /data-cancel-delete-confirm[^>]*data-i18n=["']cancel["']/);
   assert.match(styles, /\.confirmation-message\s*\{/);
   assert.match(styles, /\.confirmation-actions\s*\{/);
@@ -273,9 +492,11 @@ test('uses one accessible in-extension confirmation for site and folder deletion
   assert.match(requestBlock, /if\s*\(\s*pendingDeleteConfirmation\s*\)\s*return\s+Promise\.resolve\s*\(\s*false\s*\)/);
   assert.match(requestBlock, /deleteConfirmMessage\.textContent\s*=\s*message/);
   assert.match(requestBlock, /deleteConfirmDialog\.showModal\s*\(\s*\)/);
-  assert.match(requestBlock, /confirmDeleteButton\.focus\s*\(\s*\{\s*preventScroll\s*:\s*true\s*\}\s*\)/);
+  assert.match(requestBlock, /cancelDeleteButton\.focus\s*\(\s*\{\s*preventScroll\s*:\s*true\s*\}\s*\)/);
+  assert.match(requestBlock, /deleteConfirmationReturnFocus\s*=\s*document\.activeElement/);
   assert.match(resolveBlock, /pendingDeleteConfirmation\s*=\s*null/);
   assert.match(resolveBlock, /deleteConfirmDialog\.close\s*\(\s*\)/);
+  assert.match(resolveBlock, /returnFocus\?\.focus\s*\(\s*\{\s*preventScroll\s*:\s*true\s*\}\s*\)/);
   assert.match(resolveBlock, /resolve\s*\(\s*Boolean\s*\(\s*confirmed\s*\)\s*\)/);
   assert.ok(
     resolveBlock.indexOf('pendingDeleteConfirmation = null') <
@@ -291,12 +512,12 @@ test('uses one accessible in-extension confirmation for site and folder deletion
   assert.match(linkDeleteBlock, /await\s+requestDeleteConfirmation\s*\(\s*t\s*\(\s*["']deleteSiteConfirm["']/);
   assert.ok(
     linkDeleteBlock.indexOf('await requestDeleteConfirmation') <
-      linkDeleteBlock.indexOf('state.links = state.links.filter'),
+      linkDeleteBlock.indexOf('await commitStateChange'),
   );
   assert.match(folderListBlock, /await\s+requestDeleteConfirmation\s*\(\s*t\s*\(\s*["']deleteFolderConfirm["']/);
   assert.ok(
     folderListBlock.indexOf('await requestDeleteConfirmation') <
-      folderListBlock.indexOf('removeFolder(folder.id)'),
+      folderListBlock.indexOf('await commitStateChange'),
   );
 });
 
@@ -307,10 +528,12 @@ test('preserves custom background identity until an explicit reset', () => {
   );
   assert.match(backgroundSubmitBlock, /customAssetId/);
   assert.match(backgroundSubmitBlock, /customAssetAvailable/);
-  assert.match(
+  const resetBlock = getCssBlock(
     script,
-    /state\.background\s*=\s*structuredClone\s*\(\s*defaultState\.background\s*\)\s*;/,
+    /elements\.resetBackgroundButton\.addEventListener\s*\(\s*["']click["']\s*,\s*async\s*\(\s*\)\s*=>/,
   );
+  assert.match(resetBlock, /await\s+commitStateChange\s*\(/);
+  assert.match(resetBlock, /latestState\.background\s*=\s*structuredClone\s*\(\s*defaultState\.background\s*\)/);
 });
 
 test('validates a custom background before mutating or persisting state', () => {
@@ -332,34 +555,25 @@ test('validates a custom background before mutating or persisting state', () => 
   assert.match(backgroundSubmitBlock, /showBackgroundImageError\s*\([^)]*\)\s*;[\s\S]*return\s*;/);
   assert.ok(
     backgroundSubmitBlock.indexOf('validateBackgroundImage') <
-      backgroundSubmitBlock.indexOf('const nextState'),
+      backgroundSubmitBlock.indexOf('const saved'),
   );
   assert.match(script, /URL\.revokeObjectURL\s*\(/);
 });
 
-test('commits a background only after storage accepts the candidate state', () => {
+test('commits a background against the latest state and closes only on success', () => {
   const backgroundSubmitBlock = getCssBlock(
     script,
     /elements\.backgroundForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
   );
 
-  assert.match(
-    backgroundSubmitBlock,
-    /const\s+nextState\s*=\s*\{\s*\.\.\.state\s*,\s*background\s*:\s*nextBackground\s*\}\s*;/,
-  );
-  assert.match(
-    backgroundSubmitBlock,
-    /const\s+saveResult\s*=\s*await\s+storageService\.save\s*\(\s*nextState\s*\)\s*;/,
-  );
-  assert.match(
-    backgroundSubmitBlock,
-    /if\s*\(\s*!saveResult\.ok\s*\)\s*\{[\s\S]*?showBackgroundImageError\s*\(\s*["']save-failed["']\s*\)\s*;[\s\S]*?return\s*;/,
-  );
+  assert.match(backgroundSubmitBlock, /const\s+saved\s*=\s*await\s+commitStateChange\s*\(/);
+  assert.match(backgroundSubmitBlock, /latestState\.background\s*=\s*nextBackground/);
+  assert.match(backgroundSubmitBlock, /onError\s*:\s*\(\s*\)\s*=>\s*showBackgroundImageError\s*\(\s*["']save-failed["']\s*\)/);
+  assert.match(backgroundSubmitBlock, /if\s*\(\s*!saved\s*\)\s*return\s*;/);
   assert.ok(
-    backgroundSubmitBlock.indexOf('await storageService.save(nextState)') <
-      backgroundSubmitBlock.indexOf('state = nextState'),
+    backgroundSubmitBlock.indexOf('if (!saved) return') <
+      backgroundSubmitBlock.indexOf('elements.settingsDialog.close()'),
   );
-  assert.doesNotMatch(backgroundSubmitBlock, /state\.background\s*=\s*nextBackground/);
 });
 
 test('uses the supplied bundled image as the first-install background', () => {
@@ -462,6 +676,74 @@ test('combines background and portable backup tools in accessible settings tabs'
   assert.doesNotMatch(styles, /\.background-mode\b/);
 });
 
+test('explains file requirements and keeps selected filenames visible', () => {
+  assert.match(
+    html,
+    /id=["']backgroundImage["'][^>]*aria-describedby=["'][^"']*backgroundImageLimits[^"']*backgroundSelectedFile[^"']*backgroundImageError[^"']*["']/,
+  );
+  assert.match(
+    html,
+    /id=["']backgroundImageLimits["'][^>]*data-i18n=["']backgroundImageLimits["']/,
+  );
+  assert.match(
+    html,
+    /id=["']backgroundSelectedFile["'][^>]*role=["']status["'][^>]*hidden/,
+  );
+  assert.match(
+    html,
+    /id=["']importSelectedFile["'][^>]*role=["']status["'][^>]*hidden/,
+  );
+  assert.match(
+    html,
+    /id=["']resetBackgroundButton["'][^>]*data-i18n=["']restoreDefault["'][^>]*>Restore default<\/button>/,
+  );
+
+  assert.match(
+    script,
+    /backgroundSelectedFile\s*:\s*document\.getElementById\s*\(\s*["']backgroundSelectedFile["']\s*\)/,
+  );
+  assert.match(
+    script,
+    /importSelectedFile\s*:\s*document\.getElementById\s*\(\s*["']importSelectedFile["']\s*\)/,
+  );
+  assert.match(
+    script,
+    /elements\.backgroundImage\.addEventListener\s*\(\s*["']change["']\s*,\s*updatePendingBackgroundFile\s*\)/,
+  );
+
+  const backgroundSelectionBlock = getCssBlock(
+    script,
+    /function\s+updatePendingBackgroundFile\s*\(\s*\)/,
+  );
+  assert.match(backgroundSelectionBlock, /elements\.backgroundImage\.files\?\.\[0\]/);
+  assert.match(backgroundSelectionBlock, /t\s*\(\s*["']backgroundSelectedFile["']\s*,\s*\[\s*file\.name\s*\]\s*\)/);
+  assert.match(backgroundSelectionBlock, /elements\.backgroundSelectedFile\.hidden\s*=\s*false/);
+
+  const loadImportBlock = getCssBlock(script, /async\s+function\s+loadImportFile\s*\(/);
+  assert.match(loadImportBlock, /pendingImport\s*=\s*\{\s*\.\.\.result\s*,\s*fileName\s*:\s*file\.name\s*\}/);
+  assert.match(loadImportBlock, /t\s*\(\s*["']importSelectedFile["']\s*,\s*\[\s*pendingImport\.fileName\s*\]\s*\)/);
+  assert.match(loadImportBlock, /elements\.importSelectedFile\.hidden\s*=\s*false/);
+
+  const previewNameRule = getCssBlock(styles, /\.background-preview\s+strong\s*(?=\{)/);
+  assert.match(previewNameRule, /(?:^|;)\s*white-space\s*:\s*normal\s*(?:;|$)/);
+  assert.match(previewNameRule, /(?:^|;)\s*overflow-wrap\s*:\s*anywhere\s*(?:;|$)/);
+});
+
+test('removes decorative movement when reduced motion is requested', () => {
+  const reducedMotionBlock = getCssBlock(
+    styles,
+    /@media\s*\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)/,
+  );
+
+  assert.match(reducedMotionBlock, /transition\s*:\s*none\s*!important/);
+  assert.match(reducedMotionBlock, /animation\s*:\s*none\s*!important/);
+  assert.match(reducedMotionBlock, /scroll-behavior\s*:\s*auto\s*!important/);
+  assert.match(
+    reducedMotionBlock,
+    /\.link-card:hover[\s\S]*?\.icon-button:hover[\s\S]*?\.ghost-button:hover[\s\S]*?transform\s*:\s*none\s*!important/,
+  );
+});
+
 test('stages portable imports and commits them before replacing application state', () => {
   assert.match(
     script,
@@ -499,10 +781,10 @@ test('stages portable imports and commits them before replacing application stat
   assert.doesNotMatch(loadImportBlock, /state\s*=/);
 
   const confirmBlock = getCssBlock(script, /async\s+function\s+confirmImport\s*\(\s*\)/);
-  assert.match(confirmBlock, /buildImportedState\s*\(\s*state\s*,\s*pendingImport\.data\s*\)/);
+  assert.match(confirmBlock, /buildImportedState\s*\(\s*latestState\s*,\s*importedData\s*\)/);
   assert.match(
     confirmBlock,
-    /await\s+storageService\.save\s*\(\s*candidate\s*\)[\s\S]*if\s*\(\s*!result\.ok\s*\)[\s\S]*return\s*;[\s\S]*state\s*=\s*candidate/,
+    /await\s+commitStateChange\s*\([\s\S]*if\s*\(\s*!saved\s*\)\s*return\s*;[\s\S]*resetImportState/,
   );
   assert.match(script, /elements\.settingsDialog\.addEventListener\s*\(\s*["']close["'][\s\S]*resetSettingsDialogState/);
 });
@@ -599,6 +881,41 @@ test('uses an internal vertical scroller to keep the background stable', () => {
   assert.match(cardRule, /(?:^|;)\s*content-visibility\s*:\s*auto\s*(?:;|$)/);
 });
 
+test('keeps navigation and actions visible while long site lists scroll', () => {
+  const topbarRule = getCssBlock(styles, /\.topbar\s*(?=\{)/);
+
+  assert.match(topbarRule, /(?:^|;)\s*position\s*:\s*sticky\s*(?:;|$)/);
+  assert.match(topbarRule, /(?:^|;)\s*top\s*:\s*0\s*(?:;|$)/);
+  assert.match(topbarRule, /(?:^|;)\s*z-index\s*:\s*10\s*(?:;|$)/);
+  assert.match(styles, /body\.has-image\s+\.topbar\s*\{/);
+});
+
+test('keeps folder creation beside its action while only the folder list scrolls', () => {
+  const folderListRule = getCssBlock(styles, /\.folder-list\s*(?=\{)/);
+  const folderManagerRule = getCssBlock(styles, /\.folder-manager\s*(?=\{)/);
+  const createInputIndex = html.indexOf('id="folderName"');
+  const createButtonIndex = html.indexOf('id="createFolderSubmitButton"');
+  const managerIndex = html.indexOf('id="folderManager"');
+
+  assert.notEqual(createInputIndex, -1);
+  assert.notEqual(createButtonIndex, -1);
+  assert.notEqual(managerIndex, -1);
+  assert.ok(createInputIndex < createButtonIndex && createButtonIndex < managerIndex);
+  assert.match(styles, /\.folder-create-row\s*\{/);
+  assert.match(folderManagerRule, /(?:^|;)\s*min-height\s*:\s*0\s*(?:;|$)/);
+  assert.match(folderListRule, /(?:^|;)\s*max-height\s*:/);
+  assert.match(folderListRule, /(?:^|;)\s*overflow-y\s*:\s*auto\s*(?:;|$)/);
+});
+
+test('uses a contextual empty message for all sites and individual folders', () => {
+  const renderLinksBlock = getCssBlock(script, /function\s+renderLinks\s*\(\s*\)/);
+
+  assert.match(renderLinksBlock, /state\.selectedFolderId\s*===\s*["']all["']/);
+  assert.match(renderLinksBlock, /t\s*\(\s*["']emptyAll["']\s*\)/);
+  assert.match(renderLinksBlock, /t\s*\(\s*["']emptyFolder["']/);
+  assert.match(html, /id=["']emptyState["'][^>]*aria-live=["']polite["']/);
+});
+
 test('coalesces folder refresh work while preserving selection focus options', () => {
   const renderFoldersBlock = getCssBlock(script, /function\s+renderFolders\s*\(\s*\)/);
   const refreshBlock = getCssBlock(
@@ -610,7 +927,7 @@ test('coalesces folder refresh work while preserving selection focus options', (
     /function\s+scheduleFolderScrollRefresh\s*\(\s*options\s*=\s*\{\}\s*\)/,
   );
 
-  assert.match(script, /folderFocusRequest\s*=\s*chip\.dataset\.folder\s*;/);
+  assert.match(script, /folderFocusRequest\s*=\s*selectedFolderId\s*;/);
   assert.match(renderFoldersBlock, /scheduleFolderScrollRefresh\s*\(/);
   assert.doesNotMatch(renderFoldersBlock, /requestAnimationFrame\s*\(/);
   assert.doesNotMatch(refreshBlock, /requestAnimationFrame\s*\(/);
@@ -782,10 +1099,10 @@ test('manages the inline folder rename lifecycle and focus', () => {
   );
   assert.match(
     saveRenameBlock,
-    /savingFolderRenameId\s*=\s*folderId\s*;[\s\S]*setFolderRenameControlsDisabled\s*\(\s*folderId\s*,\s*true\s*\)\s*;[\s\S]*try\s*\{[\s\S]*state\.folders\s*=\s*result\.folders\s*;[\s\S]*await\s+saveAndRender\s*\(\s*\)\s*;[\s\S]*finally\s*\{[\s\S]*savingFolderRenameId\s*=\s*null\s*;[\s\S]*setFolderRenameControlsDisabled\s*\(\s*folderId\s*,\s*false\s*\)\s*;/,
+    /savingFolderRenameId\s*=\s*folderId\s*;[\s\S]*setFolderRenameControlsDisabled\s*\(\s*folderId\s*,\s*true\s*\)\s*;[\s\S]*try\s*\{[\s\S]*await\s+commitStateChange\s*\([\s\S]*latestState\.folders\s*=\s*latestResult\.folders\s*;[\s\S]*finally\s*\{[\s\S]*savingFolderRenameId\s*=\s*null\s*;[\s\S]*setFolderRenameControlsDisabled\s*\(\s*folderId\s*,\s*false\s*\)\s*;/,
   );
   assert.match(saveRenameBlock, /if\s*\(\s*elements\.folderDialog\.open\s*\)/);
-  assert.equal(saveRenameBlock.match(/await\s+saveAndRender\s*\(\s*\)/g)?.length, 1);
+  assert.equal(saveRenameBlock.match(/await\s+commitStateChange\s*\(/g)?.length, 1);
   assert.match(saveRenameBlock, /return\s+true\s*;/);
 
   assert.match(

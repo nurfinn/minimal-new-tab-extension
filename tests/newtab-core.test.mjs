@@ -4,8 +4,10 @@ import test from 'node:test';
 import * as newtabCore from '../newtab-core.mjs';
 
 import {
+  FOLDER_NAME_MAX_LENGTH,
   MAX_BACKGROUND_BYTES,
   MAX_BACKGROUND_DIMENSION,
+  SITE_TITLE_MAX_LENGTH,
   buildFaviconSources,
   deriveTitleFromUrl,
   getFolderRevealScrollLeft,
@@ -13,12 +15,93 @@ import {
   getFolderWheelScrollLeft,
   getWheelScrollDelta,
   isUsableFavicon,
+  moveItemByDelta,
   normalizeLegacyColorBackground,
   renameFolder,
   validateBackgroundImage,
+  validateFolderName,
+  validateSiteDraft,
 } from '../newtab-core.mjs';
 
 const pageUrl = 'https://sheets.google.com/spreadsheets/d/example?usp=sharing';
+
+test('validates and normalizes a site draft before it reaches storage', () => {
+  assert.equal(SITE_TITLE_MAX_LENGTH, 500);
+  assert.deepEqual(validateSiteDraft({ title: '', url: 'github.com' }), {
+    ok: true,
+    url: 'https://github.com/',
+  });
+  assert.deepEqual(validateSiteDraft({ title: 'x'.repeat(500), url: 'https://example.com' }), {
+    ok: true,
+    url: 'https://example.com/',
+  });
+});
+
+test('rejects invalid site URLs and titles beyond the persisted limit', () => {
+  assert.deepEqual(validateSiteDraft({ title: '', url: 'https://' }), {
+    ok: false,
+    field: 'url',
+    error: 'invalid-url',
+  });
+  assert.deepEqual(validateSiteDraft({ title: '', url: 'javascript:alert(1)' }), {
+    ok: false,
+    field: 'url',
+    error: 'invalid-url',
+  });
+  assert.deepEqual(validateSiteDraft({ title: 'x'.repeat(501), url: 'example.com' }), {
+    ok: false,
+    field: 'title',
+    error: 'title-too-long',
+  });
+});
+
+test('validates folder names against the persisted limit', () => {
+  assert.equal(FOLDER_NAME_MAX_LENGTH, 200);
+  assert.deepEqual(validateFolderName('  Work  '), { ok: true, name: 'Work' });
+  assert.deepEqual(validateFolderName('x'.repeat(200)), {
+    ok: true,
+    name: 'x'.repeat(200),
+  });
+  assert.deepEqual(validateFolderName('   '), { ok: false, error: 'required' });
+  assert.deepEqual(validateFolderName('x'.repeat(201)), {
+    ok: false,
+    error: 'name-too-long',
+  });
+});
+
+test('moves an item one position without mutating the input order', () => {
+  const ids = ['one', 'two', 'three'];
+
+  assert.deepEqual(moveItemByDelta(ids, 'two', -1), {
+    ids: ['two', 'one', 'three'],
+    moved: true,
+    position: 1,
+  });
+  assert.deepEqual(moveItemByDelta(ids, 'two', 1), {
+    ids: ['one', 'three', 'two'],
+    moved: true,
+    position: 3,
+  });
+  assert.deepEqual(ids, ['one', 'two', 'three']);
+});
+
+test('keeps order stable at keyboard reorder boundaries and for stale ids', () => {
+  assert.deepEqual(moveItemByDelta(['one', 'two'], 'one', -1), {
+    ids: ['one', 'two'],
+    moved: false,
+    position: 1,
+  });
+  assert.deepEqual(moveItemByDelta(['one', 'two'], 'two', 1), {
+    ids: ['one', 'two'],
+    moved: false,
+    position: 2,
+  });
+  assert.deepEqual(moveItemByDelta(['one', 'two'], 'missing', 1), {
+    ids: ['one', 'two'],
+    moved: false,
+    position: 0,
+  });
+});
 
 test('derives concise titles locally without reading website content', () => {
   assert.equal(deriveTitleFromUrl('https://sheets.google.com/'), 'Google Sheets');
@@ -27,7 +110,7 @@ test('derives concise titles locally without reading website content', () => {
   assert.equal(deriveTitleFromUrl('not a url', 'Site'), 'Site');
 });
 
-test('uses the page-specific Chrome favicon before the Google hostname fallback', () => {
+test('uses the Google hostname favicon before the page-specific Chrome fallback', () => {
   const runtime = {
     getURL(path) {
       return `chrome-extension://test-extension${path}`;
@@ -35,8 +118,8 @@ test('uses the page-specific Chrome favicon before the Google hostname fallback'
   };
 
   const sources = buildFaviconSources(pageUrl, runtime);
-  const chromeSource = new URL(sources[0]);
-  const googleSource = new URL(sources[1]);
+  const googleSource = new URL(sources[0]);
+  const chromeSource = new URL(sources[1]);
 
   assert.equal(googleSource.origin, 'https://www.google.com');
   assert.equal(googleSource.pathname, '/s2/favicons');

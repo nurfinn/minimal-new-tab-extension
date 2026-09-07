@@ -47,9 +47,22 @@ class FakeStorageArea {
   }
 }
 
+class FakeLockManager {
+  constructor() {
+    this.tail = Promise.resolve();
+  }
+
+  request(name, callback) {
+    const operation = this.tail.then(() => callback({ name }));
+    this.tail = operation.catch(() => undefined);
+    return operation;
+  }
+}
+
 function makeDefaultState() {
   return {
     selectedFolderId: "all",
+    shortcutsEnabled: true,
     folders: [{ id: "root", name: "Избранное" }],
     links: [
       {
@@ -111,6 +124,93 @@ test("loads defaults without writing when sync storage is empty", async () => {
   assert.equal(result.source, "defaults");
   assert.deepEqual(result.state, defaults);
   assert.equal(syncArea.calls.some(({ method }) => method === "set"), false);
+});
+
+test("updates the latest stored state so stale tabs cannot remove a newly added site", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  const lockManager = new FakeLockManager();
+  const defaults = makeDefaultState();
+  defaults.folders.push({ id: "work", name: "Work" });
+  const firstTab = createStorageService({ syncArea, localArea, lockManager, logger: null });
+  const staleTab = createStorageService({ syncArea, localArea, lockManager, logger: null });
+  await Promise.all([firstTab.load(defaults), staleTab.load(defaults)]);
+
+  const [added, selected] = await Promise.all([
+    firstTab.update(defaults, (latest) => {
+      latest.links.unshift({
+        id: "new-in-first-tab",
+        title: "New in first tab",
+        url: "https://example.com/new/",
+        folderId: "root"
+      });
+      return latest;
+    }),
+    staleTab.update(defaults, (latest) => {
+      latest.selectedFolderId = "work";
+      return latest;
+    })
+  ]);
+
+  assert.equal(added.ok, true);
+  assert.equal(selected.ok, true);
+  assert.equal(selected.state.selectedFolderId, "work");
+  assert.equal(selected.state.links.some(({ id }) => id === "new-in-first-tab"), true);
+
+  const reloaded = await createStorageService({ syncArea, localArea, logger: null }).load(defaults);
+  assert.equal(reloaded.state.selectedFolderId, "work");
+  assert.equal(reloaded.state.links.some(({ id }) => id === "new-in-first-tab"), true);
+});
+
+test("does not write defaults when an update cannot read sync storage", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  syncArea.failGetError = new Error("sync unavailable");
+  const service = createStorageService({ syncArea, localArea, logger: null });
+
+  const result = await service.update(makeDefaultState(), (latest) => {
+    latest.links = [];
+    return latest;
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "read-failed");
+  assert.equal(syncArea.calls.some(({ method }) => method === "set"), false);
+});
+
+test("defaults old sync payloads to enabled single-key shortcuts", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  const service = createStorageService({ syncArea, localArea, logger: null });
+  const legacyState = makeDefaultState();
+  delete legacyState.shortcutsEnabled;
+  await service.save(legacyState);
+
+  const defaults = makeDefaultState();
+  const reloaded = await createStorageService({ syncArea, localArea, logger: null }).load(defaults);
+
+  assert.equal(reloaded.ok, true);
+  assert.equal(reloaded.state.shortcutsEnabled, true);
+  assert.equal(Object.hasOwn(JSON.parse(getActivePayloadJson(syncArea)), "preferences"), false);
+});
+
+test("round-trips the optional single-key shortcut preference without changing schema version", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  const defaults = makeDefaultState();
+  defaults.shortcutsEnabled = true;
+  const state = structuredClone(defaults);
+  state.shortcutsEnabled = false;
+
+  const service = createStorageService({ syncArea, localArea, logger: null });
+  assert.equal((await service.save(state)).ok, true);
+
+  const payload = JSON.parse(getActivePayloadJson(syncArea));
+  assert.equal(payload.storageVersion, 1);
+  assert.deepEqual(payload.preferences, { singleKeyShortcuts: false });
+
+  const reloaded = await createStorageService({ syncArea, localArea, logger: null }).load(defaults);
+  assert.equal(reloaded.state.shortcutsEnabled, false);
 });
 
 test("prefers the Promise-based Firefox browser storage namespace", async () => {

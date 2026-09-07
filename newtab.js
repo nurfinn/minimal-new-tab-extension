@@ -7,9 +7,12 @@ import {
   getGlobalShortcutAction,
   getWheelScrollDelta,
   isUsableFavicon,
+  moveItemByDelta,
   normalizeLegacyColorBackground,
   renameFolder,
-  validateBackgroundImage
+  validateBackgroundImage,
+  validateFolderName,
+  validateSiteDraft
 } from "./newtab-core.mjs";
 import {
   MAX_BACKUP_BYTES,
@@ -18,7 +21,7 @@ import {
   parseBackupText,
   serializeBackup
 } from "./backup-service.mjs";
-import { createStorageService, normalizeWebUrl } from "./storage-service.mjs";
+import { createStorageService } from "./storage-service.mjs";
 import { createTranslator, getUiLocale, localizeDocument } from "./i18n-service.mjs";
 
 const ROOT_FOLDER_ID = "root";
@@ -66,6 +69,7 @@ const defaultState = {
       folderId: ROOT_FOLDER_ID
     }
   ],
+  shortcutsEnabled: true,
   background: {
     type: "image",
     value: "images/default-background.png",
@@ -85,16 +89,20 @@ let suppressLinkClicksUntil = 0;
 let activeSettingsTab = "background";
 let pendingImport = null;
 let pendingDeleteConfirmation = null;
+let deleteConfirmationReturnFocus = null;
 let renderedFolderSelection = null;
 let folderScrollFrame = null;
 let folderFocusRequest = null;
 let pendingFolderScrollOptions = {};
+let appStatusTimer = null;
 
 const elements = {
   folderRow: document.getElementById("folderRow"),
   folderRowTrack: document.getElementById("folderRowTrack"),
   linksGrid: document.getElementById("linksGrid"),
   emptyState: document.getElementById("emptyState"),
+  appStatus: document.getElementById("appStatus"),
+  reorderStatus: document.getElementById("reorderStatus"),
   addLinkButton: document.getElementById("addLinkButton"),
   addFolderButton: document.getElementById("addFolderButton"),
   settingsButton: document.getElementById("settingsButton"),
@@ -102,6 +110,7 @@ const elements = {
   deleteConfirmDialog: document.getElementById("deleteConfirmDialog"),
   deleteConfirmMessage: document.getElementById("deleteConfirmMessage"),
   confirmDeleteButton: document.getElementById("confirmDeleteButton"),
+  cancelDeleteButton: document.getElementById("cancelDeleteButton"),
   cancelDeleteConfirmButtons: document.querySelectorAll("[data-cancel-delete-confirm]"),
   folderDialog: document.getElementById("folderDialog"),
   settingsDialog: document.getElementById("settingsDialog"),
@@ -119,17 +128,24 @@ const elements = {
   linkTitle: document.getElementById("linkTitle"),
   linkUrl: document.getElementById("linkUrl"),
   linkFolder: document.getElementById("linkFolder"),
+  linkTitleError: document.getElementById("linkTitleError"),
+  linkUrlError: document.getElementById("linkUrlError"),
+  linkFormError: document.getElementById("linkFormError"),
   folderName: document.getElementById("folderName"),
+  folderFormError: document.getElementById("folderFormError"),
   backgroundPreviewImage: document.getElementById("backgroundPreviewImage"),
   backgroundPreviewName: document.getElementById("backgroundPreviewName"),
   backgroundImage: document.getElementById("backgroundImage"),
+  backgroundSelectedFile: document.getElementById("backgroundSelectedFile"),
   backgroundImageError: document.getElementById("backgroundImageError"),
   backgroundOverlay: document.getElementById("backgroundOverlay"),
   backgroundOverlayColor: document.getElementById("backgroundOverlayColor"),
   backgroundOverlayValue: document.getElementById("backgroundOverlayValue"),
+  singleKeyShortcuts: document.getElementById("singleKeyShortcuts"),
   resetBackgroundButton: document.getElementById("resetBackgroundButton"),
   exportBackupButton: document.getElementById("exportBackupButton"),
   importBackupInput: document.getElementById("importBackupInput"),
+  importSelectedFile: document.getElementById("importSelectedFile"),
   importPreview: document.getElementById("importPreview"),
   importPreviewDate: document.getElementById("importPreviewDate"),
   importPreviewSites: document.getElementById("importPreviewSites"),
@@ -147,7 +163,7 @@ async function init() {
   const result = await storageService.load(defaultState);
   state = normalizeState(result.state);
   if (!result.ok && result.source === "read-error") {
-    console.warn(t("storageReadWarning"));
+    showAppStatus(t("storageReadWarning"));
   }
 
   bindEvents();
@@ -159,6 +175,18 @@ function bindEvents() {
   elements.addFolderButton.addEventListener("click", () => openFolderDialog());
   elements.settingsButton.addEventListener("click", () => openSettingsDialog());
   document.addEventListener("keydown", handleGlobalShortcut);
+  elements.linksGrid.addEventListener("keydown", handleLinkReorderKeydown);
+  elements.folderList.addEventListener("keydown", handleFolderReorderKeydown);
+
+  elements.linkTitle.addEventListener("input", () => {
+    clearInputError(elements.linkTitle, elements.linkTitleError);
+  });
+  elements.linkUrl.addEventListener("input", () => {
+    clearInputError(elements.linkUrl, elements.linkUrlError);
+  });
+  elements.folderName.addEventListener("input", () => {
+    clearInputError(elements.folderName, elements.folderFormError);
+  });
 
   document.querySelectorAll("[data-close]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -188,11 +216,26 @@ function bindEvents() {
   elements.linkForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const enteredTitle = elements.linkTitle.value.trim();
-    const url = normalizeWebUrl(elements.linkUrl.value);
-    const folderId = elements.linkFolder.value || ROOT_FOLDER_ID;
+    const validation = validateSiteDraft({
+      title: elements.linkTitle.value,
+      url: elements.linkUrl.value
+    });
+    if (!validation.ok) {
+      if (validation.field === "title") {
+        showInputError(elements.linkTitle, elements.linkTitleError, t("siteTitleTooLong"));
+      } else {
+        showInputError(elements.linkUrl, elements.linkUrlError, t("invalidSiteUrl"));
+      }
+      return;
+    }
 
-    if (!url) return;
+    clearInputError(elements.linkTitle, elements.linkTitleError);
+    clearInputError(elements.linkUrl, elements.linkUrlError);
+    clearFieldError(elements.linkFormError);
+    const enteredTitle = elements.linkTitle.value.trim();
+    const url = validation.url;
+    const folderId = elements.linkFolder.value || ROOT_FOLDER_ID;
+    const linkId = editingLinkId || createId();
 
     const defaultSubmitLabel = editingLinkId ? t("save") : t("add");
     elements.linkSubmitButton.disabled = true;
@@ -201,21 +244,37 @@ function bindEvents() {
 
     try {
       const title = enteredTitle || deriveTitleFromUrl(url, t("siteFallback"));
-      const editingLink = state.links.find((link) => link.id === editingLinkId);
+      const saved = await commitStateChange(
+        (latestState) => {
+          const resolvedFolderId = latestState.folders.some((folder) => folder.id === folderId)
+            ? folderId
+            : ROOT_FOLDER_ID;
+          const editingLinkIndex = latestState.links.findIndex((link) => link.id === editingLinkId);
 
-      if (editingLink) {
-        Object.assign(editingLink, { title, url, folderId });
-      } else {
-        state.links.unshift({
-          id: createId(),
-          title,
-          url,
-          folderId
-        });
-      }
+          if (editingLinkId && editingLinkIndex === -1) {
+            throw new Error("The site no longer exists");
+          }
 
-      state.selectedFolderId = folderId === ROOT_FOLDER_ID ? "all" : folderId;
-      await saveAndRender();
+          if (editingLinkIndex >= 0) {
+            latestState.links[editingLinkIndex] = {
+              ...latestState.links[editingLinkIndex],
+              title,
+              url,
+              folderId: resolvedFolderId
+            };
+          } else {
+            latestState.links.unshift({ id: linkId, title, url, folderId: resolvedFolderId });
+          }
+
+          latestState.selectedFolderId =
+            resolvedFolderId === ROOT_FOLDER_ID ? "all" : resolvedFolderId;
+          return latestState;
+        },
+        { onError: () => showFieldError(elements.linkFormError, t("storageSaveWarning")) }
+      );
+      if (!saved) return;
+
+      clearFieldError(elements.linkFormError);
       editingLinkId = null;
       elements.linkForm.reset();
       elements.linkDialog.close();
@@ -229,17 +288,33 @@ function bindEvents() {
   elements.folderForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const name = elements.folderName.value.trim();
-    if (!name) return;
+    const validation = validateFolderName(elements.folderName.value);
+    if (!validation.ok) {
+      const message =
+        validation.error === "name-too-long" ? t("folderNameTooLong") : t("folderNameRequired");
+      showInputError(elements.folderName, elements.folderFormError, message);
+      return;
+    }
+
+    clearInputError(elements.folderName, elements.folderFormError);
+    const name = validation.name;
 
     const folder = {
       id: createId(),
       name
     };
 
-    state.folders.push(folder);
-    state.selectedFolderId = folder.id;
-    await saveAndRender();
+    const saved = await commitStateChange(
+      (latestState) => {
+        latestState.folders.push(folder);
+        latestState.selectedFolderId = folder.id;
+        return latestState;
+      },
+      { onError: () => showFieldError(elements.folderFormError, t("storageSaveWarning")) }
+    );
+    if (!saved) return;
+
+    clearFieldError(elements.folderFormError);
     elements.folderForm.reset();
     elements.folderDialog.close();
   });
@@ -250,6 +325,7 @@ function bindEvents() {
     const file = elements.backgroundImage.files[0];
     const overlay = Number(elements.backgroundOverlay.value);
     const overlayColor = elements.backgroundOverlayColor.value;
+    const shortcutsEnabled = elements.singleKeyShortcuts.checked;
 
     let nextBackground;
 
@@ -306,24 +382,32 @@ function bindEvents() {
       };
     }
 
-    const nextState = { ...state, background: nextBackground };
-    const saveResult = await storageService.save(nextState);
-    if (!saveResult.ok) {
-      showBackgroundImageError("save-failed");
-      return;
-    }
+    const saved = await commitStateChange(
+      (latestState) => {
+        latestState.background = nextBackground;
+        latestState.shortcutsEnabled = shortcutsEnabled;
+        return latestState;
+      },
+      { onError: () => showBackgroundImageError("save-failed") }
+    );
+    if (!saved) return;
 
     clearBackgroundImageError();
-    state = nextState;
-    render();
     elements.backgroundForm.reset();
     elements.settingsDialog.close();
   });
 
   elements.resetBackgroundButton.addEventListener("click", async () => {
     clearBackgroundImageError();
-    state.background = structuredClone(defaultState.background);
-    await saveAndRender();
+    const saved = await commitStateChange(
+      (latestState) => {
+        latestState.background = structuredClone(defaultState.background);
+        return latestState;
+      },
+      { onError: () => showBackgroundImageError("save-failed") }
+    );
+    if (!saved) return;
+
     elements.backgroundForm.reset();
     elements.settingsDialog.close();
   });
@@ -341,6 +425,7 @@ function bindEvents() {
       elements.backgroundOverlayColor.value
     );
   });
+  elements.backgroundImage.addEventListener("change", updatePendingBackgroundFile);
 
   elements.settingsTabs.forEach((button) => {
     button.addEventListener("click", () => setSettingsTab(button.dataset.settingsTab));
@@ -363,9 +448,15 @@ function bindEvents() {
     const chip = event.target.closest("[data-folder]");
     if (!chip) return;
 
-    folderFocusRequest = chip.dataset.folder;
-    state.selectedFolderId = chip.dataset.folder;
-    await saveAndRender();
+    const selectedFolderId = chip.dataset.folder;
+    folderFocusRequest = selectedFolderId;
+    await commitStateChange((latestState) => {
+      const folderExists =
+        selectedFolderId === "all" ||
+        latestState.folders.some((folder) => folder.id === selectedFolderId);
+      latestState.selectedFolderId = folderExists ? selectedFolderId : "all";
+      return latestState;
+    });
   });
   elements.folderRow.addEventListener("scroll", updateFolderScrollState, { passive: true });
   elements.folderRow.addEventListener("wheel", handleFolderWheel, { passive: false });
@@ -397,11 +488,15 @@ function bindEvents() {
     );
     if (!shouldDelete) return;
 
-    state.links = state.links.filter((item) => item.id !== link.id);
+    const saved = await commitStateChange((latestState) => {
+      latestState.links = latestState.links.filter((item) => item.id !== link.id);
+      return latestState;
+    });
+    if (!saved) return;
+
     editingLinkId = null;
     elements.linkForm.reset();
     elements.linkDialog.close();
-    await saveAndRender();
   });
 
   elements.linksGrid.addEventListener("pointerdown", startLinkDrag);
@@ -448,8 +543,7 @@ function bindEvents() {
     );
     if (!shouldDelete) return;
 
-    removeFolder(folder.id);
-    await saveAndRender();
+    await commitStateChange((latestState) => removeFolder(latestState, folder.id));
   });
 
   elements.folderList.addEventListener("keydown", async (event) => {
@@ -471,10 +565,34 @@ function bindEvents() {
 
 function render() {
   applyBackground();
+  renderShortcutPreference();
   renderFolderOptions();
   renderFolders();
   renderFolderList();
   renderLinks();
+}
+
+function renderShortcutPreference() {
+  const enabled = state.shortcutsEnabled;
+  elements.singleKeyShortcuts.checked = enabled;
+
+  for (const { button, key, titleKey, labelKey } of [
+    { button: elements.addLinkButton, key: "A", titleKey: "addSiteShortcut", labelKey: "addSite" },
+    {
+      button: elements.addFolderButton,
+      key: "F",
+      titleKey: "createFolderShortcut",
+      labelKey: "createFolder"
+    },
+    { button: elements.settingsButton, key: "S", titleKey: "settingsShortcut", labelKey: "settings" }
+  ]) {
+    button.title = t(enabled ? titleKey : labelKey);
+    if (enabled) {
+      button.setAttribute("aria-keyshortcuts", key);
+    } else {
+      button.removeAttribute("aria-keyshortcuts");
+    }
+  }
 }
 
 function renderFolders() {
@@ -635,6 +753,18 @@ function startFolderRename(folderId) {
 async function saveFolderRename(folderId, value) {
   if (savingFolderRenameId !== null || folderId !== renamingFolderId) return false;
 
+  const validation = validateFolderName(value);
+  const renameInput = [...elements.folderList.querySelectorAll("[data-folder-rename-input]")].find(
+    (input) => input.dataset.folderRenameInput === folderId
+  );
+  if (!validation.ok) {
+    const message =
+      validation.error === "name-too-long" ? t("folderNameTooLong") : t("folderNameRequired");
+    showInputError(renameInput, elements.folderFormError, message);
+    return false;
+  }
+
+  clearInputError(renameInput, elements.folderFormError);
   const result = renameFolder(state.folders, folderId, value);
 
   if (!result.renamed) {
@@ -654,13 +784,29 @@ async function saveFolderRename(folderId, value) {
   setFolderRenameControlsDisabled(folderId, true);
 
   try {
-    state.folders = result.folders;
+    const saved = await commitStateChange(
+      (latestState) => {
+        const latestResult = renameFolder(latestState.folders, folderId, value);
+        if (!latestResult.renamed) throw new Error("The folder no longer exists");
+        latestState.folders = latestResult.folders;
+        return latestState;
+      },
+      { onError: () => showFieldError(elements.folderFormError, t("storageSaveWarning")) }
+    );
+    if (!saved) {
+      renamingFolderId = folderId;
+      requestFolderRenameFocus(folderId, "input");
+      renderFolderList();
+      return false;
+    }
+
+    clearFieldError(elements.folderFormError);
     renamingFolderId = null;
     folderRenameFocusRequest = null;
     if (elements.folderDialog.open) {
       requestFolderRenameFocus(folderId, "button");
     }
-    await saveAndRender();
+    renderFolderList();
     return true;
   } finally {
     savingFolderRenameId = null;
@@ -693,7 +839,8 @@ function renderFolderList() {
     dragButton.dataset.dragFolder = folder.id;
     dragButton.title = t("drag");
     dragButton.disabled = isEditing;
-    dragButton.setAttribute("aria-label", t("dragFolder", [folder.name]));
+    dragButton.setAttribute("aria-label", t("reorderFolder", [folder.name]));
+    dragButton.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown");
     dragButton.append(
       createIcon(["M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"])
     );
@@ -707,9 +854,14 @@ function renderFolderList() {
       const input = document.createElement("input");
       input.className = "folder-list-input";
       input.type = "text";
+      input.maxLength = 200;
       input.value = folder.name;
       input.dataset.folderRenameInput = folder.id;
       input.setAttribute("aria-label", t("newFolderName", [folder.name]));
+      input.setAttribute("aria-describedby", "folderFormError");
+      input.addEventListener("input", () => {
+        clearInputError(input, elements.folderFormError);
+      });
 
       const saveButton = document.createElement("button");
       saveButton.className = "folder-list-save";
@@ -784,6 +936,12 @@ function renderLinks() {
 
   const cards = visibleLinks.map((link) => createLinkCard(link));
   elements.linksGrid.replaceChildren(...cards);
+  if (state.selectedFolderId === "all") {
+    elements.emptyState.textContent = t("emptyAll");
+  } else {
+    const folderName = state.folders.find((folder) => folder.id === state.selectedFolderId)?.name;
+    elements.emptyState.textContent = t("emptyFolder", [folderName || t("favoriteFolder")]);
+  }
   elements.emptyState.hidden = visibleLinks.length > 0;
 }
 
@@ -797,7 +955,8 @@ function createLinkCard(link) {
   dragButton.type = "button";
   dragButton.dataset.dragLink = link.id;
   dragButton.title = t("drag");
-  dragButton.setAttribute("aria-label", t("dragSite", [link.title]));
+  dragButton.setAttribute("aria-label", t("reorderSite", [link.title]));
+  dragButton.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight");
   dragButton.append(
     createIcon(["M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"])
   );
@@ -870,10 +1029,15 @@ function createLinkCard(link) {
   const title = document.createElement("span");
   title.className = "link-title";
   title.textContent = link.title;
+  title.title = link.title;
 
   const host = document.createElement("span");
   host.className = "link-host";
-  host.textContent = getHost(link.url);
+  const hostText = getHost(link.url);
+  host.textContent = hostText;
+  host.title = hostText;
+  openLink.title = `${link.title} — ${hostText}`;
+  openLink.setAttribute("aria-label", `${link.title} — ${hostText}`);
 
   text.append(title, host);
   openLink.append(favicon, text);
@@ -881,6 +1045,41 @@ function createLinkCard(link) {
   card.append(dragButton, openLink, actions);
 
   return card;
+}
+
+async function handleLinkReorderKeydown(event) {
+  const handle = event.target.closest("[data-drag-link]");
+  const delta = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
+  if (!handle || !delta) return;
+
+  const linkId = handle.dataset.dragLink;
+  const visibleLinks = getVisibleLinks();
+  const preview = moveItemByDelta(
+    visibleLinks.map((link) => link.id),
+    linkId,
+    delta
+  );
+  if (!preview.moved) return;
+
+  event.preventDefault();
+  const selectedFolderId = state.selectedFolderId;
+  const linkTitle = visibleLinks.find((link) => link.id === linkId)?.title || t("siteFallback");
+  const saved = await commitStateChange((latestState) => {
+    const latestMove = moveItemByDelta(
+      getVisibleLinks(latestState, selectedFolderId).map((link) => link.id),
+      linkId,
+      delta
+    );
+    return latestMove.moved
+      ? reorderVisibleLinksByIds(latestState, latestMove.ids)
+      : latestState;
+  });
+  if (!saved) return;
+
+  focusReorderHandle(elements.linksGrid, "dragLink", linkId);
+  const committedLinks = getVisibleLinks();
+  const position = committedLinks.findIndex((link) => link.id === linkId) + 1;
+  announceReorder(t("itemMoved", [linkTitle, position, committedLinks.length]));
 }
 
 function startLinkDrag(event) {
@@ -960,8 +1159,16 @@ async function finishLinkDrag(event) {
   if (!shouldReorder) return;
 
   suppressLinkClicksUntil = Date.now() + 400;
-  reorderVisibleLinks(currentDrag.sourceId, currentDrag.targetId, currentDrag.after);
-  await saveAndRender();
+  const selectedFolderId = state.selectedFolderId;
+  await commitStateChange((latestState) =>
+    reorderVisibleLinks(
+      latestState,
+      currentDrag.sourceId,
+      currentDrag.targetId,
+      currentDrag.after,
+      selectedFolderId
+    )
+  );
 }
 
 function cancelLinkDrag(event) {
@@ -988,12 +1195,12 @@ function clearDropIndicators() {
   });
 }
 
-function reorderVisibleLinks(sourceId, targetId, after) {
-  const visibleLinks = getVisibleLinks();
+function reorderVisibleLinks(targetState, sourceId, targetId, after, selectedFolderId) {
+  const visibleLinks = getVisibleLinks(targetState, selectedFolderId);
   const orderedIds = visibleLinks.map((link) => link.id);
   const sourceIndex = orderedIds.indexOf(sourceId);
 
-  if (sourceIndex === -1 || !orderedIds.includes(targetId)) return;
+  if (sourceIndex === -1 || !orderedIds.includes(targetId)) return targetState;
 
   orderedIds.splice(sourceIndex, 1);
   const targetIndex = orderedIds.indexOf(targetId);
@@ -1003,12 +1210,80 @@ function reorderVisibleLinks(sourceId, targetId, after) {
   const visibleIds = new Set(orderedIds);
   let cursor = 0;
 
-  state.links = state.links.map((link) => {
+  targetState.links = targetState.links.map((link) => {
     if (!visibleIds.has(link.id)) return link;
     const nextLink = linksById.get(orderedIds[cursor]);
     cursor += 1;
     return nextLink;
   });
+  return targetState;
+}
+
+function reorderVisibleLinksByIds(targetState, orderedIds) {
+  const linksById = new Map(targetState.links.map((link) => [link.id, link]));
+  const visibleIds = new Set(orderedIds);
+  let cursor = 0;
+
+  targetState.links = targetState.links.map((link) => {
+    if (!visibleIds.has(link.id)) return link;
+    const nextLink = linksById.get(orderedIds[cursor]);
+    cursor += 1;
+    return nextLink;
+  });
+  return targetState;
+}
+
+async function handleFolderReorderKeydown(event) {
+  const handle = event.target.closest("[data-drag-folder]");
+  const delta = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+  if (!handle || handle.disabled || !delta) return;
+
+  const folderId = handle.dataset.dragFolder;
+  const userFolders = getUserFolders();
+  const preview = moveItemByDelta(
+    userFolders.map((folder) => folder.id),
+    folderId,
+    delta
+  );
+  if (!preview.moved) return;
+
+  event.preventDefault();
+  const folderName = userFolders.find((folder) => folder.id === folderId)?.name || "";
+  const saved = await commitStateChange((latestState) => {
+    const latestFolders = getUserFolders(latestState);
+    const latestMove = moveItemByDelta(
+      latestFolders.map((folder) => folder.id),
+      folderId,
+      delta
+    );
+    if (!latestMove.moved) return latestState;
+
+    const foldersById = new Map(latestFolders.map((folder) => [folder.id, folder]));
+    const rootFolder = latestState.folders.find((folder) => folder.id === ROOT_FOLDER_ID);
+    latestState.folders = [
+      rootFolder,
+      ...latestMove.ids.map((id) => foldersById.get(id))
+    ].filter(Boolean);
+    return latestState;
+  });
+  if (!saved) return;
+
+  focusReorderHandle(elements.folderList, "dragFolder", folderId);
+  const committedFolders = getUserFolders();
+  const position = committedFolders.findIndex((folder) => folder.id === folderId) + 1;
+  announceReorder(t("itemMoved", [folderName, position, committedFolders.length]));
+}
+
+function focusReorderHandle(container, dataKey, id) {
+  const attribute = `data-${dataKey.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`;
+  const target = [...container.querySelectorAll(`[${attribute}]`)].find(
+    (element) => element.dataset[dataKey] === id
+  );
+  target?.focus({ preventScroll: true });
+}
+
+function announceReorder(message) {
+  elements.reorderStatus.textContent = message;
 }
 
 function startFolderDrag(event) {
@@ -1076,8 +1351,9 @@ async function finishFolderDrag(event) {
   cleanupFolderDrag(currentDrag);
   if (!shouldReorder) return;
 
-  reorderFolders(currentDrag.sourceId, currentDrag.targetId, currentDrag.after);
-  await saveAndRender();
+  await commitStateChange((latestState) =>
+    reorderFolders(latestState, currentDrag.sourceId, currentDrag.targetId, currentDrag.after)
+  );
 }
 
 function cancelFolderDrag(event) {
@@ -1104,20 +1380,21 @@ function clearFolderDropIndicators() {
     .forEach((row) => row.classList.remove("folder-drop-before", "folder-drop-after"));
 }
 
-function reorderFolders(sourceId, targetId, after) {
-  const userFolders = getUserFolders();
+function reorderFolders(targetState, sourceId, targetId, after) {
+  const userFolders = getUserFolders(targetState);
   const orderedIds = userFolders.map((folder) => folder.id);
   const sourceIndex = orderedIds.indexOf(sourceId);
 
-  if (sourceIndex === -1 || !orderedIds.includes(targetId)) return;
+  if (sourceIndex === -1 || !orderedIds.includes(targetId)) return targetState;
 
   orderedIds.splice(sourceIndex, 1);
   const targetIndex = orderedIds.indexOf(targetId);
   orderedIds.splice(targetIndex + (after ? 1 : 0), 0, sourceId);
 
   const foldersById = new Map(userFolders.map((folder) => [folder.id, folder]));
-  const rootFolder = state.folders.find((folder) => folder.id === ROOT_FOLDER_ID);
-  state.folders = [rootFolder, ...orderedIds.map((id) => foldersById.get(id))].filter(Boolean);
+  const rootFolder = targetState.folders.find((folder) => folder.id === ROOT_FOLDER_ID);
+  targetState.folders = [rootFolder, ...orderedIds.map((id) => foldersById.get(id))].filter(Boolean);
+  return targetState;
 }
 
 function applyBackground() {
@@ -1152,6 +1429,9 @@ function applyBackground() {
 function openLinkDialog(link = null) {
   renderFolderOptions();
 
+  clearInputError(elements.linkTitle, elements.linkTitleError);
+  clearInputError(elements.linkUrl, elements.linkUrlError);
+  clearFieldError(elements.linkFormError);
   editingLinkId = link?.id || null;
   elements.linkDialogTitle.textContent = link ? t("editSiteDialog") : t("addSiteDialog");
   elements.linkSubmitButton.textContent = link ? t("save") : t("add");
@@ -1167,6 +1447,7 @@ function openLinkDialog(link = null) {
 }
 
 function openFolderDialog() {
+  clearInputError(elements.folderName, elements.folderFormError);
   renderFolderList();
   openDialog(elements.folderDialog, elements.folderName);
 }
@@ -1186,12 +1467,14 @@ function openSettingsDialog() {
   elements.backgroundOverlay.value = state.background.overlay;
   elements.backgroundOverlayColor.value =
     state.background.overlayColor || defaultState.background.overlayColor;
+  elements.singleKeyShortcuts.checked = state.shortcutsEnabled;
   updateOverlayLabel(state.background.overlay);
   openDialog(elements.settingsDialog, elements.backgroundImage);
 }
 
 function handleGlobalShortcut(event) {
   if (event.defaultPrevented) return;
+  if (!state.shortcutsEnabled) return;
 
   const action = getGlobalShortcutAction({
     code: event.code,
@@ -1306,7 +1589,9 @@ async function loadImportFile(event) {
     return;
   }
 
-  pendingImport = result;
+  pendingImport = { ...result, fileName: file.name };
+  elements.importSelectedFile.textContent = t("importSelectedFile", [pendingImport.fileName]);
+  elements.importSelectedFile.hidden = false;
   elements.importPreviewDate.textContent = new Intl.DateTimeFormat(uiLocale, {
     dateStyle: "medium",
     timeStyle: "short"
@@ -1321,18 +1606,20 @@ async function loadImportFile(event) {
 async function confirmImport() {
   if (!pendingImport) return;
 
-  const candidate = normalizeState(buildImportedState(state, pendingImport.data));
+  const importedData = pendingImport.data;
   elements.confirmImportButton.disabled = true;
-  const result = await storageService.save(candidate);
+  const saved = await commitStateChange(
+    (latestState) =>
+      normalizeState({
+        ...buildImportedState(latestState, importedData),
+        shortcutsEnabled: latestState.shortcutsEnabled
+      }),
+    { onError: () => showImportError(t("importSaveError")) }
+  );
   elements.confirmImportButton.disabled = false;
 
-  if (!result.ok) {
-    showImportError(t("importSaveError"));
-    return;
-  }
+  if (!saved) return;
 
-  state = candidate;
-  render();
   resetImportState();
   showSettingsStatus(t("importSuccess"));
 }
@@ -1344,6 +1631,8 @@ function resetImportState() {
 
 function clearImportPreviewState() {
   pendingImport = null;
+  elements.importSelectedFile.textContent = "";
+  elements.importSelectedFile.hidden = true;
   elements.importPreview.hidden = true;
   elements.confirmImportButton.hidden = true;
   elements.confirmImportButton.disabled = false;
@@ -1354,6 +1643,7 @@ function clearImportPreviewState() {
 
 function resetSettingsDialogState() {
   elements.backgroundForm.reset();
+  clearPendingBackgroundFile();
   clearBackgroundImageError();
   resetImportState();
   setSettingsTab("background");
@@ -1383,11 +1673,34 @@ function showBackgroundImageError(error) {
     messageKeys[error] || "backgroundDecodeFailed"
   );
   elements.backgroundImageError.hidden = false;
+  elements.backgroundImage.setAttribute("aria-invalid", "true");
 }
 
 function clearBackgroundImageError() {
   elements.backgroundImageError.textContent = "";
   elements.backgroundImageError.hidden = true;
+  elements.backgroundImage.removeAttribute("aria-invalid");
+}
+
+function updatePendingBackgroundFile() {
+  const file = elements.backgroundImage.files?.[0];
+  clearBackgroundImageError();
+
+  if (!file) {
+    clearPendingBackgroundFile();
+    return;
+  }
+
+  elements.backgroundSelectedFile.textContent = t("backgroundSelectedFile", [file.name]);
+  elements.backgroundSelectedFile.hidden = false;
+
+  const validation = validateBackgroundImage({ type: file.type, size: file.size });
+  if (!validation.ok) showBackgroundImageError(validation.error);
+}
+
+function clearPendingBackgroundFile() {
+  elements.backgroundSelectedFile.textContent = "";
+  elements.backgroundSelectedFile.hidden = true;
 }
 
 function getImportErrorMessage(error) {
@@ -1407,12 +1720,13 @@ function openDialog(dialog, focusTarget) {
 
 function requestDeleteConfirmation(message) {
   if (pendingDeleteConfirmation) return Promise.resolve(false);
+  deleteConfirmationReturnFocus = document.activeElement;
   elements.deleteConfirmMessage.textContent = message;
 
   return new Promise((resolve) => {
     pendingDeleteConfirmation = resolve;
     elements.deleteConfirmDialog.showModal();
-    elements.confirmDeleteButton.focus({ preventScroll: true });
+    elements.cancelDeleteButton.focus({ preventScroll: true });
   });
 }
 
@@ -1420,18 +1734,70 @@ function resolveDeleteConfirmation(confirmed) {
   const resolve = pendingDeleteConfirmation;
   if (!resolve) return;
 
+  const returnFocus = deleteConfirmationReturnFocus;
   pendingDeleteConfirmation = null;
+  deleteConfirmationReturnFocus = null;
   if (elements.deleteConfirmDialog.open) elements.deleteConfirmDialog.close();
+  returnFocus?.focus({ preventScroll: true });
   resolve(Boolean(confirmed));
 }
 
-async function saveAndRender() {
-  const result = await storageService.save(state);
-  if (!result.ok && result.error !== "storage-unavailable") {
-    console.warn(t("storageSaveWarning"));
+async function commitStateChange(transform, options = {}) {
+  const result = await storageService.update(defaultState, transform);
+  if (!result.ok) {
+    if (typeof options.onError === "function") {
+      options.onError(result);
+    } else {
+      showAppStatus(t("storageSaveWarning"));
+    }
+    return false;
   }
+
+  state = normalizeState(result.state);
   render();
-  return result.ok;
+  clearAppStatus();
+  return true;
+}
+
+function showAppStatus(message) {
+  if (!elements.appStatus) return;
+  if (appStatusTimer !== null) window.clearTimeout(appStatusTimer);
+  elements.appStatus.textContent = message;
+  elements.appStatus.hidden = false;
+  appStatusTimer = window.setTimeout(clearAppStatus, 6000);
+}
+
+function clearAppStatus() {
+  if (appStatusTimer !== null) window.clearTimeout(appStatusTimer);
+  appStatusTimer = null;
+  if (!elements.appStatus) return;
+  elements.appStatus.textContent = "";
+  elements.appStatus.hidden = true;
+}
+
+function showFieldError(element, message) {
+  if (!element) return;
+  element.textContent = message;
+  element.hidden = false;
+}
+
+function clearFieldError(element) {
+  if (!element) return;
+  element.textContent = "";
+  element.hidden = true;
+}
+
+function showInputError(input, errorElement, message) {
+  showFieldError(errorElement, message);
+  if (!input) return;
+  input.setAttribute("aria-invalid", "true");
+  input.focus({ preventScroll: true });
+}
+
+function clearInputError(input, errorElement) {
+  clearFieldError(errorElement);
+  if (!input) return;
+  input.removeAttribute("aria-invalid");
 }
 
 function normalizeState(savedState) {
@@ -1479,31 +1845,34 @@ function normalizeState(savedState) {
     nextState.selectedFolderId = "all";
   }
 
+  nextState.shortcutsEnabled = nextState.shortcutsEnabled !== false;
+
   return nextState;
 }
 
-function removeFolder(folderId) {
-  if (folderId === ROOT_FOLDER_ID) return;
+function removeFolder(targetState, folderId) {
+  if (folderId === ROOT_FOLDER_ID) return targetState;
 
-  state.folders = state.folders.filter((folder) => folder.id !== folderId);
-  state.links = state.links.map((link) => ({
+  targetState.folders = targetState.folders.filter((folder) => folder.id !== folderId);
+  targetState.links = targetState.links.map((link) => ({
     ...link,
     folderId: link.folderId === folderId ? ROOT_FOLDER_ID : link.folderId
   }));
 
-  if (state.selectedFolderId === folderId) {
-    state.selectedFolderId = "all";
+  if (targetState.selectedFolderId === folderId) {
+    targetState.selectedFolderId = "all";
   }
+  return targetState;
 }
 
-function getUserFolders() {
-  return state.folders.filter((folder) => folder.id !== ROOT_FOLDER_ID);
+function getUserFolders(targetState = state) {
+  return targetState.folders.filter((folder) => folder.id !== ROOT_FOLDER_ID);
 }
 
-function getVisibleLinks() {
-  return state.selectedFolderId === "all"
-    ? state.links
-    : state.links.filter((link) => link.folderId === state.selectedFolderId);
+function getVisibleLinks(targetState = state, selectedFolderId = targetState.selectedFolderId) {
+  return selectedFolderId === "all"
+    ? targetState.links
+    : targetState.links.filter((link) => link.folderId === selectedFolderId);
 }
 
 function getHost(value) {

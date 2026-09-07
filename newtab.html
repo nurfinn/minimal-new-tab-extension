@@ -8,8 +8,12 @@
   </head>
   <body>
     <div class="background-overlay" aria-hidden="true"></div>
+    <p class="app-status" id="appStatus" role="alert" hidden></p>
+    <p class="visually-hidden" id="reorderStatus" aria-live="polite" aria-atomic="true"></p>
 
     <main class="shell">
+      <h1 class="visually-hidden" data-i18n="appShortName">Minimal Tab</h1>
+
       <header class="topbar">
         <nav class="folder-row" id="folderRow" aria-label="Folders" data-i18n-aria-label="foldersNav">
           <div class="folder-row-track" id="folderRowTrack"></div>
@@ -38,14 +42,16 @@
 
       <section class="content">
         <div class="grid" id="linksGrid" aria-live="polite"></div>
-        <p class="empty" id="emptyState" data-i18n="emptyState" hidden>Add your first site with the + button.</p>
+        <p class="empty" id="emptyState" data-i18n="emptyAll" aria-live="polite" hidden>No sites yet. Add one with the + button.</p>
       </section>
     </main>
 
-    <a class="signature" href="https://nurfinn.com/?utm_source=minimal_new_tab_extension&amp;utm_medium=referral" rel="noreferrer">by nurfinn</a>
+    <footer>
+      <a class="signature" href="https://nurfinn.com/?utm_source=minimal_new_tab_extension&amp;utm_medium=referral" rel="noreferrer">by nurfinn</a>
+    </footer>
 
-    <dialog class="modal" id="linkDialog">
-      <form class="modal-inner" id="linkForm" method="dialog">
+    <dialog class="modal" id="linkDialog" aria-labelledby="linkDialogTitle">
+      <form class="modal-inner" id="linkForm" method="dialog" novalidate>
         <header class="modal-header">
           <h2 id="linkDialogTitle" data-i18n="addSiteDialog">Add site</h2>
           <button class="ghost-button" type="button" data-close="linkDialog" aria-label="Close" data-i18n-aria-label="close">
@@ -57,13 +63,17 @@
 
         <label class="field">
           <span><span data-i18n="titleLabel">Name</span> <small data-i18n="optional">optional</small></span>
-          <input id="linkTitle" data-i18n-placeholder="titlePlaceholder" name="title" type="text" placeholder="Generated from the address" autocomplete="off">
+          <input id="linkTitle" data-i18n-placeholder="titlePlaceholder" name="title" type="text" maxlength="500" aria-describedby="linkTitleError" placeholder="Generated from the address" autocomplete="off">
         </label>
+        <p class="field-error" id="linkTitleError" role="alert" hidden></p>
 
         <label class="field">
           <span data-i18n="urlLabel">Address</span>
-          <input id="linkUrl" name="url" type="text" placeholder="github.com" autocomplete="off" required>
+          <input id="linkUrl" name="url" type="text" aria-describedby="linkUrlError" placeholder="github.com" autocomplete="off" required>
         </label>
+        <p class="field-error" id="linkUrlError" role="alert" hidden></p>
+
+        <p class="field-error" id="linkFormError" role="alert" hidden></p>
 
         <label class="field">
           <span data-i18n="folderLabel">Folder</span>
@@ -94,16 +104,16 @@
         <p class="confirmation-message" id="deleteConfirmMessage"></p>
 
         <footer class="modal-actions confirmation-actions">
-          <button class="text-button" type="button" data-cancel-delete-confirm data-i18n="cancel">Cancel</button>
+          <button class="text-button" id="cancelDeleteButton" type="button" data-cancel-delete-confirm data-i18n="cancel">Cancel</button>
           <button class="danger-button" id="confirmDeleteButton" type="button" data-i18n="delete">Delete</button>
         </footer>
       </div>
     </dialog>
 
-    <dialog class="modal" id="folderDialog">
-      <form class="modal-inner" id="folderForm" method="dialog">
+    <dialog class="modal folder-modal" id="folderDialog" aria-labelledby="folderDialogTitle">
+      <form class="modal-inner" id="folderForm" method="dialog" novalidate>
         <header class="modal-header">
-          <h2 data-i18n="foldersDialog">Folders</h2>
+          <h2 id="folderDialogTitle" data-i18n="foldersDialog">Folders</h2>
           <button class="ghost-button" type="button" data-close="folderDialog" aria-label="Close" data-i18n-aria-label="close">
             <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
               <path d="m6 6 12 12M18 6 6 18"></path>
@@ -111,26 +121,30 @@
           </button>
         </header>
 
-        <label class="field">
-          <span data-i18n="newFolderLabel">New folder</span>
-          <input id="folderName" data-i18n-placeholder="folderPlaceholder" name="folderName" type="text" placeholder="Work" autocomplete="off" required>
-        </label>
+        <div class="folder-create-row">
+          <label class="field">
+            <span data-i18n="newFolderLabel">New folder</span>
+            <input id="folderName" data-i18n-placeholder="folderPlaceholder" name="folderName" type="text" maxlength="200" aria-describedby="folderFormError" placeholder="Work" autocomplete="off" required>
+          </label>
+          <button class="primary-button" id="createFolderSubmitButton" type="submit" data-i18n="create">Create</button>
+        </div>
+
+        <p class="field-error" id="folderFormError" role="alert" hidden></p>
 
         <div class="folder-manager" id="folderManager" hidden>
           <div class="folder-list" id="folderList" aria-label="Folder list" data-i18n-aria-label="folderList"></div>
         </div>
 
-        <footer class="modal-actions">
+        <footer class="modal-actions folder-dialog-actions">
           <button class="text-button" type="button" data-close="folderDialog" data-i18n="cancel">Cancel</button>
-          <button class="primary-button" type="submit" data-i18n="create">Create</button>
         </footer>
       </form>
     </dialog>
 
-    <dialog class="modal settings-modal" id="settingsDialog">
+    <dialog class="modal settings-modal" id="settingsDialog" aria-labelledby="settingsDialogTitle">
       <div class="modal-inner settings-modal-inner">
         <header class="modal-header">
-          <h2 data-i18n="settingsDialog">Settings</h2>
+          <h2 id="settingsDialogTitle" data-i18n="settingsDialog">Settings</h2>
           <button class="ghost-button" type="button" data-close="settingsDialog" aria-label="Close" data-i18n-aria-label="close">
             <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
               <path d="m6 6 12 12M18 6 6 18"></path>
@@ -155,9 +169,11 @@
 
             <label class="file-field">
               <span data-i18n="imageLabel">Image</span>
-              <input id="backgroundImage" name="backgroundImage" type="file" accept="image/*">
+              <input id="backgroundImage" name="backgroundImage" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="backgroundImageLimits backgroundSelectedFile backgroundImageError">
             </label>
 
+            <p class="settings-help" id="backgroundImageLimits" data-i18n="backgroundImageLimits">PNG, JPEG, or WebP — up to 3 MB and 4096 px per side.</p>
+            <p class="file-selection" id="backgroundSelectedFile" role="status" hidden></p>
             <p id="backgroundImageError" role="alert" class="settings-error" hidden></p>
 
             <label class="field compact-field">
@@ -171,8 +187,16 @@
               <output id="backgroundOverlayValue" for="backgroundOverlay">0%</output>
             </label>
 
+            <label class="toggle-field">
+              <span class="toggle-copy">
+                <strong data-i18n="singleKeyShortcutsLabel">Single-key shortcuts</strong>
+                <span data-i18n="singleKeyShortcutsDescription">Use A, F, and S when no dialog or field is active.</span>
+              </span>
+              <input id="singleKeyShortcuts" name="singleKeyShortcuts" type="checkbox" checked>
+            </label>
+
             <footer class="modal-actions split-actions">
-              <button class="text-button" id="resetBackgroundButton" data-i18n="reset" type="button">Reset</button>
+              <button class="text-button" id="resetBackgroundButton" data-i18n="restoreDefault" type="button">Restore default</button>
               <div class="modal-action-end">
                 <button class="text-button" type="button" data-close="settingsDialog" data-i18n="cancel">Cancel</button>
                 <button class="primary-button" type="submit" data-i18n="save">Save</button>
@@ -198,8 +222,9 @@
               </div>
               <label class="file-field backup-file-field">
                 <span data-i18n="chooseJsonFile">Choose a JSON file</span>
-                <input id="importBackupInput" accept="application/json,.json" type="file">
+                <input id="importBackupInput" accept="application/json,.json" aria-describedby="importSelectedFile importError" type="file">
               </label>
+              <p class="file-selection backup-selected-file" id="importSelectedFile" role="status" hidden></p>
             </article>
 
             <div class="backup-preview" id="importPreview" hidden>
