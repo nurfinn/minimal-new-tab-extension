@@ -8,12 +8,12 @@
     "newtab.html": "658cefea6780d2d0e84185d92b61b1b4631110a8ee1f6d7bc4158107f7516869",
     "newtab.js": "e90e0068394f07427e4326fc93e3f5430c665c23a9337e06498f19c3cec314c5",
     "storage-service.mjs": "134dacfe20a8f86d1fc218f3e1cb5962fb869ac0165bd1afc7dbe1d2962db778",
-    "styles.css": "1de5e9200d678d0cc72a7eb1a75e3cbbf15677c008784aa892c28a29db99365f",
+    "styles.css": "c468fe86cc11cc5cc18ac741ca57527e64967016bc5e7e293d158052b883c702",
     "_locales/en/messages.json": "c606a4b635dab84a43f1188ba2a1d15048e0805f35cd2b7bab514f7de6f5602b",
     "_locales/ru/messages.json": "3f56d26e7f3351133a54345c41a625c21b821f03334fd8f12fcd686d80495784"
   },
   "archive": {
     "path": "/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/minimal-new-tab-chrome-v1.6.zip",
-    "sha256": "075ea3c7c0757a78bd7117198ff07274da2ca98934935bb447cb1fdd99126c28"
+    "sha256": "ddc988acd579a9ac1b5fd4e9609e56245ad9951a34eb5e8af11584b1cd4a024f"
   }
 }

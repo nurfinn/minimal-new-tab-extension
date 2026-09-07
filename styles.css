@@ -229,8 +229,8 @@ input[aria-invalid="true"] {
   align-items: safe center;
   justify-items: center;
   padding: 28px var(--shell-inline-space) 18px;
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 12px), transparent);
-  mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 12px), transparent);
+  /* Keep this ancestor unmasked so card backdrop-filter can sample the body
+     image. Overflow clips scrolling cards without isolating their backdrop. */
 }
 
 .folder-row {

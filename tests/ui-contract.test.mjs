@@ -884,6 +884,16 @@ test('uses an internal vertical scroller to keep the background stable', () => {
   assert.match(cardRule, /(?:^|;)\s*content-visibility\s*:\s*auto\s*(?:;|$)/);
 });
 
+test('lets card backdrop blur reach the page background through the scroll container', () => {
+  for (const selector of [/\.shell\s*(?=\{)/, /\.content\s*(?=\{)/, /\.grid\s*(?=\{)/]) {
+    const rule = getCssBlock(styles, selector);
+    // A mask creates a backdrop root: the card can no longer blur the body image.
+    assert.doesNotMatch(rule, /(?:^|;)\s*(?:-webkit-)?(?:mask(?:-image|-border)?|clip-path|filter|backdrop-filter)\s*:\s*(?!none\s*[;}])[^;]+;/);
+  }
+  const cardRule = getCssBlock(styles, /\.link-card\s*(?=\{)/);
+  assert.match(cardRule, /backdrop-filter\s*:\s*blur\(24px\)\s+saturate\(1\.12\)/);
+});
+
 test('keeps navigation outside the card scroller without painting a full-width band', () => {
   const topbarRule = getCssBlock(styles, /\.topbar\s*(?=\{)/);
   const shellRule = getCssBlock(styles, /\.shell\s*(?=\{)/);

@@ -19,7 +19,7 @@ test('keeps Chrome release sources byte-for-byte unchanged', async () => {
 test('records the current Chrome store archive checksum', () => {
   assert.equal(
     baseline.archive.sha256,
-    '075ea3c7c0757a78bd7117198ff07274da2ca98934935bb447cb1fdd99126c28',
+    'ddc988acd579a9ac1b5fd4e9609e56245ad9951a34eb5e8af11584b1cd4a024f',
   );
   assert.equal(
     baseline.archive.path,
