@@ -203,10 +203,10 @@ assert.equal(selected.state.links.some(item => item.id === site.id), true);
 - Consumes: all prior task deliverables.
 - Produces: verified Chrome/Firefox working tree, no release archive or version change.
 
-- [ ] **Step 1: Run `node --test tests/*.test.mjs`; expected 0 failures.**
-- [ ] **Step 2: Run Chrome and Firefox build scripts to temporary output paths; inspect allowlists and ensure Chrome/Firefox isolation tests pass.**
-- [ ] **Step 3: Browser-smoke Chrome in an isolated profile:** add/edit/delete, folder create/rename/delete, pointer and keyboard reorder, invalid URL, 201-char folder, simulated storage failure where feasible, two already-open tabs, reload, 72 sites/24 folders, white background, missing local background, export/import.
-- [ ] **Step 4: Browser-smoke Firefox in an isolated temporary installation:** EN/RU, folder size vs Chrome, local icon, letter fallback, settings disclosure, keyboard reorder, import filename, narrow 500px window.
-- [ ] **Step 5: Inspect accepted screenshots and accessibility tree; run axe as a supplement, not a compliance claim.**
-- [ ] **Step 6: Run `git status --short`, `git diff --check`, and a final full test suite.**
-- [ ] **Step 7: Use `superpowers:verification-before-completion`, then `superpowers:finishing-a-development-branch`; do not push or merge without the user's instruction.**
+- [x] **Step 1: Run `node --test tests/*.test.mjs`; expected 0 failures.**
+- [x] **Step 2: Run Chrome and Firefox build scripts to temporary output paths; inspect allowlists and ensure Chrome/Firefox isolation tests pass.**
+- [x] **Step 3: Browser-smoke Chrome in an isolated profile:** add/edit/delete, folder create/rename/delete, pointer and keyboard reorder, invalid URL, 201-char folder, simulated storage failure where feasible, two already-open tabs, reload, 72 sites/24 folders, white background, missing local background, export/import.
+- [x] **Step 4: Browser-smoke Firefox in an isolated temporary installation:** EN/RU, folder size vs Chrome, local icon, letter fallback, settings disclosure, keyboard reorder, import filename, narrow 500px window.
+- [x] **Step 5: Inspect accepted screenshots and accessibility tree; run axe as a supplement, not a compliance claim.**
+- [x] **Step 6: Run `git status --short`, `git diff --check`, and a final full test suite.**
+- [x] **Step 7: Use `superpowers:verification-before-completion`, then `superpowers:finishing-a-development-branch`; do not push or merge without the user's instruction.**

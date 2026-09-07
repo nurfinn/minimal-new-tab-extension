@@ -62,6 +62,17 @@ test('loads the new tab script as an ES module', () => {
   );
 });
 
+test('gives the page a primary heading and keeps the product credit in a landmark', () => {
+  assert.match(
+    html,
+    /<main\b[^>]*>[\s\S]*?<h1\b(?=[^>]*\bclass=["']visually-hidden["'])(?=[^>]*\bdata-i18n=["']appShortName["'])[^>]*>Minimal Tab<\/h1>/,
+  );
+  assert.match(
+    html,
+    /<footer\b[^>]*>[\s\S]*?<a\b(?=[^>]*\bclass=["']signature["'])(?=[^>]*>by nurfinn<\/a>)[^>]*>[\s\S]*?<\/footer>/,
+  );
+});
+
 test('marks the static interface for automatic Chrome localization', () => {
   assert.match(html, /<html\s+lang=["']en["']/);
   assert.match(html, /id=["']addLinkButton["'][^>]*data-i18n-title=["']addSiteShortcut["']/);
