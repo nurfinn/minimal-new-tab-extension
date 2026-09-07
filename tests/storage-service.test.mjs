@@ -47,6 +47,18 @@ class FakeStorageArea {
   }
 }
 
+class FakeLockManager {
+  constructor() {
+    this.tail = Promise.resolve();
+  }
+
+  request(name, callback) {
+    const operation = this.tail.then(() => callback({ name }));
+    this.tail = operation.catch(() => undefined);
+    return operation;
+  }
+}
+
 function makeDefaultState() {
   return {
     selectedFolderId: "all",
@@ -110,6 +122,58 @@ test("loads defaults without writing when sync storage is empty", async () => {
   assert.equal(result.ok, true);
   assert.equal(result.source, "defaults");
   assert.deepEqual(result.state, defaults);
+  assert.equal(syncArea.calls.some(({ method }) => method === "set"), false);
+});
+
+test("updates the latest stored state so stale tabs cannot remove a newly added site", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  const lockManager = new FakeLockManager();
+  const defaults = makeDefaultState();
+  defaults.folders.push({ id: "work", name: "Work" });
+  const firstTab = createStorageService({ syncArea, localArea, lockManager, logger: null });
+  const staleTab = createStorageService({ syncArea, localArea, lockManager, logger: null });
+  await Promise.all([firstTab.load(defaults), staleTab.load(defaults)]);
+
+  const [added, selected] = await Promise.all([
+    firstTab.update(defaults, (latest) => {
+      latest.links.unshift({
+        id: "new-in-first-tab",
+        title: "New in first tab",
+        url: "https://example.com/new/",
+        folderId: "root"
+      });
+      return latest;
+    }),
+    staleTab.update(defaults, (latest) => {
+      latest.selectedFolderId = "work";
+      return latest;
+    })
+  ]);
+
+  assert.equal(added.ok, true);
+  assert.equal(selected.ok, true);
+  assert.equal(selected.state.selectedFolderId, "work");
+  assert.equal(selected.state.links.some(({ id }) => id === "new-in-first-tab"), true);
+
+  const reloaded = await createStorageService({ syncArea, localArea, logger: null }).load(defaults);
+  assert.equal(reloaded.state.selectedFolderId, "work");
+  assert.equal(reloaded.state.links.some(({ id }) => id === "new-in-first-tab"), true);
+});
+
+test("does not write defaults when an update cannot read sync storage", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  syncArea.failGetError = new Error("sync unavailable");
+  const service = createStorageService({ syncArea, localArea, logger: null });
+
+  const result = await service.update(makeDefaultState(), (latest) => {
+    latest.links = [];
+    return latest;
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "read-failed");
   assert.equal(syncArea.calls.some(({ method }) => method === "set"), false);
 });
 

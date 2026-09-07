@@ -8,6 +8,7 @@
   </head>
   <body>
     <div class="background-overlay" aria-hidden="true"></div>
+    <p class="app-status" id="appStatus" role="alert" hidden></p>
 
     <main class="shell">
       <header class="topbar">
@@ -65,6 +66,8 @@
           <input id="linkUrl" name="url" type="text" placeholder="github.com" autocomplete="off" required>
         </label>
 
+        <p class="field-error" id="linkFormError" role="alert" hidden></p>
+
         <label class="field">
           <span data-i18n="folderLabel">Folder</span>
           <select id="linkFolder" name="folder"></select>
@@ -115,6 +118,8 @@
           <span data-i18n="newFolderLabel">New folder</span>
           <input id="folderName" data-i18n-placeholder="folderPlaceholder" name="folderName" type="text" placeholder="Work" autocomplete="off" required>
         </label>
+
+        <p class="field-error" id="folderFormError" role="alert" hidden></p>
 
         <div class="folder-manager" id="folderManager" hidden>
           <div class="folder-list" id="folderList" aria-label="Folder list" data-i18n-aria-label="folderList"></div>

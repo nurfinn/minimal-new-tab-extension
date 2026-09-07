@@ -39,7 +39,7 @@
 - Produces: `commitStateChange(transform, { errorTarget? } = {}) -> Promise<boolean>` in `newtab.js`.
 - Consumes: existing `load`, `saveSnapshot`, payload validation, local-background handling.
 
-- [ ] **Step 1: Write failing storage tests.** Add two services over one real `FakeStorageArea`; load both at 72/known sites, add through A, then select a folder through stale B using `update`. Assert the new site remains. Add a shared fake lock and an update read-error test that asserts no write occurs.
+- [x] **Step 1: Write failing storage tests.** Add two services over one real `FakeStorageArea`; load both at 72/known sites, add through A, then select a folder through stale B using `update`. Assert the new site remains. Add a shared fake lock and an update read-error test that asserts no write occurs.
 
 ```js
 const added = await serviceA.update(defaults, latest => {
@@ -53,13 +53,13 @@ const selected = await serviceB.update(defaults, latest => {
 assert.equal(selected.state.links.some(item => item.id === site.id), true);
 ```
 
-- [ ] **Step 2: Run `node --test tests/storage-service.test.mjs` and verify failure because `update` is absent.**
-- [ ] **Step 3: Implement `update`.** Queue it per service, acquire `navigator.locks.request('minimal-new-tab-state', ...)` when available, call the internal load function inside the lock, transform a structured clone, save it, and return only the committed state. A read error returns without writing; a thrown transform returns `mutation-failed`.
-- [ ] **Step 4: Run the storage tests and verify green.**
-- [ ] **Step 5: Write failing UI contract tests** asserting all user mutations use `commitStateChange`, failed form writes keep forms open, and a visible `role="alert"` app status exists.
-- [ ] **Step 6: Route add/edit/delete, folder select/create/rename/delete, pointer reorder, background save/reset, and import through `commitStateChange`.** Each transform finds records by stable ID against the freshly loaded state. Only success clears input or closes a dialog. Add a dismissing global status element for non-form failures.
-- [ ] **Step 7: Run `node --test tests/storage-service.test.mjs tests/ui-contract.test.mjs` and verify green.**
-- [ ] **Step 8: Commit task files with `git commit -m "fix: prevent stale tabs from overwriting saved state"`.**
+- [x] **Step 2: Run `node --test tests/storage-service.test.mjs` and verify failure because `update` is absent.**
+- [x] **Step 3: Implement `update`.** Queue it per service, acquire `navigator.locks.request('minimal-new-tab-state', ...)` when available, call the internal load function inside the lock, transform a structured clone, save it, and return only the committed state. A read error returns without writing; a thrown transform returns `mutation-failed`.
+- [x] **Step 4: Run the storage tests and verify green.**
+- [x] **Step 5: Write failing UI contract tests** asserting all user mutations use `commitStateChange`, failed form writes keep forms open, and a visible `role="alert"` app status exists.
+- [x] **Step 6: Route add/edit/delete, folder select/create/rename/delete, pointer reorder, background save/reset, and import through `commitStateChange`.** Each transform finds records by stable ID against the freshly loaded state. Only success clears input or closes a dialog. Add a dismissing global status element for non-form failures.
+- [x] **Step 7: Run `node --test tests/storage-service.test.mjs tests/ui-contract.test.mjs` and verify green.**
+- [x] **Step 8: Commit task files with `git commit -m "fix: prevent stale tabs from overwriting saved state"`.**
 
 ### Task 2: Inline validation that matches persisted limits
 
@@ -210,4 +210,3 @@ assert.equal(selected.state.links.some(item => item.id === site.id), true);
 - [ ] **Step 5: Inspect accepted screenshots and accessibility tree; run axe as a supplement, not a compliance claim.**
 - [ ] **Step 6: Run `git status --short`, `git diff --check`, and a final full test suite.**
 - [ ] **Step 7: Use `superpowers:verification-before-completion`, then `superpowers:finishing-a-development-branch`; do not push or merge without the user's instruction.**
-

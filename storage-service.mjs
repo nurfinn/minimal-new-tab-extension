@@ -82,6 +82,7 @@ export function validateSyncPayload(value) {
 export function createStorageService({
   syncArea = getExtensionApi()?.storage?.sync,
   localArea = getExtensionApi()?.storage?.local,
+  lockManager = globalThis.navigator?.locks,
   logger = console
 } = {}) {
   let writable = Boolean(syncArea);
@@ -91,7 +92,51 @@ export function createStorageService({
   let saveQueue = Promise.resolve();
 
   return {
-    async load(defaultState) {
+    load: loadSnapshot,
+
+    save(state) {
+      const snapshot = structuredClone(state);
+      return enqueueSave(() => saveSnapshot(snapshot));
+    },
+
+    update(defaultState, transform) {
+      return enqueueSave(() =>
+        withMutationLock(async () => {
+          const loaded = await loadSnapshot(defaultState);
+          if (!loaded.ok) {
+            return {
+              ok: false,
+              changed: false,
+              error: loaded.source === "read-error" ? "read-failed" : "storage-unavailable",
+              state: loaded.state
+            };
+          }
+
+          let candidate = structuredClone(loaded.state);
+          try {
+            const transformed = await transform(candidate);
+            if (transformed !== undefined) candidate = transformed;
+          } catch (error) {
+            warn(logger, "Не удалось применить изменение настроек.", error);
+            return {
+              ok: false,
+              changed: false,
+              error: "mutation-failed",
+              state: loaded.state
+            };
+          }
+
+          const result = await saveSnapshot(candidate);
+          return {
+            ...result,
+            state: structuredClone(result.ok ? candidate : loaded.state)
+          };
+        })
+      );
+    }
+  };
+
+  async function loadSnapshot(defaultState) {
       const safeDefaults = structuredClone(defaultState);
       if (!syncArea) {
         writable = false;
@@ -150,18 +195,27 @@ export function createStorageService({
       const migration = await migrateLegacyState(safeDefaults);
       if (migration) return migration;
       return { ok: true, writable: true, source: "defaults", state: safeDefaults };
-    },
+  }
 
-    save(state) {
-      const snapshot = structuredClone(state);
-      const operation = saveQueue.then(() => saveSnapshot(snapshot));
-      saveQueue = operation.then(
-        () => undefined,
-        () => undefined
-      );
-      return operation;
+  function enqueueSave(callback) {
+    const operation = saveQueue.then(callback);
+    saveQueue = operation.then(
+      () => undefined,
+      () => undefined
+    );
+    return operation;
+  }
+
+  async function withMutationLock(callback) {
+    if (typeof lockManager?.request !== "function") return callback();
+
+    try {
+      return await lockManager.request("minimal-new-tab-state", callback);
+    } catch (error) {
+      warn(logger, "Не удалось получить блокировку хранилища.", error);
+      return { ok: false, changed: false, error: "lock-failed" };
     }
-  };
+  }
 
   async function saveSnapshot(state) {
     if (!writable || !syncArea) {

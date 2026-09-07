@@ -89,12 +89,14 @@ let renderedFolderSelection = null;
 let folderScrollFrame = null;
 let folderFocusRequest = null;
 let pendingFolderScrollOptions = {};
+let appStatusTimer = null;
 
 const elements = {
   folderRow: document.getElementById("folderRow"),
   folderRowTrack: document.getElementById("folderRowTrack"),
   linksGrid: document.getElementById("linksGrid"),
   emptyState: document.getElementById("emptyState"),
+  appStatus: document.getElementById("appStatus"),
   addLinkButton: document.getElementById("addLinkButton"),
   addFolderButton: document.getElementById("addFolderButton"),
   settingsButton: document.getElementById("settingsButton"),
@@ -119,7 +121,9 @@ const elements = {
   linkTitle: document.getElementById("linkTitle"),
   linkUrl: document.getElementById("linkUrl"),
   linkFolder: document.getElementById("linkFolder"),
+  linkFormError: document.getElementById("linkFormError"),
   folderName: document.getElementById("folderName"),
+  folderFormError: document.getElementById("folderFormError"),
   backgroundPreviewImage: document.getElementById("backgroundPreviewImage"),
   backgroundPreviewName: document.getElementById("backgroundPreviewName"),
   backgroundImage: document.getElementById("backgroundImage"),
@@ -147,7 +151,7 @@ async function init() {
   const result = await storageService.load(defaultState);
   state = normalizeState(result.state);
   if (!result.ok && result.source === "read-error") {
-    console.warn(t("storageReadWarning"));
+    showAppStatus(t("storageReadWarning"));
   }
 
   bindEvents();
@@ -191,6 +195,7 @@ function bindEvents() {
     const enteredTitle = elements.linkTitle.value.trim();
     const url = normalizeWebUrl(elements.linkUrl.value);
     const folderId = elements.linkFolder.value || ROOT_FOLDER_ID;
+    const linkId = editingLinkId || createId();
 
     if (!url) return;
 
@@ -201,21 +206,37 @@ function bindEvents() {
 
     try {
       const title = enteredTitle || deriveTitleFromUrl(url, t("siteFallback"));
-      const editingLink = state.links.find((link) => link.id === editingLinkId);
+      const saved = await commitStateChange(
+        (latestState) => {
+          const resolvedFolderId = latestState.folders.some((folder) => folder.id === folderId)
+            ? folderId
+            : ROOT_FOLDER_ID;
+          const editingLinkIndex = latestState.links.findIndex((link) => link.id === editingLinkId);
 
-      if (editingLink) {
-        Object.assign(editingLink, { title, url, folderId });
-      } else {
-        state.links.unshift({
-          id: createId(),
-          title,
-          url,
-          folderId
-        });
-      }
+          if (editingLinkId && editingLinkIndex === -1) {
+            throw new Error("The site no longer exists");
+          }
 
-      state.selectedFolderId = folderId === ROOT_FOLDER_ID ? "all" : folderId;
-      await saveAndRender();
+          if (editingLinkIndex >= 0) {
+            latestState.links[editingLinkIndex] = {
+              ...latestState.links[editingLinkIndex],
+              title,
+              url,
+              folderId: resolvedFolderId
+            };
+          } else {
+            latestState.links.unshift({ id: linkId, title, url, folderId: resolvedFolderId });
+          }
+
+          latestState.selectedFolderId =
+            resolvedFolderId === ROOT_FOLDER_ID ? "all" : resolvedFolderId;
+          return latestState;
+        },
+        { onError: () => showFieldError(elements.linkFormError, t("storageSaveWarning")) }
+      );
+      if (!saved) return;
+
+      clearFieldError(elements.linkFormError);
       editingLinkId = null;
       elements.linkForm.reset();
       elements.linkDialog.close();
@@ -237,9 +258,17 @@ function bindEvents() {
       name
     };
 
-    state.folders.push(folder);
-    state.selectedFolderId = folder.id;
-    await saveAndRender();
+    const saved = await commitStateChange(
+      (latestState) => {
+        latestState.folders.push(folder);
+        latestState.selectedFolderId = folder.id;
+        return latestState;
+      },
+      { onError: () => showFieldError(elements.folderFormError, t("storageSaveWarning")) }
+    );
+    if (!saved) return;
+
+    clearFieldError(elements.folderFormError);
     elements.folderForm.reset();
     elements.folderDialog.close();
   });
@@ -306,24 +335,31 @@ function bindEvents() {
       };
     }
 
-    const nextState = { ...state, background: nextBackground };
-    const saveResult = await storageService.save(nextState);
-    if (!saveResult.ok) {
-      showBackgroundImageError("save-failed");
-      return;
-    }
+    const saved = await commitStateChange(
+      (latestState) => {
+        latestState.background = nextBackground;
+        return latestState;
+      },
+      { onError: () => showBackgroundImageError("save-failed") }
+    );
+    if (!saved) return;
 
     clearBackgroundImageError();
-    state = nextState;
-    render();
     elements.backgroundForm.reset();
     elements.settingsDialog.close();
   });
 
   elements.resetBackgroundButton.addEventListener("click", async () => {
     clearBackgroundImageError();
-    state.background = structuredClone(defaultState.background);
-    await saveAndRender();
+    const saved = await commitStateChange(
+      (latestState) => {
+        latestState.background = structuredClone(defaultState.background);
+        return latestState;
+      },
+      { onError: () => showBackgroundImageError("save-failed") }
+    );
+    if (!saved) return;
+
     elements.backgroundForm.reset();
     elements.settingsDialog.close();
   });
@@ -363,9 +399,15 @@ function bindEvents() {
     const chip = event.target.closest("[data-folder]");
     if (!chip) return;
 
-    folderFocusRequest = chip.dataset.folder;
-    state.selectedFolderId = chip.dataset.folder;
-    await saveAndRender();
+    const selectedFolderId = chip.dataset.folder;
+    folderFocusRequest = selectedFolderId;
+    await commitStateChange((latestState) => {
+      const folderExists =
+        selectedFolderId === "all" ||
+        latestState.folders.some((folder) => folder.id === selectedFolderId);
+      latestState.selectedFolderId = folderExists ? selectedFolderId : "all";
+      return latestState;
+    });
   });
   elements.folderRow.addEventListener("scroll", updateFolderScrollState, { passive: true });
   elements.folderRow.addEventListener("wheel", handleFolderWheel, { passive: false });
@@ -397,11 +439,15 @@ function bindEvents() {
     );
     if (!shouldDelete) return;
 
-    state.links = state.links.filter((item) => item.id !== link.id);
+    const saved = await commitStateChange((latestState) => {
+      latestState.links = latestState.links.filter((item) => item.id !== link.id);
+      return latestState;
+    });
+    if (!saved) return;
+
     editingLinkId = null;
     elements.linkForm.reset();
     elements.linkDialog.close();
-    await saveAndRender();
   });
 
   elements.linksGrid.addEventListener("pointerdown", startLinkDrag);
@@ -448,8 +494,7 @@ function bindEvents() {
     );
     if (!shouldDelete) return;
 
-    removeFolder(folder.id);
-    await saveAndRender();
+    await commitStateChange((latestState) => removeFolder(latestState, folder.id));
   });
 
   elements.folderList.addEventListener("keydown", async (event) => {
@@ -654,13 +699,29 @@ async function saveFolderRename(folderId, value) {
   setFolderRenameControlsDisabled(folderId, true);
 
   try {
-    state.folders = result.folders;
+    const saved = await commitStateChange(
+      (latestState) => {
+        const latestResult = renameFolder(latestState.folders, folderId, value);
+        if (!latestResult.renamed) throw new Error("The folder no longer exists");
+        latestState.folders = latestResult.folders;
+        return latestState;
+      },
+      { onError: () => showFieldError(elements.folderFormError, t("storageSaveWarning")) }
+    );
+    if (!saved) {
+      renamingFolderId = folderId;
+      requestFolderRenameFocus(folderId, "input");
+      renderFolderList();
+      return false;
+    }
+
+    clearFieldError(elements.folderFormError);
     renamingFolderId = null;
     folderRenameFocusRequest = null;
     if (elements.folderDialog.open) {
       requestFolderRenameFocus(folderId, "button");
     }
-    await saveAndRender();
+    renderFolderList();
     return true;
   } finally {
     savingFolderRenameId = null;
@@ -960,8 +1021,16 @@ async function finishLinkDrag(event) {
   if (!shouldReorder) return;
 
   suppressLinkClicksUntil = Date.now() + 400;
-  reorderVisibleLinks(currentDrag.sourceId, currentDrag.targetId, currentDrag.after);
-  await saveAndRender();
+  const selectedFolderId = state.selectedFolderId;
+  await commitStateChange((latestState) =>
+    reorderVisibleLinks(
+      latestState,
+      currentDrag.sourceId,
+      currentDrag.targetId,
+      currentDrag.after,
+      selectedFolderId
+    )
+  );
 }
 
 function cancelLinkDrag(event) {
@@ -988,12 +1057,12 @@ function clearDropIndicators() {
   });
 }
 
-function reorderVisibleLinks(sourceId, targetId, after) {
-  const visibleLinks = getVisibleLinks();
+function reorderVisibleLinks(targetState, sourceId, targetId, after, selectedFolderId) {
+  const visibleLinks = getVisibleLinks(targetState, selectedFolderId);
   const orderedIds = visibleLinks.map((link) => link.id);
   const sourceIndex = orderedIds.indexOf(sourceId);
 
-  if (sourceIndex === -1 || !orderedIds.includes(targetId)) return;
+  if (sourceIndex === -1 || !orderedIds.includes(targetId)) return targetState;
 
   orderedIds.splice(sourceIndex, 1);
   const targetIndex = orderedIds.indexOf(targetId);
@@ -1003,12 +1072,13 @@ function reorderVisibleLinks(sourceId, targetId, after) {
   const visibleIds = new Set(orderedIds);
   let cursor = 0;
 
-  state.links = state.links.map((link) => {
+  targetState.links = targetState.links.map((link) => {
     if (!visibleIds.has(link.id)) return link;
     const nextLink = linksById.get(orderedIds[cursor]);
     cursor += 1;
     return nextLink;
   });
+  return targetState;
 }
 
 function startFolderDrag(event) {
@@ -1076,8 +1146,9 @@ async function finishFolderDrag(event) {
   cleanupFolderDrag(currentDrag);
   if (!shouldReorder) return;
 
-  reorderFolders(currentDrag.sourceId, currentDrag.targetId, currentDrag.after);
-  await saveAndRender();
+  await commitStateChange((latestState) =>
+    reorderFolders(latestState, currentDrag.sourceId, currentDrag.targetId, currentDrag.after)
+  );
 }
 
 function cancelFolderDrag(event) {
@@ -1104,20 +1175,21 @@ function clearFolderDropIndicators() {
     .forEach((row) => row.classList.remove("folder-drop-before", "folder-drop-after"));
 }
 
-function reorderFolders(sourceId, targetId, after) {
-  const userFolders = getUserFolders();
+function reorderFolders(targetState, sourceId, targetId, after) {
+  const userFolders = getUserFolders(targetState);
   const orderedIds = userFolders.map((folder) => folder.id);
   const sourceIndex = orderedIds.indexOf(sourceId);
 
-  if (sourceIndex === -1 || !orderedIds.includes(targetId)) return;
+  if (sourceIndex === -1 || !orderedIds.includes(targetId)) return targetState;
 
   orderedIds.splice(sourceIndex, 1);
   const targetIndex = orderedIds.indexOf(targetId);
   orderedIds.splice(targetIndex + (after ? 1 : 0), 0, sourceId);
 
   const foldersById = new Map(userFolders.map((folder) => [folder.id, folder]));
-  const rootFolder = state.folders.find((folder) => folder.id === ROOT_FOLDER_ID);
-  state.folders = [rootFolder, ...orderedIds.map((id) => foldersById.get(id))].filter(Boolean);
+  const rootFolder = targetState.folders.find((folder) => folder.id === ROOT_FOLDER_ID);
+  targetState.folders = [rootFolder, ...orderedIds.map((id) => foldersById.get(id))].filter(Boolean);
+  return targetState;
 }
 
 function applyBackground() {
@@ -1321,18 +1393,16 @@ async function loadImportFile(event) {
 async function confirmImport() {
   if (!pendingImport) return;
 
-  const candidate = normalizeState(buildImportedState(state, pendingImport.data));
+  const importedData = pendingImport.data;
   elements.confirmImportButton.disabled = true;
-  const result = await storageService.save(candidate);
+  const saved = await commitStateChange(
+    (latestState) => normalizeState(buildImportedState(latestState, importedData)),
+    { onError: () => showImportError(t("importSaveError")) }
+  );
   elements.confirmImportButton.disabled = false;
 
-  if (!result.ok) {
-    showImportError(t("importSaveError"));
-    return;
-  }
+  if (!saved) return;
 
-  state = candidate;
-  render();
   resetImportState();
   showSettingsStatus(t("importSuccess"));
 }
@@ -1425,13 +1495,49 @@ function resolveDeleteConfirmation(confirmed) {
   resolve(Boolean(confirmed));
 }
 
-async function saveAndRender() {
-  const result = await storageService.save(state);
-  if (!result.ok && result.error !== "storage-unavailable") {
-    console.warn(t("storageSaveWarning"));
+async function commitStateChange(transform, options = {}) {
+  const result = await storageService.update(defaultState, transform);
+  if (!result.ok) {
+    if (typeof options.onError === "function") {
+      options.onError(result);
+    } else {
+      showAppStatus(t("storageSaveWarning"));
+    }
+    return false;
   }
+
+  state = normalizeState(result.state);
   render();
-  return result.ok;
+  clearAppStatus();
+  return true;
+}
+
+function showAppStatus(message) {
+  if (!elements.appStatus) return;
+  if (appStatusTimer !== null) window.clearTimeout(appStatusTimer);
+  elements.appStatus.textContent = message;
+  elements.appStatus.hidden = false;
+  appStatusTimer = window.setTimeout(clearAppStatus, 6000);
+}
+
+function clearAppStatus() {
+  if (appStatusTimer !== null) window.clearTimeout(appStatusTimer);
+  appStatusTimer = null;
+  if (!elements.appStatus) return;
+  elements.appStatus.textContent = "";
+  elements.appStatus.hidden = true;
+}
+
+function showFieldError(element, message) {
+  if (!element) return;
+  element.textContent = message;
+  element.hidden = false;
+}
+
+function clearFieldError(element) {
+  if (!element) return;
+  element.textContent = "";
+  element.hidden = true;
 }
 
 function normalizeState(savedState) {
@@ -1482,28 +1588,29 @@ function normalizeState(savedState) {
   return nextState;
 }
 
-function removeFolder(folderId) {
-  if (folderId === ROOT_FOLDER_ID) return;
+function removeFolder(targetState, folderId) {
+  if (folderId === ROOT_FOLDER_ID) return targetState;
 
-  state.folders = state.folders.filter((folder) => folder.id !== folderId);
-  state.links = state.links.map((link) => ({
+  targetState.folders = targetState.folders.filter((folder) => folder.id !== folderId);
+  targetState.links = targetState.links.map((link) => ({
     ...link,
     folderId: link.folderId === folderId ? ROOT_FOLDER_ID : link.folderId
   }));
 
-  if (state.selectedFolderId === folderId) {
-    state.selectedFolderId = "all";
+  if (targetState.selectedFolderId === folderId) {
+    targetState.selectedFolderId = "all";
   }
+  return targetState;
 }
 
-function getUserFolders() {
-  return state.folders.filter((folder) => folder.id !== ROOT_FOLDER_ID);
+function getUserFolders(targetState = state) {
+  return targetState.folders.filter((folder) => folder.id !== ROOT_FOLDER_ID);
 }
 
-function getVisibleLinks() {
-  return state.selectedFolderId === "all"
-    ? state.links
-    : state.links.filter((link) => link.folderId === state.selectedFolderId);
+function getVisibleLinks(targetState = state, selectedFolderId = targetState.selectedFolderId) {
+  return selectedFolderId === "all"
+    ? targetState.links
+    : targetState.links.filter((link) => link.folderId === selectedFolderId);
 }
 
 function getHost(value) {
