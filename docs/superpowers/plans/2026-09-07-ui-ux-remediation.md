@@ -78,12 +78,12 @@ assert.equal(selected.state.links.some(item => item.id === site.id), true);
 - Produces: `validateFolderName(value) -> {ok:true,name}|{ok:false,error}`.
 - Constants: `SITE_TITLE_MAX_LENGTH = 500`, `FOLDER_NAME_MAX_LENGTH = 200`.
 
-- [ ] **Step 1: Write failing tests** for `https://`, `javascript:`, empty folder, 200/201-char folder names, and 500/501-char site titles.
-- [ ] **Step 2: Run `node --test tests/newtab-core.test.mjs` and confirm failures name the missing exports.**
-- [ ] **Step 3: Implement the pure validators** using `normalizeWebUrl`; add matching `maxlength` attributes, inline error nodes with stable IDs, `aria-describedby`, and `aria-invalid` updates.
-- [ ] **Step 4: Keep invalid drafts intact, focus the field, and clear an error on corrected input.** Localize concise English and Russian messages.
-- [ ] **Step 5: Run `node --test tests/newtab-core.test.mjs tests/ui-contract.test.mjs` and verify green.**
-- [ ] **Step 6: Commit with `git commit -m "fix: explain invalid site and folder input"`.**
+- [x] **Step 1: Write failing tests** for `https://`, `javascript:`, empty folder, 200/201-char folder names, and 500/501-char site titles.
+- [x] **Step 2: Run `node --test tests/newtab-core.test.mjs` and confirm failures name the missing exports.**
+- [x] **Step 3: Implement the pure validators** using `normalizeWebUrl`; add matching `maxlength` attributes, inline error nodes with stable IDs, `aria-describedby`, and `aria-invalid` updates.
+- [x] **Step 4: Keep invalid drafts intact, focus the field, and clear an error on corrected input.** Localize concise English and Russian messages.
+- [x] **Step 5: Run `node --test tests/newtab-core.test.mjs tests/ui-contract.test.mjs` and verify green.**
+- [x] **Step 6: Commit with `git commit -m "fix: explain invalid site and folder input"`.**
 
 ### Task 3: Dialog semantics and safer deletion focus
 

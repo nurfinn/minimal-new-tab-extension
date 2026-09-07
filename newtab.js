@@ -9,7 +9,9 @@ import {
   isUsableFavicon,
   normalizeLegacyColorBackground,
   renameFolder,
-  validateBackgroundImage
+  validateBackgroundImage,
+  validateFolderName,
+  validateSiteDraft
 } from "./newtab-core.mjs";
 import {
   MAX_BACKUP_BYTES,
@@ -18,7 +20,7 @@ import {
   parseBackupText,
   serializeBackup
 } from "./backup-service.mjs";
-import { createStorageService, normalizeWebUrl } from "./storage-service.mjs";
+import { createStorageService } from "./storage-service.mjs";
 import { createTranslator, getUiLocale, localizeDocument } from "./i18n-service.mjs";
 
 const ROOT_FOLDER_ID = "root";
@@ -121,6 +123,8 @@ const elements = {
   linkTitle: document.getElementById("linkTitle"),
   linkUrl: document.getElementById("linkUrl"),
   linkFolder: document.getElementById("linkFolder"),
+  linkTitleError: document.getElementById("linkTitleError"),
+  linkUrlError: document.getElementById("linkUrlError"),
   linkFormError: document.getElementById("linkFormError"),
   folderName: document.getElementById("folderName"),
   folderFormError: document.getElementById("folderFormError"),
@@ -164,6 +168,16 @@ function bindEvents() {
   elements.settingsButton.addEventListener("click", () => openSettingsDialog());
   document.addEventListener("keydown", handleGlobalShortcut);
 
+  elements.linkTitle.addEventListener("input", () => {
+    clearInputError(elements.linkTitle, elements.linkTitleError);
+  });
+  elements.linkUrl.addEventListener("input", () => {
+    clearInputError(elements.linkUrl, elements.linkUrlError);
+  });
+  elements.folderName.addEventListener("input", () => {
+    clearInputError(elements.folderName, elements.folderFormError);
+  });
+
   document.querySelectorAll("[data-close]").forEach((button) => {
     button.addEventListener("click", () => {
       document.getElementById(button.dataset.close).close();
@@ -192,12 +206,26 @@ function bindEvents() {
   elements.linkForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
+    const validation = validateSiteDraft({
+      title: elements.linkTitle.value,
+      url: elements.linkUrl.value
+    });
+    if (!validation.ok) {
+      if (validation.field === "title") {
+        showInputError(elements.linkTitle, elements.linkTitleError, t("siteTitleTooLong"));
+      } else {
+        showInputError(elements.linkUrl, elements.linkUrlError, t("invalidSiteUrl"));
+      }
+      return;
+    }
+
+    clearInputError(elements.linkTitle, elements.linkTitleError);
+    clearInputError(elements.linkUrl, elements.linkUrlError);
+    clearFieldError(elements.linkFormError);
     const enteredTitle = elements.linkTitle.value.trim();
-    const url = normalizeWebUrl(elements.linkUrl.value);
+    const url = validation.url;
     const folderId = elements.linkFolder.value || ROOT_FOLDER_ID;
     const linkId = editingLinkId || createId();
-
-    if (!url) return;
 
     const defaultSubmitLabel = editingLinkId ? t("save") : t("add");
     elements.linkSubmitButton.disabled = true;
@@ -250,8 +278,16 @@ function bindEvents() {
   elements.folderForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const name = elements.folderName.value.trim();
-    if (!name) return;
+    const validation = validateFolderName(elements.folderName.value);
+    if (!validation.ok) {
+      const message =
+        validation.error === "name-too-long" ? t("folderNameTooLong") : t("folderNameRequired");
+      showInputError(elements.folderName, elements.folderFormError, message);
+      return;
+    }
+
+    clearInputError(elements.folderName, elements.folderFormError);
+    const name = validation.name;
 
     const folder = {
       id: createId(),
@@ -680,6 +716,18 @@ function startFolderRename(folderId) {
 async function saveFolderRename(folderId, value) {
   if (savingFolderRenameId !== null || folderId !== renamingFolderId) return false;
 
+  const validation = validateFolderName(value);
+  const renameInput = [...elements.folderList.querySelectorAll("[data-folder-rename-input]")].find(
+    (input) => input.dataset.folderRenameInput === folderId
+  );
+  if (!validation.ok) {
+    const message =
+      validation.error === "name-too-long" ? t("folderNameTooLong") : t("folderNameRequired");
+    showInputError(renameInput, elements.folderFormError, message);
+    return false;
+  }
+
+  clearInputError(renameInput, elements.folderFormError);
   const result = renameFolder(state.folders, folderId, value);
 
   if (!result.renamed) {
@@ -768,9 +816,14 @@ function renderFolderList() {
       const input = document.createElement("input");
       input.className = "folder-list-input";
       input.type = "text";
+      input.maxLength = 200;
       input.value = folder.name;
       input.dataset.folderRenameInput = folder.id;
       input.setAttribute("aria-label", t("newFolderName", [folder.name]));
+      input.setAttribute("aria-describedby", "folderFormError");
+      input.addEventListener("input", () => {
+        clearInputError(input, elements.folderFormError);
+      });
 
       const saveButton = document.createElement("button");
       saveButton.className = "folder-list-save";
@@ -1224,6 +1277,9 @@ function applyBackground() {
 function openLinkDialog(link = null) {
   renderFolderOptions();
 
+  clearInputError(elements.linkTitle, elements.linkTitleError);
+  clearInputError(elements.linkUrl, elements.linkUrlError);
+  clearFieldError(elements.linkFormError);
   editingLinkId = link?.id || null;
   elements.linkDialogTitle.textContent = link ? t("editSiteDialog") : t("addSiteDialog");
   elements.linkSubmitButton.textContent = link ? t("save") : t("add");
@@ -1239,6 +1295,7 @@ function openLinkDialog(link = null) {
 }
 
 function openFolderDialog() {
+  clearInputError(elements.folderName, elements.folderFormError);
   renderFolderList();
   openDialog(elements.folderDialog, elements.folderName);
 }
@@ -1538,6 +1595,19 @@ function clearFieldError(element) {
   if (!element) return;
   element.textContent = "";
   element.hidden = true;
+}
+
+function showInputError(input, errorElement, message) {
+  showFieldError(errorElement, message);
+  if (!input) return;
+  input.setAttribute("aria-invalid", "true");
+  input.focus({ preventScroll: true });
+}
+
+function clearInputError(input, errorElement) {
+  clearFieldError(errorElement);
+  if (!input) return;
+  input.removeAttribute("aria-invalid");
 }
 
 function normalizeState(savedState) {

@@ -1,7 +1,35 @@
+import { normalizeWebUrl } from './storage-service.mjs';
+
 export { buildFaviconSources } from './favicon-service.mjs';
 
 export const MAX_BACKGROUND_BYTES = 3 * 1024 * 1024;
 export const MAX_BACKGROUND_DIMENSION = 4096;
+export const SITE_TITLE_MAX_LENGTH = 500;
+export const FOLDER_NAME_MAX_LENGTH = 200;
+
+export function validateSiteDraft({ title, url } = {}) {
+  const normalizedTitle = String(title ?? '').trim();
+  if (normalizedTitle.length > SITE_TITLE_MAX_LENGTH) {
+    return { ok: false, field: 'title', error: 'title-too-long' };
+  }
+
+  const normalizedUrl = normalizeWebUrl(url);
+  if (!normalizedUrl) {
+    return { ok: false, field: 'url', error: 'invalid-url' };
+  }
+
+  return { ok: true, url: normalizedUrl };
+}
+
+export function validateFolderName(value) {
+  const name = String(value ?? '').trim();
+  if (!name) return { ok: false, error: 'required' };
+  if (name.length > FOLDER_NAME_MAX_LENGTH) {
+    return { ok: false, error: 'name-too-long' };
+  }
+
+  return { ok: true, name };
+}
 
 export function getGlobalShortcutAction({
   code,
@@ -141,15 +169,15 @@ export function normalizeLegacyColorBackground(background, defaultBackground) {
 }
 
 export function renameFolder(folders, folderId, value) {
-  const name = String(value ?? '').trim();
+  const validation = validateFolderName(value);
   const folderIndex = folders.findIndex(({ id }) => id === folderId);
 
-  if (!name || folderIndex === -1) {
+  if (!validation.ok || folderIndex === -1) {
     return { folders, renamed: false };
   }
 
   const nextFolders = [...folders];
-  nextFolders[folderIndex] = { ...nextFolders[folderIndex], name };
+  nextFolders[folderIndex] = { ...nextFolders[folderIndex], name: validation.name };
 
   return { folders: nextFolders, renamed: true };
 }

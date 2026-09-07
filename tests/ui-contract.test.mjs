@@ -185,7 +185,7 @@ test('exposes guarded A, F, and S shortcuts without changing button icons', () =
 test('delegates persistence to the isolated sync storage service', () => {
   assert.match(
     script,
-    /import\s*\{[^}]*\bcreateStorageService\b[^}]*\bnormalizeWebUrl\b[^}]*\}\s*from\s*["']\.\/storage-service\.mjs["']\s*;/s,
+    /import\s*\{[^}]*\bcreateStorageService\b[^}]*\}\s*from\s*["']\.\/storage-service\.mjs["']\s*;/s,
   );
   assert.match(script, /const\s+storageService\s*=\s*createStorageService\s*\(/);
   assert.doesNotMatch(script, /\blocalStorage\b/);
@@ -218,8 +218,61 @@ test('delegates persistence to the isolated sync storage service', () => {
   assert.match(commitBlock, /state\s*=\s*normalizeState\s*\(\s*result\.state\s*\)/);
   assert.match(commitBlock, /render\s*\(\s*\)/);
   assert.doesNotMatch(script, /storageService\.save\s*\(/);
-  assert.match(script, /normalizeWebUrl\s*\(\s*elements\.linkUrl\.value\s*\)/);
+  assert.match(script, /validateSiteDraft\s*\(\s*\{[\s\S]*title:\s*elements\.linkTitle\.value[\s\S]*url:\s*elements\.linkUrl\.value[\s\S]*\}\s*\)/);
   assert.doesNotMatch(script, /function\s+normalizeUrl\s*\(/);
+});
+
+test('explains invalid site and folder input without discarding the draft', () => {
+  assert.match(
+    script,
+    /import\s*\{[^}]*\bvalidateFolderName\b[^}]*\bvalidateSiteDraft\b[^}]*\}\s*from\s*["']\.\/newtab-core\.mjs["']\s*;/s,
+  );
+  assert.match(
+    html,
+    /<form\b(?=[^>]*\bid=["']linkForm["'])(?=[^>]*\bnovalidate\b)[^>]*>/,
+  );
+  assert.match(
+    html,
+    /id=["']linkTitle["'][^>]*maxlength=["']500["'][^>]*aria-describedby=["']linkTitleError["']/,
+  );
+  assert.match(
+    html,
+    /id=["']linkUrl["'][^>]*aria-describedby=["']linkUrlError["']/,
+  );
+  assert.match(html, /id=["']linkTitleError["'][^>]*role=["']alert["'][^>]*hidden/);
+  assert.match(html, /id=["']linkUrlError["'][^>]*role=["']alert["'][^>]*hidden/);
+  assert.match(
+    html,
+    /id=["']folderName["'][^>]*maxlength=["']200["'][^>]*aria-describedby=["']folderFormError["']/,
+  );
+
+  const linkSubmitBlock = getCssBlock(
+    script,
+    /elements\.linkForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
+  );
+  const folderSubmitBlock = getCssBlock(
+    script,
+    /elements\.folderForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
+  );
+  const showInputErrorBlock = getCssBlock(
+    script,
+    /function\s+showInputError\s*\(\s*input\s*,\s*errorElement\s*,\s*message\s*\)/,
+  );
+  const clearInputErrorBlock = getCssBlock(
+    script,
+    /function\s+clearInputError\s*\(\s*input\s*,\s*errorElement\s*\)/,
+  );
+
+  assert.match(linkSubmitBlock, /const\s+validation\s*=\s*validateSiteDraft\s*\(/);
+  assert.match(linkSubmitBlock, /if\s*\(\s*!validation\.ok\s*\)/);
+  assert.match(folderSubmitBlock, /const\s+validation\s*=\s*validateFolderName\s*\(/);
+  assert.match(folderSubmitBlock, /if\s*\(\s*!validation\.ok\s*\)/);
+  assert.match(showInputErrorBlock, /input\.setAttribute\s*\(\s*["']aria-invalid["']\s*,\s*["']true["']\s*\)/);
+  assert.match(showInputErrorBlock, /input\.focus\s*\(/);
+  assert.match(clearInputErrorBlock, /input\.removeAttribute\s*\(\s*["']aria-invalid["']\s*\)/);
+  assert.match(script, /elements\.linkTitle\.addEventListener\s*\(\s*["']input["']/);
+  assert.match(script, /elements\.linkUrl\.addEventListener\s*\(\s*["']input["']/);
+  assert.match(script, /elements\.folderName\.addEventListener\s*\(\s*["']input["']/);
 });
 
 test('commits all site and folder mutations against the latest stored state', () => {

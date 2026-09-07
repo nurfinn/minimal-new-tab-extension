@@ -46,7 +46,7 @@
     <a class="signature" href="https://nurfinn.com/?utm_source=minimal_new_tab_extension&amp;utm_medium=referral" rel="noreferrer">by nurfinn</a>
 
     <dialog class="modal" id="linkDialog">
-      <form class="modal-inner" id="linkForm" method="dialog">
+      <form class="modal-inner" id="linkForm" method="dialog" novalidate>
         <header class="modal-header">
           <h2 id="linkDialogTitle" data-i18n="addSiteDialog">Add site</h2>
           <button class="ghost-button" type="button" data-close="linkDialog" aria-label="Close" data-i18n-aria-label="close">
@@ -58,13 +58,15 @@
 
         <label class="field">
           <span><span data-i18n="titleLabel">Name</span> <small data-i18n="optional">optional</small></span>
-          <input id="linkTitle" data-i18n-placeholder="titlePlaceholder" name="title" type="text" placeholder="Generated from the address" autocomplete="off">
+          <input id="linkTitle" data-i18n-placeholder="titlePlaceholder" name="title" type="text" maxlength="500" aria-describedby="linkTitleError" placeholder="Generated from the address" autocomplete="off">
         </label>
+        <p class="field-error" id="linkTitleError" role="alert" hidden></p>
 
         <label class="field">
           <span data-i18n="urlLabel">Address</span>
-          <input id="linkUrl" name="url" type="text" placeholder="github.com" autocomplete="off" required>
+          <input id="linkUrl" name="url" type="text" aria-describedby="linkUrlError" placeholder="github.com" autocomplete="off" required>
         </label>
+        <p class="field-error" id="linkUrlError" role="alert" hidden></p>
 
         <p class="field-error" id="linkFormError" role="alert" hidden></p>
 
@@ -104,7 +106,7 @@
     </dialog>
 
     <dialog class="modal" id="folderDialog">
-      <form class="modal-inner" id="folderForm" method="dialog">
+      <form class="modal-inner" id="folderForm" method="dialog" novalidate>
         <header class="modal-header">
           <h2 data-i18n="foldersDialog">Folders</h2>
           <button class="ghost-button" type="button" data-close="folderDialog" aria-label="Close" data-i18n-aria-label="close">
@@ -116,7 +118,7 @@
 
         <label class="field">
           <span data-i18n="newFolderLabel">New folder</span>
-          <input id="folderName" data-i18n-placeholder="folderPlaceholder" name="folderName" type="text" placeholder="Work" autocomplete="off" required>
+          <input id="folderName" data-i18n-placeholder="folderPlaceholder" name="folderName" type="text" maxlength="200" aria-describedby="folderFormError" placeholder="Work" autocomplete="off" required>
         </label>
 
         <p class="field-error" id="folderFormError" role="alert" hidden></p>
