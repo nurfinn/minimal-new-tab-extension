@@ -136,6 +136,7 @@ const elements = {
   backgroundPreviewImage: document.getElementById("backgroundPreviewImage"),
   backgroundPreviewName: document.getElementById("backgroundPreviewName"),
   backgroundImage: document.getElementById("backgroundImage"),
+  backgroundSelectedFile: document.getElementById("backgroundSelectedFile"),
   backgroundImageError: document.getElementById("backgroundImageError"),
   backgroundOverlay: document.getElementById("backgroundOverlay"),
   backgroundOverlayColor: document.getElementById("backgroundOverlayColor"),
@@ -144,6 +145,7 @@ const elements = {
   resetBackgroundButton: document.getElementById("resetBackgroundButton"),
   exportBackupButton: document.getElementById("exportBackupButton"),
   importBackupInput: document.getElementById("importBackupInput"),
+  importSelectedFile: document.getElementById("importSelectedFile"),
   importPreview: document.getElementById("importPreview"),
   importPreviewDate: document.getElementById("importPreviewDate"),
   importPreviewSites: document.getElementById("importPreviewSites"),
@@ -423,6 +425,7 @@ function bindEvents() {
       elements.backgroundOverlayColor.value
     );
   });
+  elements.backgroundImage.addEventListener("change", updatePendingBackgroundFile);
 
   elements.settingsTabs.forEach((button) => {
     button.addEventListener("click", () => setSettingsTab(button.dataset.settingsTab));
@@ -1586,7 +1589,9 @@ async function loadImportFile(event) {
     return;
   }
 
-  pendingImport = result;
+  pendingImport = { ...result, fileName: file.name };
+  elements.importSelectedFile.textContent = t("importSelectedFile", [pendingImport.fileName]);
+  elements.importSelectedFile.hidden = false;
   elements.importPreviewDate.textContent = new Intl.DateTimeFormat(uiLocale, {
     dateStyle: "medium",
     timeStyle: "short"
@@ -1626,6 +1631,8 @@ function resetImportState() {
 
 function clearImportPreviewState() {
   pendingImport = null;
+  elements.importSelectedFile.textContent = "";
+  elements.importSelectedFile.hidden = true;
   elements.importPreview.hidden = true;
   elements.confirmImportButton.hidden = true;
   elements.confirmImportButton.disabled = false;
@@ -1636,6 +1643,7 @@ function clearImportPreviewState() {
 
 function resetSettingsDialogState() {
   elements.backgroundForm.reset();
+  clearPendingBackgroundFile();
   clearBackgroundImageError();
   resetImportState();
   setSettingsTab("background");
@@ -1665,11 +1673,34 @@ function showBackgroundImageError(error) {
     messageKeys[error] || "backgroundDecodeFailed"
   );
   elements.backgroundImageError.hidden = false;
+  elements.backgroundImage.setAttribute("aria-invalid", "true");
 }
 
 function clearBackgroundImageError() {
   elements.backgroundImageError.textContent = "";
   elements.backgroundImageError.hidden = true;
+  elements.backgroundImage.removeAttribute("aria-invalid");
+}
+
+function updatePendingBackgroundFile() {
+  const file = elements.backgroundImage.files?.[0];
+  clearBackgroundImageError();
+
+  if (!file) {
+    clearPendingBackgroundFile();
+    return;
+  }
+
+  elements.backgroundSelectedFile.textContent = t("backgroundSelectedFile", [file.name]);
+  elements.backgroundSelectedFile.hidden = false;
+
+  const validation = validateBackgroundImage({ type: file.type, size: file.size });
+  if (!validation.ok) showBackgroundImageError(validation.error);
+}
+
+function clearPendingBackgroundFile() {
+  elements.backgroundSelectedFile.textContent = "";
+  elements.backgroundSelectedFile.hidden = true;
 }
 
 function getImportErrorMessage(error) {

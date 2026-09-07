@@ -186,13 +186,13 @@ assert.equal(selected.state.links.some(item => item.id === site.id), true);
 **Interfaces:**
 - Produces: visible background limits, pending background filename, parsed import filename, wrapping fallback message, explicit “Restore default”.
 
-- [ ] **Step 1: Write failing UI tests** for pre-selection limits, pending filename, import filename, reset copy, wrapping preview text, and reduced-motion overrides for transforms/transitions.
-- [ ] **Step 2: Run target tests and confirm red.**
-- [ ] **Step 3: Add localized helper/status elements.** Keep the file input clearable, but store the parsed filename in `pendingImport`; distinguish Current background from Selected for saving.
-- [ ] **Step 4: Make Restore default use the same committed-success behavior as other mutations.** On failure, keep Settings open and show the error.
-- [ ] **Step 5: Extend reduced-motion CSS to cards and controls without removing focus indicators.**
-- [ ] **Step 6: Run target tests and verify green.**
-- [ ] **Step 7: Commit with `git commit -m "fix: clarify background and backup feedback"`.**
+- [x] **Step 1: Write failing UI tests** for pre-selection limits, pending filename, import filename, reset copy, wrapping preview text, and reduced-motion overrides for transforms/transitions.
+- [x] **Step 2: Run target tests and confirm red.**
+- [x] **Step 3: Add localized helper/status elements.** Keep the file input clearable, but store the parsed filename in `pendingImport`; distinguish Current background from Selected for saving.
+- [x] **Step 4: Make Restore default use the same committed-success behavior as other mutations.** On failure, keep Settings open and show the error.
+- [x] **Step 5: Extend reduced-motion CSS to cards and controls without removing focus indicators.**
+- [x] **Step 6: Run target tests and verify green.**
+- [x] **Step 7: Commit with `git commit -m "fix: clarify background and backup feedback"`.**
 
 ### Task 8: Full browser and release verification
 

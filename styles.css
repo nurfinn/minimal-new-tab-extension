@@ -739,11 +739,27 @@ body.has-color .signature {
 }
 
 .background-preview strong {
-  overflow: hidden;
   color: var(--text);
   font-size: 0.86rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.settings-help,
+.file-selection {
+  margin: 7px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.settings-help {
+  color: var(--muted);
+}
+
+.file-selection {
+  color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 .backup-stack {
@@ -784,6 +800,12 @@ body.has-color .signature {
 .backup-file-field {
   grid-column: 1 / -1;
   margin-top: 0;
+}
+
+.backup-selected-file {
+  grid-column: 1 / -1;
+  max-width: none;
+  margin-top: -4px;
 }
 
 .backup-preview dl {
@@ -1155,8 +1177,19 @@ select:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .folder-row {
-    scroll-behavior: auto;
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+
+  .link-card:hover,
+  .link-card.is-dragging,
+  .icon-button:hover,
+  .ghost-button:hover {
+    transform: none !important;
   }
 }
 

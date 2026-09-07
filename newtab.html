@@ -165,9 +165,11 @@
 
             <label class="file-field">
               <span data-i18n="imageLabel">Image</span>
-              <input id="backgroundImage" name="backgroundImage" type="file" accept="image/*">
+              <input id="backgroundImage" name="backgroundImage" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="backgroundImageLimits backgroundSelectedFile backgroundImageError">
             </label>
 
+            <p class="settings-help" id="backgroundImageLimits" data-i18n="backgroundImageLimits">PNG, JPEG, or WebP — up to 3 MB and 4096 px per side.</p>
+            <p class="file-selection" id="backgroundSelectedFile" role="status" hidden></p>
             <p id="backgroundImageError" role="alert" class="settings-error" hidden></p>
 
             <label class="field compact-field">
@@ -190,7 +192,7 @@
             </label>
 
             <footer class="modal-actions split-actions">
-              <button class="text-button" id="resetBackgroundButton" data-i18n="reset" type="button">Reset</button>
+              <button class="text-button" id="resetBackgroundButton" data-i18n="restoreDefault" type="button">Restore default</button>
               <div class="modal-action-end">
                 <button class="text-button" type="button" data-close="settingsDialog" data-i18n="cancel">Cancel</button>
                 <button class="primary-button" type="submit" data-i18n="save">Save</button>
@@ -216,8 +218,9 @@
               </div>
               <label class="file-field backup-file-field">
                 <span data-i18n="chooseJsonFile">Choose a JSON file</span>
-                <input id="importBackupInput" accept="application/json,.json" type="file">
+                <input id="importBackupInput" accept="application/json,.json" aria-describedby="importSelectedFile importError" type="file">
               </label>
+              <p class="file-selection backup-selected-file" id="importSelectedFile" role="status" hidden></p>
             </article>
 
             <div class="backup-preview" id="importPreview" hidden>

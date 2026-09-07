@@ -665,6 +665,74 @@ test('combines background and portable backup tools in accessible settings tabs'
   assert.doesNotMatch(styles, /\.background-mode\b/);
 });
 
+test('explains file requirements and keeps selected filenames visible', () => {
+  assert.match(
+    html,
+    /id=["']backgroundImage["'][^>]*aria-describedby=["'][^"']*backgroundImageLimits[^"']*backgroundSelectedFile[^"']*backgroundImageError[^"']*["']/,
+  );
+  assert.match(
+    html,
+    /id=["']backgroundImageLimits["'][^>]*data-i18n=["']backgroundImageLimits["']/,
+  );
+  assert.match(
+    html,
+    /id=["']backgroundSelectedFile["'][^>]*role=["']status["'][^>]*hidden/,
+  );
+  assert.match(
+    html,
+    /id=["']importSelectedFile["'][^>]*role=["']status["'][^>]*hidden/,
+  );
+  assert.match(
+    html,
+    /id=["']resetBackgroundButton["'][^>]*data-i18n=["']restoreDefault["'][^>]*>Restore default<\/button>/,
+  );
+
+  assert.match(
+    script,
+    /backgroundSelectedFile\s*:\s*document\.getElementById\s*\(\s*["']backgroundSelectedFile["']\s*\)/,
+  );
+  assert.match(
+    script,
+    /importSelectedFile\s*:\s*document\.getElementById\s*\(\s*["']importSelectedFile["']\s*\)/,
+  );
+  assert.match(
+    script,
+    /elements\.backgroundImage\.addEventListener\s*\(\s*["']change["']\s*,\s*updatePendingBackgroundFile\s*\)/,
+  );
+
+  const backgroundSelectionBlock = getCssBlock(
+    script,
+    /function\s+updatePendingBackgroundFile\s*\(\s*\)/,
+  );
+  assert.match(backgroundSelectionBlock, /elements\.backgroundImage\.files\?\.\[0\]/);
+  assert.match(backgroundSelectionBlock, /t\s*\(\s*["']backgroundSelectedFile["']\s*,\s*\[\s*file\.name\s*\]\s*\)/);
+  assert.match(backgroundSelectionBlock, /elements\.backgroundSelectedFile\.hidden\s*=\s*false/);
+
+  const loadImportBlock = getCssBlock(script, /async\s+function\s+loadImportFile\s*\(/);
+  assert.match(loadImportBlock, /pendingImport\s*=\s*\{\s*\.\.\.result\s*,\s*fileName\s*:\s*file\.name\s*\}/);
+  assert.match(loadImportBlock, /t\s*\(\s*["']importSelectedFile["']\s*,\s*\[\s*pendingImport\.fileName\s*\]\s*\)/);
+  assert.match(loadImportBlock, /elements\.importSelectedFile\.hidden\s*=\s*false/);
+
+  const previewNameRule = getCssBlock(styles, /\.background-preview\s+strong\s*(?=\{)/);
+  assert.match(previewNameRule, /(?:^|;)\s*white-space\s*:\s*normal\s*(?:;|$)/);
+  assert.match(previewNameRule, /(?:^|;)\s*overflow-wrap\s*:\s*anywhere\s*(?:;|$)/);
+});
+
+test('removes decorative movement when reduced motion is requested', () => {
+  const reducedMotionBlock = getCssBlock(
+    styles,
+    /@media\s*\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)/,
+  );
+
+  assert.match(reducedMotionBlock, /transition\s*:\s*none\s*!important/);
+  assert.match(reducedMotionBlock, /animation\s*:\s*none\s*!important/);
+  assert.match(reducedMotionBlock, /scroll-behavior\s*:\s*auto\s*!important/);
+  assert.match(
+    reducedMotionBlock,
+    /\.link-card:hover[\s\S]*?\.icon-button:hover[\s\S]*?\.ghost-button:hover[\s\S]*?transform\s*:\s*none\s*!important/,
+  );
+});
+
 test('stages portable imports and commits them before replacing application state', () => {
   assert.match(
     script,

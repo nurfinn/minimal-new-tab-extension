@@ -3,14 +3,14 @@
     "manifest.json": "23f551a64b0f27734eea7a7459c07868d7eee01794e727590ce23d114ba57339",
     "backup-service.mjs": "47e787a68aabf032c82b76c351b31282b44b1d983742cc1ada9baffa6be05907",
     "favicon-service.mjs": "69f5215fb94e93505be864700031a9a257e19b6b02c8b60ac06581a09389bc66",
-    "i18n-service.mjs": "04b78eedf63e3c78e8295c07c141f40f50b122d2035ff92e2c99bf717c925054",
+    "i18n-service.mjs": "e888bd351e599c624ff78260f09066d52b7ae0473a0a64cac1a58d4fe18f74ca",
     "newtab-core.mjs": "66a3f478d4fa334ec8f8c0369f5997e3abac19f9fc325a6e82a3cc15d095e692",
-    "newtab.html": "d20b87b6ae66c5af7003206c7975b4a1b1bb067d781aa63819dad2900d0a4887",
-    "newtab.js": "3c872bb74500aa3eb494234c0debb6a273befd43061496dd8a5f23996a321c8d",
+    "newtab.html": "c6783fbf6dfefc43886c31c8a1e5dad4d2901c30c3ac5879628ae257e9ebfe2e",
+    "newtab.js": "e90e0068394f07427e4326fc93e3f5430c665c23a9337e06498f19c3cec314c5",
     "storage-service.mjs": "134dacfe20a8f86d1fc218f3e1cb5962fb869ac0165bd1afc7dbe1d2962db778",
-    "styles.css": "5c6b23f8a5871cafbe1a83675796373dac7c967b7b2857ed193fb9a94b2dc5bf",
-    "_locales/en/messages.json": "dd3308f1ef069a5e6138ad14f3b388485222fd092251095122233fa1c2ff94bd",
-    "_locales/ru/messages.json": "891a6a0888c062f766d3b5e520a8db04cb4d499a90356cabbfd4ff1eec091fea"
+    "styles.css": "e0dbdf39659858db01ddf3427040eae7427c10d89ee0a1772413c8373610ee45",
+    "_locales/en/messages.json": "c606a4b635dab84a43f1188ba2a1d15048e0805f35cd2b7bab514f7de6f5602b",
+    "_locales/ru/messages.json": "3f56d26e7f3351133a54345c41a625c21b821f03334fd8f12fcd686d80495784"
   },
   "archive": {
     "path": "/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/minimal-new-tab-chrome-v1.5.5.zip",
