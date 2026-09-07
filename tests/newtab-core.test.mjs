@@ -15,6 +15,7 @@ import {
   getFolderWheelScrollLeft,
   getWheelScrollDelta,
   isUsableFavicon,
+  moveItemByDelta,
   normalizeLegacyColorBackground,
   renameFolder,
   validateBackgroundImage,
@@ -65,6 +66,40 @@ test('validates folder names against the persisted limit', () => {
   assert.deepEqual(validateFolderName('x'.repeat(201)), {
     ok: false,
     error: 'name-too-long',
+  });
+});
+
+test('moves an item one position without mutating the input order', () => {
+  const ids = ['one', 'two', 'three'];
+
+  assert.deepEqual(moveItemByDelta(ids, 'two', -1), {
+    ids: ['two', 'one', 'three'],
+    moved: true,
+    position: 1,
+  });
+  assert.deepEqual(moveItemByDelta(ids, 'two', 1), {
+    ids: ['one', 'three', 'two'],
+    moved: true,
+    position: 3,
+  });
+  assert.deepEqual(ids, ['one', 'two', 'three']);
+});
+
+test('keeps order stable at keyboard reorder boundaries and for stale ids', () => {
+  assert.deepEqual(moveItemByDelta(['one', 'two'], 'one', -1), {
+    ids: ['one', 'two'],
+    moved: false,
+    position: 1,
+  });
+  assert.deepEqual(moveItemByDelta(['one', 'two'], 'two', 1), {
+    ids: ['one', 'two'],
+    moved: false,
+    position: 2,
+  });
+  assert.deepEqual(moveItemByDelta(['one', 'two'], 'missing', 1), {
+    ids: ['one', 'two'],
+    moved: false,
+    position: 0,
   });
 });
 

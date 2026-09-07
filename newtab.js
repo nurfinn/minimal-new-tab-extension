@@ -7,6 +7,7 @@ import {
   getGlobalShortcutAction,
   getWheelScrollDelta,
   isUsableFavicon,
+  moveItemByDelta,
   normalizeLegacyColorBackground,
   renameFolder,
   validateBackgroundImage,
@@ -68,6 +69,7 @@ const defaultState = {
       folderId: ROOT_FOLDER_ID
     }
   ],
+  shortcutsEnabled: true,
   background: {
     type: "image",
     value: "images/default-background.png",
@@ -100,6 +102,7 @@ const elements = {
   linksGrid: document.getElementById("linksGrid"),
   emptyState: document.getElementById("emptyState"),
   appStatus: document.getElementById("appStatus"),
+  reorderStatus: document.getElementById("reorderStatus"),
   addLinkButton: document.getElementById("addLinkButton"),
   addFolderButton: document.getElementById("addFolderButton"),
   settingsButton: document.getElementById("settingsButton"),
@@ -137,6 +140,7 @@ const elements = {
   backgroundOverlay: document.getElementById("backgroundOverlay"),
   backgroundOverlayColor: document.getElementById("backgroundOverlayColor"),
   backgroundOverlayValue: document.getElementById("backgroundOverlayValue"),
+  singleKeyShortcuts: document.getElementById("singleKeyShortcuts"),
   resetBackgroundButton: document.getElementById("resetBackgroundButton"),
   exportBackupButton: document.getElementById("exportBackupButton"),
   importBackupInput: document.getElementById("importBackupInput"),
@@ -169,6 +173,8 @@ function bindEvents() {
   elements.addFolderButton.addEventListener("click", () => openFolderDialog());
   elements.settingsButton.addEventListener("click", () => openSettingsDialog());
   document.addEventListener("keydown", handleGlobalShortcut);
+  elements.linksGrid.addEventListener("keydown", handleLinkReorderKeydown);
+  elements.folderList.addEventListener("keydown", handleFolderReorderKeydown);
 
   elements.linkTitle.addEventListener("input", () => {
     clearInputError(elements.linkTitle, elements.linkTitleError);
@@ -317,6 +323,7 @@ function bindEvents() {
     const file = elements.backgroundImage.files[0];
     const overlay = Number(elements.backgroundOverlay.value);
     const overlayColor = elements.backgroundOverlayColor.value;
+    const shortcutsEnabled = elements.singleKeyShortcuts.checked;
 
     let nextBackground;
 
@@ -376,6 +383,7 @@ function bindEvents() {
     const saved = await commitStateChange(
       (latestState) => {
         latestState.background = nextBackground;
+        latestState.shortcutsEnabled = shortcutsEnabled;
         return latestState;
       },
       { onError: () => showBackgroundImageError("save-failed") }
@@ -554,10 +562,34 @@ function bindEvents() {
 
 function render() {
   applyBackground();
+  renderShortcutPreference();
   renderFolderOptions();
   renderFolders();
   renderFolderList();
   renderLinks();
+}
+
+function renderShortcutPreference() {
+  const enabled = state.shortcutsEnabled;
+  elements.singleKeyShortcuts.checked = enabled;
+
+  for (const { button, key, titleKey, labelKey } of [
+    { button: elements.addLinkButton, key: "A", titleKey: "addSiteShortcut", labelKey: "addSite" },
+    {
+      button: elements.addFolderButton,
+      key: "F",
+      titleKey: "createFolderShortcut",
+      labelKey: "createFolder"
+    },
+    { button: elements.settingsButton, key: "S", titleKey: "settingsShortcut", labelKey: "settings" }
+  ]) {
+    button.title = t(enabled ? titleKey : labelKey);
+    if (enabled) {
+      button.setAttribute("aria-keyshortcuts", key);
+    } else {
+      button.removeAttribute("aria-keyshortcuts");
+    }
+  }
 }
 
 function renderFolders() {
@@ -804,7 +836,8 @@ function renderFolderList() {
     dragButton.dataset.dragFolder = folder.id;
     dragButton.title = t("drag");
     dragButton.disabled = isEditing;
-    dragButton.setAttribute("aria-label", t("dragFolder", [folder.name]));
+    dragButton.setAttribute("aria-label", t("reorderFolder", [folder.name]));
+    dragButton.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown");
     dragButton.append(
       createIcon(["M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"])
     );
@@ -913,7 +946,8 @@ function createLinkCard(link) {
   dragButton.type = "button";
   dragButton.dataset.dragLink = link.id;
   dragButton.title = t("drag");
-  dragButton.setAttribute("aria-label", t("dragSite", [link.title]));
+  dragButton.setAttribute("aria-label", t("reorderSite", [link.title]));
+  dragButton.setAttribute("aria-keyshortcuts", "ArrowLeft ArrowRight");
   dragButton.append(
     createIcon(["M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"])
   );
@@ -997,6 +1031,41 @@ function createLinkCard(link) {
   card.append(dragButton, openLink, actions);
 
   return card;
+}
+
+async function handleLinkReorderKeydown(event) {
+  const handle = event.target.closest("[data-drag-link]");
+  const delta = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
+  if (!handle || !delta) return;
+
+  const linkId = handle.dataset.dragLink;
+  const visibleLinks = getVisibleLinks();
+  const preview = moveItemByDelta(
+    visibleLinks.map((link) => link.id),
+    linkId,
+    delta
+  );
+  if (!preview.moved) return;
+
+  event.preventDefault();
+  const selectedFolderId = state.selectedFolderId;
+  const linkTitle = visibleLinks.find((link) => link.id === linkId)?.title || t("siteFallback");
+  const saved = await commitStateChange((latestState) => {
+    const latestMove = moveItemByDelta(
+      getVisibleLinks(latestState, selectedFolderId).map((link) => link.id),
+      linkId,
+      delta
+    );
+    return latestMove.moved
+      ? reorderVisibleLinksByIds(latestState, latestMove.ids)
+      : latestState;
+  });
+  if (!saved) return;
+
+  focusReorderHandle(elements.linksGrid, "dragLink", linkId);
+  const committedLinks = getVisibleLinks();
+  const position = committedLinks.findIndex((link) => link.id === linkId) + 1;
+  announceReorder(t("itemMoved", [linkTitle, position, committedLinks.length]));
 }
 
 function startLinkDrag(event) {
@@ -1134,6 +1203,73 @@ function reorderVisibleLinks(targetState, sourceId, targetId, after, selectedFol
     return nextLink;
   });
   return targetState;
+}
+
+function reorderVisibleLinksByIds(targetState, orderedIds) {
+  const linksById = new Map(targetState.links.map((link) => [link.id, link]));
+  const visibleIds = new Set(orderedIds);
+  let cursor = 0;
+
+  targetState.links = targetState.links.map((link) => {
+    if (!visibleIds.has(link.id)) return link;
+    const nextLink = linksById.get(orderedIds[cursor]);
+    cursor += 1;
+    return nextLink;
+  });
+  return targetState;
+}
+
+async function handleFolderReorderKeydown(event) {
+  const handle = event.target.closest("[data-drag-folder]");
+  const delta = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+  if (!handle || handle.disabled || !delta) return;
+
+  const folderId = handle.dataset.dragFolder;
+  const userFolders = getUserFolders();
+  const preview = moveItemByDelta(
+    userFolders.map((folder) => folder.id),
+    folderId,
+    delta
+  );
+  if (!preview.moved) return;
+
+  event.preventDefault();
+  const folderName = userFolders.find((folder) => folder.id === folderId)?.name || "";
+  const saved = await commitStateChange((latestState) => {
+    const latestFolders = getUserFolders(latestState);
+    const latestMove = moveItemByDelta(
+      latestFolders.map((folder) => folder.id),
+      folderId,
+      delta
+    );
+    if (!latestMove.moved) return latestState;
+
+    const foldersById = new Map(latestFolders.map((folder) => [folder.id, folder]));
+    const rootFolder = latestState.folders.find((folder) => folder.id === ROOT_FOLDER_ID);
+    latestState.folders = [
+      rootFolder,
+      ...latestMove.ids.map((id) => foldersById.get(id))
+    ].filter(Boolean);
+    return latestState;
+  });
+  if (!saved) return;
+
+  focusReorderHandle(elements.folderList, "dragFolder", folderId);
+  const committedFolders = getUserFolders();
+  const position = committedFolders.findIndex((folder) => folder.id === folderId) + 1;
+  announceReorder(t("itemMoved", [folderName, position, committedFolders.length]));
+}
+
+function focusReorderHandle(container, dataKey, id) {
+  const attribute = `data-${dataKey.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`;
+  const target = [...container.querySelectorAll(`[${attribute}]`)].find(
+    (element) => element.dataset[dataKey] === id
+  );
+  target?.focus({ preventScroll: true });
+}
+
+function announceReorder(message) {
+  elements.reorderStatus.textContent = message;
 }
 
 function startFolderDrag(event) {
@@ -1317,12 +1453,14 @@ function openSettingsDialog() {
   elements.backgroundOverlay.value = state.background.overlay;
   elements.backgroundOverlayColor.value =
     state.background.overlayColor || defaultState.background.overlayColor;
+  elements.singleKeyShortcuts.checked = state.shortcutsEnabled;
   updateOverlayLabel(state.background.overlay);
   openDialog(elements.settingsDialog, elements.backgroundImage);
 }
 
 function handleGlobalShortcut(event) {
   if (event.defaultPrevented) return;
+  if (!state.shortcutsEnabled) return;
 
   const action = getGlobalShortcutAction({
     code: event.code,
@@ -1455,7 +1593,11 @@ async function confirmImport() {
   const importedData = pendingImport.data;
   elements.confirmImportButton.disabled = true;
   const saved = await commitStateChange(
-    (latestState) => normalizeState(buildImportedState(latestState, importedData)),
+    (latestState) =>
+      normalizeState({
+        ...buildImportedState(latestState, importedData),
+        shortcutsEnabled: latestState.shortcutsEnabled
+      }),
     { onError: () => showImportError(t("importSaveError")) }
   );
   elements.confirmImportButton.disabled = false;
@@ -1660,6 +1802,8 @@ function normalizeState(savedState) {
   ) {
     nextState.selectedFolderId = "all";
   }
+
+  nextState.shortcutsEnabled = nextState.shortcutsEnabled !== false;
 
   return nextState;
 }

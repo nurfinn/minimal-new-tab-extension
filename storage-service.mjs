@@ -38,6 +38,12 @@ export function validateSyncPayload(value) {
   if (!isRecord(value) || value.storageVersion !== STORAGE_VERSION) return false;
   if (!isRecord(value.sites) || !isRecord(value.folders)) return false;
   if (!isRecord(value.layout) || !isRecord(value.theme)) return false;
+  if (
+    value.preferences !== undefined &&
+    (!isRecord(value.preferences) || typeof value.preferences.singleKeyShortcuts !== "boolean")
+  ) {
+    return false;
+  }
   if (!Array.isArray(value.layout.siteOrder) || !Array.isArray(value.layout.folderOrder)) {
     return false;
   }
@@ -436,13 +442,18 @@ function applicationStateToPayload(state, backgroundDescriptor = null) {
     (state.background?.type === "color" && COLOR_PATTERN.test(state.background.value || "")
       ? { type: "color", value: state.background.value }
       : { type: "default" });
+  const preferences =
+    typeof state.shortcutsEnabled === "boolean"
+      ? { singleKeyShortcuts: state.shortcutsEnabled }
+      : null;
 
   return {
     storageVersion: STORAGE_VERSION,
     sites,
     folders,
     layout: { siteOrder, folderOrder, selectedFolderId },
-    theme: { background, overlay, overlayColor }
+    theme: { background, overlay, overlayColor },
+    ...(preferences ? { preferences } : {})
   };
 }
 
@@ -488,7 +499,8 @@ async function payloadToApplicationState(payload, defaultState, localArea, logge
           : payload.layout.selectedFolderId,
       folders,
       links,
-      background
+      background,
+      shortcutsEnabled: payload.preferences?.singleKeyShortcuts !== false
     }
   };
 }

@@ -9,6 +9,7 @@
   <body>
     <div class="background-overlay" aria-hidden="true"></div>
     <p class="app-status" id="appStatus" role="alert" hidden></p>
+    <p class="visually-hidden" id="reorderStatus" aria-live="polite" aria-atomic="true"></p>
 
     <main class="shell">
       <header class="topbar">
@@ -176,6 +177,14 @@
               <span data-i18n="opacity">Opacity</span>
               <input id="backgroundOverlay" name="backgroundOverlay" type="range" min="0" max="100" value="0">
               <output id="backgroundOverlayValue" for="backgroundOverlay">0%</output>
+            </label>
+
+            <label class="toggle-field">
+              <span class="toggle-copy">
+                <strong data-i18n="singleKeyShortcutsLabel">Single-key shortcuts</strong>
+                <span data-i18n="singleKeyShortcutsDescription">Use A, F, and S when no dialog or field is active.</span>
+              </span>
+              <input id="singleKeyShortcuts" name="singleKeyShortcuts" type="checkbox" checked>
             </label>
 
             <footer class="modal-actions split-actions">

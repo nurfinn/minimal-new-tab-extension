@@ -31,6 +31,24 @@ export function validateFolderName(value) {
   return { ok: true, name };
 }
 
+export function moveItemByDelta(ids, id, delta) {
+  const nextIds = [...ids];
+  const sourceIndex = nextIds.indexOf(id);
+  if (sourceIndex === -1) return { ids: nextIds, moved: false, position: 0 };
+
+  const targetIndex = Math.min(
+    nextIds.length - 1,
+    Math.max(0, sourceIndex + Math.trunc(Number(delta) || 0)),
+  );
+  if (targetIndex === sourceIndex) {
+    return { ids: nextIds, moved: false, position: sourceIndex + 1 };
+  }
+
+  nextIds.splice(sourceIndex, 1);
+  nextIds.splice(targetIndex, 0, id);
+  return { ids: nextIds, moved: true, position: targetIndex + 1 };
+}
+
 export function getGlobalShortcutAction({
   code,
   key,

@@ -182,6 +182,70 @@ test('exposes guarded A, F, and S shortcuts without changing button icons', () =
   assert.match(editableTargetBlock, /!ownerDialog\s*\|\|\s*ownerDialog\.open/);
 });
 
+test('supports keyboard reordering and announces the committed position', () => {
+  assert.match(
+    script,
+    /import\s*\{[^}]*\bmoveItemByDelta\b[^}]*\}\s*from\s*["']\.\/newtab-core\.mjs["']\s*;/s,
+  );
+  assert.match(
+    html,
+    /id=["']reorderStatus["'][^>]*aria-live=["']polite["'][^>]*aria-atomic=["']true["']/,
+  );
+  assert.match(styles, /\.visually-hidden\s*\{/);
+  assert.match(
+    script,
+    /elements\.linksGrid\.addEventListener\s*\(\s*["']keydown["']\s*,\s*handleLinkReorderKeydown\s*\)/,
+  );
+
+  const linkKeyboardBlock = getCssBlock(
+    script,
+    /async\s+function\s+handleLinkReorderKeydown\s*\(\s*event\s*\)/,
+  );
+  const folderKeyboardBlock = getCssBlock(
+    script,
+    /async\s+function\s+handleFolderReorderKeydown\s*\(\s*event\s*\)/,
+  );
+  assert.match(linkKeyboardBlock, /["']ArrowLeft["']/);
+  assert.match(linkKeyboardBlock, /["']ArrowRight["']/);
+  assert.match(linkKeyboardBlock, /moveItemByDelta\s*\(/);
+  assert.match(linkKeyboardBlock, /await\s+commitStateChange\s*\(/);
+  assert.match(linkKeyboardBlock, /focusReorderHandle\s*\(/);
+  assert.match(linkKeyboardBlock, /announceReorder\s*\(/);
+  assert.match(folderKeyboardBlock, /["']ArrowUp["']/);
+  assert.match(folderKeyboardBlock, /["']ArrowDown["']/);
+  assert.match(folderKeyboardBlock, /moveItemByDelta\s*\(/);
+  assert.match(folderKeyboardBlock, /await\s+commitStateChange\s*\(/);
+  assert.match(folderKeyboardBlock, /focusReorderHandle\s*\(/);
+  assert.match(folderKeyboardBlock, /announceReorder\s*\(/);
+});
+
+test('lets users disable single-key A, F, and S shortcuts in Background settings', () => {
+  assert.match(
+    html,
+    /id=["']singleKeyShortcuts["'][^>]*type=["']checkbox["']/,
+  );
+  assert.match(html, /data-i18n=["']singleKeyShortcutsLabel["']/);
+  assert.match(html, /data-i18n=["']singleKeyShortcutsDescription["']/);
+  assert.match(styles, /\.toggle-field\s*\{/);
+
+  const shortcutBlock = getCssBlock(script, /function\s+handleGlobalShortcut\s*\(\s*event\s*\)/);
+  const backgroundSubmitBlock = getCssBlock(
+    script,
+    /elements\.backgroundForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
+  );
+  const renderPreferenceBlock = getCssBlock(
+    script,
+    /function\s+renderShortcutPreference\s*\(\s*\)/,
+  );
+
+  assert.match(shortcutBlock, /if\s*\(\s*!state\.shortcutsEnabled\s*\)\s*return\s*;/);
+  assert.match(backgroundSubmitBlock, /const\s+shortcutsEnabled\s*=\s*elements\.singleKeyShortcuts\.checked\s*;/);
+  assert.match(backgroundSubmitBlock, /latestState\.shortcutsEnabled\s*=\s*shortcutsEnabled\s*;/);
+  assert.match(renderPreferenceBlock, /const\s+enabled\s*=\s*state\.shortcutsEnabled\s*;/);
+  assert.match(renderPreferenceBlock, /elements\.singleKeyShortcuts\.checked\s*=\s*enabled\s*;/);
+  assert.match(renderPreferenceBlock, /removeAttribute\s*\(\s*["']aria-keyshortcuts["']\s*\)/);
+});
+
 test('delegates persistence to the isolated sync storage service', () => {
   assert.match(
     script,

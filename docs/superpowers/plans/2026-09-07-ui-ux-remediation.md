@@ -121,13 +121,13 @@ assert.equal(selected.state.links.some(item => item.id === site.id), true);
 - Produces: optional application property `shortcutsEnabled`, persisted as optional `preferences.singleKeyShortcuts`; absence reads as `true`.
 - Produces: polite live-region announcements for new order.
 
-- [ ] **Step 1: Write failing helper tests** for left/right site moves, boundary no-op, up/down folder moves, and retained focus position.
-- [ ] **Step 2: Write failing storage tests** proving old payloads default to enabled and the optional preference round-trips without changing `storageVersion`.
-- [ ] **Step 3: Run the three target test files and confirm failures.**
-- [ ] **Step 4: Implement ArrowLeft/ArrowRight on site drag handles and ArrowUp/ArrowDown on folder handles.** Prevent default only when a move is possible, persist with `commitStateChange`, restore focus by ID, and announce “Moved X to position Y of Z”.
-- [ ] **Step 5: Add a compact checkbox in the existing Background panel.** Default on; when off, A/F/S do nothing. Keep the physical-key layout logic and existing button icons.
-- [ ] **Step 6: Run target tests and verify green.**
-- [ ] **Step 7: Commit with `git commit -m "feat: add keyboard ordering and shortcut control"`.**
+- [x] **Step 1: Write failing helper tests** for left/right site moves, boundary no-op, up/down folder moves, and retained focus position.
+- [x] **Step 2: Write failing storage tests** proving old payloads default to enabled and the optional preference round-trips without changing `storageVersion`.
+- [x] **Step 3: Run the three target test files and confirm failures.**
+- [x] **Step 4: Implement ArrowLeft/ArrowRight on site drag handles and ArrowUp/ArrowDown on folder handles.** Prevent default only when a move is possible, persist with `commitStateChange`, restore focus by ID, and announce “Moved X to position Y of Z”.
+- [x] **Step 5: Add a compact checkbox in the existing Background panel.** Default on; when off, A/F/S do nothing. Keep the physical-key layout logic and existing button icons.
+- [x] **Step 6: Run target tests and verify green.**
+- [x] **Step 7: Commit with `git commit -m "feat: add keyboard ordering and shortcut control"`.**
 
 ### Task 5: Browser parity, useful favicons, long-name access, and image contrast
 

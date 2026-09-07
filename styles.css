@@ -125,6 +125,16 @@ button {
   line-height: 1.4;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 input[aria-invalid="true"] {
   border-color: rgba(168, 60, 60, 0.68);
   box-shadow: 0 0 0 3px rgba(168, 60, 60, 0.12);
@@ -936,6 +946,45 @@ body.has-color .signature {
 .compact-field {
   grid-template-columns: 1fr auto;
   align-items: center;
+}
+
+.toggle-field {
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.42);
+  cursor: pointer;
+}
+
+.toggle-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.toggle-copy strong {
+  color: var(--text);
+  font-size: 0.84rem;
+}
+
+.toggle-copy span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.toggle-field input {
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
 }
 
 .range-field {

@@ -62,6 +62,7 @@ class FakeLockManager {
 function makeDefaultState() {
   return {
     selectedFolderId: "all",
+    shortcutsEnabled: true,
     folders: [{ id: "root", name: "Избранное" }],
     links: [
       {
@@ -175,6 +176,41 @@ test("does not write defaults when an update cannot read sync storage", async ()
   assert.equal(result.ok, false);
   assert.equal(result.error, "read-failed");
   assert.equal(syncArea.calls.some(({ method }) => method === "set"), false);
+});
+
+test("defaults old sync payloads to enabled single-key shortcuts", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  const service = createStorageService({ syncArea, localArea, logger: null });
+  const legacyState = makeDefaultState();
+  delete legacyState.shortcutsEnabled;
+  await service.save(legacyState);
+
+  const defaults = makeDefaultState();
+  const reloaded = await createStorageService({ syncArea, localArea, logger: null }).load(defaults);
+
+  assert.equal(reloaded.ok, true);
+  assert.equal(reloaded.state.shortcutsEnabled, true);
+  assert.equal(Object.hasOwn(JSON.parse(getActivePayloadJson(syncArea)), "preferences"), false);
+});
+
+test("round-trips the optional single-key shortcut preference without changing schema version", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  const defaults = makeDefaultState();
+  defaults.shortcutsEnabled = true;
+  const state = structuredClone(defaults);
+  state.shortcutsEnabled = false;
+
+  const service = createStorageService({ syncArea, localArea, logger: null });
+  assert.equal((await service.save(state)).ok, true);
+
+  const payload = JSON.parse(getActivePayloadJson(syncArea));
+  assert.equal(payload.storageVersion, 1);
+  assert.deepEqual(payload.preferences, { singleKeyShortcuts: false });
+
+  const reloaded = await createStorageService({ syncArea, localArea, logger: null }).load(defaults);
+  assert.equal(reloaded.state.shortcutsEnabled, false);
 });
 
 test("prefers the Promise-based Firefox browser storage namespace", async () => {
