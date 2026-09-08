@@ -158,10 +158,35 @@ test('keeps full truncated site names and hosts available on hover and focus', (
   );
 });
 
-test('keeps image-background card text above 4.5 to 1 on a white image', () => {
+test('matches the full image-card material from Chrome 1.5.5, not just its blur radius', () => {
+  // Reference: styles.css at 063c136 (manifest version 1.5.5).
   const imageRule = getCssBlock(styles, /body\.has-image\s*(?=\{)/);
-  const white = [255, 255, 255];
-  const cardSurface = composite(readRgbaVariable(imageRule, 'card-bg'), white);
+  const material = Object.fromEntries(
+    [...imageRule.matchAll(/--((?:card|favicon)-[\w-]+)\s*:\s*([^;]+);/g)]
+      .map(([, key, value]) => [key, value.trim()]),
+  );
+  assert.deepEqual(material, {
+    'card-bg': 'rgba(9, 13, 12, 0.34)',
+    'card-hover-bg': 'rgba(9, 13, 12, 0.48)',
+    'card-border': 'rgba(255, 255, 255, 0.17)',
+    'card-border-hover': 'rgba(255, 255, 255, 0.3)',
+    'card-text': 'rgba(255, 255, 255, 0.96)',
+    'card-muted': 'rgba(255, 255, 255, 0.66)',
+    'card-shadow': '0 20px 58px rgba(0, 0, 0, 0.22)',
+    'card-shadow-hover': '0 26px 70px rgba(0, 0, 0, 0.3)',
+    'card-control-bg': 'rgba(255, 255, 255, 0.12)',
+    'card-control-hover': 'rgba(255, 255, 255, 0.22)',
+    'favicon-bg': 'rgba(255, 255, 255, 0.88)',
+    'favicon-border': 'rgba(255, 255, 255, 0.2)',
+  });
+});
+
+test('keeps legacy glass text above 4.5 to 1 on dark imagery', () => {
+  const imageRule = getCssBlock(styles, /body\.has-image\s*(?=\{)/);
+  // Restoring the requested 1.5.5 translucency removes the opaque 1.6 surface's
+  // white-image contrast guarantee. Do not claim this for every custom image.
+  const darkImage = [64, 64, 64];
+  const cardSurface = composite(readRgbaVariable(imageRule, 'card-bg'), darkImage);
   const title = composite(readRgbaVariable(imageRule, 'card-text'), cardSurface);
   const host = composite(readRgbaVariable(imageRule, 'card-muted'), cardSurface);
 

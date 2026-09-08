@@ -21,7 +21,7 @@ Release tags and archives should include the platform:
 ## What's new in 1.6
 
 - A lighter header with floating folder buttons and more breathing room.
-- Sites scroll below the navigation, with soft edges and comfortable bottom spacing.
+- Sites scroll below the fixed navigation, with comfortable bottom spacing and the familiar frosted-glass cards.
 - More reliable saving when several new tabs are open.
 - Reorder sites and folders with the keyboard, and turn single-key shortcuts off in Settings.
 - Clearer messages for invalid addresses, background uploads, backups, and saving errors.
