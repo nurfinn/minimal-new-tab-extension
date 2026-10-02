@@ -70,6 +70,7 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
     'favicon-settings.css',
     'favicon-settings.mjs',
     'firefox-bootstrap.mjs',
+    'folder-gestures.mjs',
     'i18n-service.mjs',
     'icons',
     'images',
@@ -78,6 +79,8 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
     'newtab.html',
     'newtab.js',
     'platform.css',
+    'settings-draft.mjs',
+    'site-icon.mjs',
     'site-icons',
     'storage-service.mjs',
     'styles.css',
@@ -90,6 +93,14 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
   assert.deepEqual(
     await readFile(join(outputDir, 'favicon-service.mjs')),
     await readFile(join(sourceRoot, 'firefox/favicon-service.mjs')),
+  );
+  assert.deepEqual(
+    await readFile(join(outputDir, 'folder-gestures.mjs')),
+    await readFile(join(sourceRoot, 'folder-gestures.mjs')),
+  );
+  assert.deepEqual(
+    await readFile(join(outputDir, 'site-icon.mjs')),
+    await readFile(join(sourceRoot, 'site-icon.mjs')),
   );
 
   const builtHtml = await readFile(join(outputDir, 'newtab.html'), 'utf8');
@@ -108,7 +119,11 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
   assert.match(builtHtml, /href="platform\.css"/);
   assert.match(builtHtml, /href="favicon-settings\.css"/);
   assert.match(builtHtml, /id="faviconSettingsRow"/);
+  assert.ok(builtHtml.indexOf('id="faviconSettingsRow"') > builtHtml.indexOf('id="backgroundSettingsPanel"'));
+  assert.ok(builtHtml.indexOf('id="faviconSettingsRow"') < builtHtml.indexOf('id="backupSettingsPanel"'));
+  assert.doesNotMatch(builtHtml, /id="faviconSettingsConfigure"|id="faviconSettingsDisclosure"/);
   assert.match(builtHtml, /src="firefox-bootstrap\.mjs"/);
+  assert.doesNotMatch(builtHtml, /chrome-bootstrap|chrome-update/);
   assert.doesNotMatch(builtHtml, /type="module" src="newtab\.js"/);
   assert.match(
     builtScript,
@@ -128,6 +143,7 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
 
   for (const relativePath of [
     'styles.css',
+    'settings-draft.mjs',
     'storage-service.mjs',
     'newtab-core.mjs',
     'images/default-background.png',

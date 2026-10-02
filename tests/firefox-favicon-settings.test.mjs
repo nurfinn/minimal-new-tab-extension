@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { localizeDocument } from '../i18n-service.mjs';
 
 const settings = await import('../firefox/favicon-settings.mjs');
 const [fragment, styles, source] = await Promise.all([
@@ -52,11 +53,11 @@ test('starts disabled and turns on only after a granted request', async () => {
 
   assert.deepEqual(
     await controller.refresh(),
-    { supported: true, enabled: false, error: false },
+    { supported: true, enabled: false, error: false, pending: false },
   );
   assert.deepEqual(
     await controller.enable(),
-    { supported: true, enabled: true, error: false },
+    { supported: true, enabled: true, error: false, pending: false },
   );
   assert.deepEqual(permissions.calls.at(-2), [
     'request',
@@ -79,7 +80,7 @@ test('keeps local mode after denial, API absence, and removal', async () => {
   });
   assert.deepEqual(
     await unsupportedController.refresh(),
-    { supported: false, enabled: false, error: false },
+    { supported: false, enabled: false, error: false, pending: false },
   );
 
   const enabled = createPermissions({ enabled: true });
@@ -111,35 +112,33 @@ test('fails closed when Firefox permission calls reject', async () => {
 
   assert.deepEqual(
     await controller.refresh(),
-    { supported: true, enabled: false, error: true },
+    { supported: true, enabled: false, error: true, pending: false },
   );
   assert.deepEqual(
     await controller.enable(),
-    { supported: true, enabled: false, error: true },
+    { supported: true, enabled: false, error: true, pending: false },
   );
   assert.deepEqual(
     await controller.disable(),
-    { supported: true, enabled: false, error: true },
+    { supported: true, enabled: false, error: true, pending: false },
   );
 });
 
-test('implements approved option C without a third settings tab', () => {
+test('keeps Firefox icons in one compact, immediately applied preference row', () => {
   assert.match(fragment, /id="faviconSettingsRow"/);
-  assert.match(fragment, /id="faviconSettingsConfigure"[^>]+aria-expanded="false"/s);
-  assert.match(fragment, /id="faviconSettingsDisclosure"[^>]+hidden/);
   assert.match(fragment, /id="remoteFaviconToggle"[^>]+type="checkbox"/);
   assert.match(
     fragment,
-    /id="faviconSettingsTitle"[\s\S]+class="favicon-settings-samples"[\s\S]+id="faviconSettingsMode"[\s\S]+id="faviconSettingsConfigure"/,
+    /id="remoteFaviconToggle"[^>]+aria-describedby="faviconSettingsPrivacy remoteFaviconStatus faviconSettingsError"/,
   );
   assert.match(
     fragment,
-    /data-i18n="siteIconsRemoteToggle"[\s\S]+id="remoteFaviconStatus"[\s\S]+class="favicon-settings-switch-control"/,
+    /id="remoteFaviconStatus"[^>]+role="status"[^>]+aria-live="polite"/,
   );
-  assert.doesNotMatch(fragment, /role="tab"|data-settings-tab/);
+  assert.doesNotMatch(fragment, /role="tab"|data-settings-tab|faviconSettingsConfigure|faviconSettingsDisclosure|favicon-settings-samples/);
+  assert.doesNotMatch(fragment, /id="remoteFaviconStatus"[^>]+data-i18n/);
   assert.match(styles, /\.favicon-settings-row/);
-  assert.match(styles, /\.favicon-settings-disclosure/);
-  assert.match(styles, /\.favicon-settings-configure\s*\{[^}]+border:/s);
+  assert.match(styles, /\.favicon-settings-row\.is-pending/);
 });
 
 test('does not persist consent or favicon data', () => {
@@ -150,4 +149,164 @@ test('does not persist consent or favicon data', () => {
   assert.match(source, /permissions\.request/);
   assert.match(source, /permissions\.remove/);
   assert.match(source, /permissions\.getAll/);
+});
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
+test('permission request stays pending with the last confirmed switch position', async () => {
+  const request = deferred();
+  const states = [];
+  const controller = settings.createFaviconPermissionController({
+    permissions: {
+      getAll: async () => ({ data_collection: [] }),
+      request: () => request.promise,
+    },
+    onStateChange: (state) => states.push(state),
+  });
+  await controller.refresh();
+  const completion = controller.enable();
+  assert.equal(controller.state.pending, true);
+  assert.equal(controller.state.enabled, false);
+  await controller.refresh();
+  assert.equal(controller.state.pending, true, 'external refresh cannot erase waiting state');
+  request.resolve(false);
+  await completion;
+  assert.equal(controller.state.pending, false);
+  assert.equal(controller.state.enabled, false);
+  assert.equal(states.some((state) => state.pending), true);
+});
+
+test('repeated toggles while waiting cannot open another permission request', async () => {
+  const request = deferred();
+  let calls = 0;
+  const controller = settings.createFaviconPermissionController({
+    permissions: {
+      getAll: async () => ({ data_collection: [] }),
+      request: () => { calls += 1; return request.promise; },
+      remove: async () => { throw new Error('Must not remove while requesting'); },
+    },
+  });
+  await controller.refresh();
+  const completion = controller.enable();
+  const again = controller.enable();
+  const remove = controller.disable();
+  const waiting = controller.state.pending;
+  request.resolve(false);
+  await Promise.all([completion, again, remove]);
+  assert.equal(calls, 1);
+  assert.equal(waiting, true);
+});
+
+test('a rejected pending request clears waiting and exposes an error', async () => {
+  const request = deferred();
+  const controller = settings.createFaviconPermissionController({
+    permissions: { getAll: async () => ({ data_collection: [] }), request: () => request.promise },
+  });
+  await controller.refresh();
+  const completion = controller.enable();
+  assert.equal(controller.state.pending, true);
+  request.reject(new Error('User/API error'));
+  await completion;
+  assert.equal(controller.state.pending, false);
+  assert.equal(controller.state.enabled, false);
+  assert.equal(controller.state.error, true);
+});
+
+test('an older permission read cannot overwrite an active consent request', async () => {
+  const read = deferred();
+  const request = deferred();
+  const controller = settings.createFaviconPermissionController({ permissions: {
+    getAll: () => read.promise,
+    request: () => request.promise,
+  } });
+  const reading = controller.refresh();
+  const enabling = controller.enable();
+  read.resolve({ data_collection: [] });
+  await reading;
+  assert.equal(controller.state.pending, true);
+  assert.equal(controller.state.enabled, false);
+  request.resolve(false);
+  await enabling;
+  assert.equal(controller.state.pending, false);
+});
+
+class TestElement extends EventTarget {
+  constructor(i18n = '') {
+    super();
+    this.attributes = new Map();
+    this.dataset = {};
+    this.textContent = '';
+    this.checked = false;
+    this.hidden = false;
+    this.disabled = false;
+    if (i18n) { this.attributes.set('data-i18n', i18n); this.dataset.i18n = i18n; }
+    const classes = new Set();
+    this.classList = { toggle: (name, on) => on ? classes.add(name) : classes.delete(name) };
+  }
+  getAttribute(key) { return this.attributes.get(key) ?? null; }
+  setAttribute(key, value) { this.attributes.set(key, value); }
+  removeAttribute(key) {
+    this.attributes.delete(key);
+    if (key === 'data-i18n') delete this.dataset.i18n;
+  }
+  focus() {}
+}
+
+function settingsRoot() {
+  const ids = Object.fromEntries([
+    'faviconSettingsConfigure', 'faviconSettingsDisclosure', 'remoteFaviconToggle',
+    'faviconSettingsMode', 'remoteFaviconStatus', 'faviconSettingsError',
+  ].map((id) => [id, new TestElement()]));
+  ids.faviconSettingsMode = new TestElement('siteIconsLocalOnly');
+  ids.remoteFaviconStatus = new TestElement('siteIconsOff');
+  return {
+    ids, documentElement: new TestElement(),
+    getElementById: (id) => ids[id] || null,
+    querySelectorAll: (selector) => selector === '[data-i18n]'
+      ? Object.values(ids).filter((element) => element.dataset.i18n) : [],
+  };
+}
+
+const translate = (key) => ({
+  siteIconsOn: 'On', siteIconsOff: 'Off', siteIconsPending: 'Waiting for permission',
+  siteIconsLocalRemote: 'Local + remote', siteIconsLocalOnly: 'Local only',
+}[key] || key);
+
+test('granted startup labels survive the subsequent document localization', async () => {
+  const root = settingsRoot();
+  const instance = await settings.initializeFaviconSettings({
+    root, permissions: createPermissions({ enabled: true }).api, translate, eventTarget: new EventTarget(),
+  });
+  localizeDocument(root, translate, 'en');
+  assert.equal(root.ids.remoteFaviconToggle.checked, true);
+  assert.equal(root.ids.remoteFaviconStatus.textContent, 'On');
+  assert.equal(root.ids.faviconSettingsMode.textContent, 'Local + remote');
+  instance.destroy();
+});
+
+test('native checkbox activation is restored to OFF while Firefox asks permission', async () => {
+  const root = settingsRoot();
+  const request = deferred();
+  const instance = await settings.initializeFaviconSettings({
+    root,
+    permissions: { getAll: async () => ({ data_collection: [] }), request: () => request.promise },
+    translate, eventTarget: new EventTarget(),
+  });
+  const toggle = root.ids.remoteFaviconToggle;
+  toggle.checked = true;
+  toggle.dispatchEvent(new Event('change'));
+  assert.equal(toggle.checked, false);
+  assert.equal(toggle.disabled, true);
+  assert.equal(root.ids.remoteFaviconStatus.textContent, 'Waiting for permission');
+  request.resolve(false);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(toggle.checked, false);
+  assert.equal(toggle.disabled, false);
+  assert.equal(root.ids.remoteFaviconStatus.textContent, 'Off');
+  instance.destroy();
 });

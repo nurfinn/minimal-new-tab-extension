@@ -8,7 +8,7 @@ const baseline = JSON.parse(
   await readFile(new URL('../firefox/chrome-baseline.json', import.meta.url), 'utf8'),
 );
 
-test('keeps Chrome release sources byte-for-byte unchanged', async () => {
+test('keeps the approved shared source baseline intact for the Firefox overlay', async () => {
   for (const [relativePath, expectedHash] of Object.entries(baseline.files)) {
     const contents = await readFile(new URL(relativePath, root));
     const actualHash = createHash('sha256').update(contents).digest('hex');

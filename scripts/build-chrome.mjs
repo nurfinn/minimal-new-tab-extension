@@ -3,8 +3,10 @@ import {
   cp,
   mkdir,
   readdir,
+  readFile,
   rm,
   utimes,
+  writeFile,
 } from 'node:fs/promises';
 import {
   basename,
@@ -25,8 +27,12 @@ const releaseTimestamp = new Date('2000-01-01T00:00:00.000Z');
 export const CHROME_RELEASE_FILES = Object.freeze([
   '_locales',
   'backup-service.mjs',
+  'chrome-bootstrap.mjs',
+  'chrome-update-service.mjs',
+  'chrome-update.css',
   'extension-api.mjs',
   'favicon-service.mjs',
+  'folder-gestures.mjs',
   'i18n-service.mjs',
   'icons',
   'images',
@@ -34,6 +40,8 @@ export const CHROME_RELEASE_FILES = Object.freeze([
   'newtab-core.mjs',
   'newtab.html',
   'newtab.js',
+  'settings-draft.mjs',
+  'site-icon.mjs',
   'storage-service.mjs',
   'styles.css',
 ]);
@@ -61,6 +69,15 @@ export async function buildChromeRelease({
       preserveTimestamps: true,
     });
   }
+
+  const htmlPath = join(output, 'newtab.html');
+  const html = await readFile(htmlPath, 'utf8');
+  const entry = '<script type="module" src="newtab.js"></script>';
+  if (html.split(entry).length !== 2 || html.split('</head>').length !== 2) {
+    throw new Error('Expected exactly one application entry and head in Chrome HTML');
+  }
+  await writeFile(htmlPath, html.replace(entry, '<script type="module" src="chrome-bootstrap.mjs"></script>')
+    .replace('</head>', '  <link rel="stylesheet" href="chrome-update.css">\n  </head>'));
 
   const files = await listRelativeFiles(output);
   await Promise.all(

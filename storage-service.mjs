@@ -1,4 +1,5 @@
 import { getExtensionApi } from "./extension-api.mjs";
+import { normalizeSiteEmoji } from "./site-icon.mjs";
 
 export const STORAGE_VERSION = 1;
 
@@ -417,10 +418,12 @@ function applicationStateToPayload(state, backgroundDescriptor = null) {
       throw new TypeError("Invalid site");
     }
     if (Object.hasOwn(sites, link.id)) throw new TypeError("Duplicate site id");
+    const emoji = normalizeSiteEmoji(link.emoji);
     sites[link.id] = {
       title: link.title.trim(),
       url: normalizedUrl,
-      folderId: link.folderId
+      folderId: link.folderId,
+      ...(emoji ? { emoji } : {})
     };
     siteOrder.push(link.id);
   }
@@ -459,7 +462,17 @@ function applicationStateToPayload(state, backgroundDescriptor = null) {
 
 async function payloadToApplicationState(payload, defaultState, localArea, logger) {
   const folders = payload.layout.folderOrder.map((id) => ({ id, name: payload.folders[id].name }));
-  const links = payload.layout.siteOrder.map((id) => ({ id, ...payload.sites[id] }));
+  const links = payload.layout.siteOrder.map((id) => {
+    const site = payload.sites[id];
+    const emoji = normalizeSiteEmoji(site.emoji);
+    return {
+      id,
+      title: site.title,
+      url: site.url,
+      folderId: site.folderId,
+      ...(emoji ? { emoji } : {})
+    };
+  });
   const defaultBackground = structuredClone(defaultState.background);
   let background;
   let materializedLocalBackground = null;

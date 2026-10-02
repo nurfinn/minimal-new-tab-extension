@@ -113,7 +113,7 @@ test('cycles through favicon sources before showing the fallback', () => {
   );
   assert.match(
     script,
-    /const\s+faviconSources\s*=\s*buildFaviconSources\s*\(\s*link\.url\s*\)\s*;/,
+    /const\s+faviconSources\s*=\s*emoji\s*\?\s*\[\]\s*:\s*buildFaviconSources\s*\(\s*link\.url\s*\)\s*;/,
   );
   assert.match(script, /faviconSourceIndex\s*\+=\s*1\s*;/);
   assert.match(
@@ -144,6 +144,19 @@ test('cycles through favicon sources before showing the fallback', () => {
     createLinkCardBlock,
     /if\s*\(\s*!source\s*\)\s*\{[\s\S]*faviconImage\.removeAttribute\s*\(\s*["']src["']\s*\)[\s\S]*favicon\.classList\.add\s*\(\s*["']fallback["']\s*\)/,
   );
+});
+
+test('emoji use the installed color font and the expanded picker scrolls without growing', () => {
+  const emojiGrid = getCssBlock(styles, /\.site-emoji-grid\s*/);
+  const emojiFont = getCssBlock(
+    styles,
+    /\.favicon\.emoji,\s*\.link-icon-preview\.is-emoji,\s*\.site-emoji-choice\s*/,
+  );
+
+  assert.match(emojiGrid, /max-height\s*:\s*min\(\s*260px\s*,\s*38vh\s*\)\s*;/);
+  assert.match(emojiGrid, /overflow-y\s*:\s*auto\s*;/);
+  assert.match(emojiFont, /font-family\s*:\s*"Apple Color Emoji"\s*,/);
+  assert.match(emojiFont, /"Segoe UI Emoji"\s*,\s*"Noto Color Emoji"/);
 });
 
 test('keeps full truncated site names and hosts available on hover and focus', () => {
@@ -192,6 +205,15 @@ test('keeps legacy glass text above 4.5 to 1 on dark imagery', () => {
 
   assert.ok(contrastRatio(title, cardSurface) >= 4.5);
   assert.ok(contrastRatio(host, cardSurface) >= 4.5);
+});
+
+test('keeps small Settings helper text above 4.5 to 1 on its opaque surface', () => {
+  const rootRule = getCssBlock(styles, /:root\s*(?=\{)/);
+  const settingsRule = getCssBlock(styles, /\.settings-modal\s*(?=\{)/);
+  const muted = (settingsRule.match(/--muted:\s*(#[0-9a-f]{6})/i) || rootRule.match(/--muted:\s*(#[0-9a-f]{6})/i))[1];
+  const surface = settingsRule.match(/background:\s*(#[0-9a-f]{6})/i)[1];
+  const rgb = (hex) => hex.slice(1).match(/../g).map((pair) => parseInt(pair, 16));
+  assert.ok(contrastRatio(rgb(muted), rgb(surface)) >= 4.5);
 });
 
 test('keeps the import cancel binding safe during mixed unpacked updates', () => {
@@ -303,14 +325,14 @@ test('supports keyboard reordering and announces the committed position', () => 
   assert.match(folderKeyboardBlock, /announceReorder\s*\(/);
 });
 
-test('lets users disable single-key A, F, and S shortcuts in Background settings', () => {
+test('lets users draft single-key A, F, and S shortcuts in General settings', () => {
   assert.match(
     html,
     /id=["']singleKeyShortcuts["'][^>]*type=["']checkbox["']/,
   );
   assert.match(html, /data-i18n=["']singleKeyShortcutsLabel["']/);
   assert.match(html, /data-i18n=["']singleKeyShortcutsDescription["']/);
-  assert.match(styles, /\.toggle-field\s*\{/);
+  assert.match(styles, /\.settings-preference\s*\{/);
 
   const shortcutBlock = getCssBlock(script, /function\s+handleGlobalShortcut\s*\(\s*event\s*\)/);
   const backgroundSubmitBlock = getCssBlock(
@@ -326,7 +348,7 @@ test('lets users disable single-key A, F, and S shortcuts in Background settings
   assert.match(backgroundSubmitBlock, /const\s+shortcutsEnabled\s*=\s*elements\.singleKeyShortcuts\.checked\s*;/);
   assert.match(backgroundSubmitBlock, /latestState\.shortcutsEnabled\s*=\s*shortcutsEnabled\s*;/);
   assert.match(renderPreferenceBlock, /const\s+enabled\s*=\s*state\.shortcutsEnabled\s*;/);
-  assert.match(renderPreferenceBlock, /elements\.singleKeyShortcuts\.checked\s*=\s*enabled\s*;/);
+  assert.match(renderPreferenceBlock, /elements\.singleKeyShortcuts\.checked\s*=\s*settingsDraft\?\.shortcutsEnabled\s*\?\?\s*enabled\s*;/);
   assert.match(renderPreferenceBlock, /removeAttribute\s*\(\s*["']aria-keyshortcuts["']\s*\)/);
 });
 
@@ -361,9 +383,10 @@ test('delegates persistence to the isolated sync storage service', () => {
     script,
     /async\s+function\s+commitStateChange\s*\(\s*transform\s*,\s*options\s*=\s*\{\s*\}\s*\)/,
   );
-  assert.match(commitBlock, /await\s+storageService\.update\s*\(\s*defaultState\s*,\s*transform\s*\)/);
+  assert.match(commitBlock, /await\s+storageService\.update\s*\(\s*defaultState\s*,\s*async\s*\(latestState\)/);
+  assert.match(commitBlock, /await\s+transform\s*\(\s*latestState\s*\)/);
   assert.match(commitBlock, /if\s*\(\s*!result\.ok\b/);
-  assert.match(commitBlock, /state\s*=\s*normalizeState\s*\(\s*result\.state\s*\)/);
+  assert.match(commitBlock, /state\s*=\s*normalizeState\s*\(\s*\{/);
   assert.match(commitBlock, /render\s*\(\s*\)/);
   assert.doesNotMatch(script, /storageService\.save\s*\(/);
   assert.match(script, /validateSiteDraft\s*\(\s*\{[\s\S]*title:\s*elements\.linkTitle\.value[\s\S]*url:\s*elements\.linkUrl\.value[\s\S]*\}\s*\)/);
@@ -551,14 +574,13 @@ test('preserves custom background identity until an explicit reset', () => {
     script,
     /elements\.backgroundForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
   );
-  assert.match(backgroundSubmitBlock, /customAssetId/);
-  assert.match(backgroundSubmitBlock, /customAssetAvailable/);
+  assert.match(backgroundSubmitBlock, /\.\.\.settingsDraft\.background/);
   const resetBlock = getCssBlock(
     script,
-    /elements\.resetBackgroundButton\.addEventListener\s*\(\s*["']click["']\s*,\s*async\s*\(\s*\)\s*=>/,
+    /elements\.resetBackgroundButton\.addEventListener\s*\(\s*["']click["']\s*,\s*\(\s*\)\s*=>/,
   );
-  assert.match(resetBlock, /await\s+commitStateChange\s*\(/);
-  assert.match(resetBlock, /latestState\.background\s*=\s*structuredClone\s*\(\s*defaultState\.background\s*\)/);
+  assert.match(resetBlock, /settingsDraft\s*=\s*restoreDefaultBackground\(settingsDraft, defaultState\.background\)/);
+  assert.doesNotMatch(resetBlock, /commitStateChange|settingsDialog\.close/);
 });
 
 test('validates a custom background before mutating or persisting state', () => {
@@ -575,11 +597,16 @@ test('validates a custom background before mutating or persisting state', () => 
     script,
     /elements\.backgroundForm\.addEventListener\s*\(\s*["']submit["']\s*,\s*async\s*\(\s*event\s*\)\s*=>/,
   );
-  assert.match(backgroundSubmitBlock, /validateBackgroundImage\s*\(/);
-  assert.match(backgroundSubmitBlock, /await\s+readImageDimensions\s*\(\s*file\s*\)/);
+  const selectionBlock = getCssBlock(script, /async\s+function\s+updatePendingBackgroundFile\s*\(\s*\)/);
+  assert.match(selectionBlock, /validateBackgroundImage\s*\(/);
+  assert.match(selectionBlock, /await\s+readImageDimensions\s*\(\s*file\s*\)/);
+  assert.match(selectionBlock, /backgroundFileError\s*=/);
+  assert.doesNotMatch(selectionBlock, /commitStateChange/);
+  assert.match(backgroundSubmitBlock, /await\s+pendingBackgroundSelection/);
+  assert.match(backgroundSubmitBlock, /if\s*\(backgroundFileError\)/);
   assert.match(backgroundSubmitBlock, /showBackgroundImageError\s*\([^)]*\)\s*;[\s\S]*return\s*;/);
   assert.ok(
-    backgroundSubmitBlock.indexOf('validateBackgroundImage') <
+    backgroundSubmitBlock.indexOf('await pendingBackgroundSelection') <
       backgroundSubmitBlock.indexOf('const saved'),
   );
   assert.match(script, /URL\.revokeObjectURL\s*\(/);
@@ -613,13 +640,13 @@ test('uses the supplied bundled image as the first-install background', () => {
 });
 
 test('renders the preview through CSS without an image element or broken-image marker', () => {
-  const applyBackgroundBlock = getCssBlock(script, /function\s+applyBackground\s*\(\s*\)/);
+  const applyBackgroundBlock = getCssBlock(script, /function\s+applyBackground\s*\(\s*background\s*=\s*state\.background\s*\)/);
   const updatePreviewBlock = getCssBlock(
     script,
-    /function\s+updateBackgroundPreview\s*\(\s*\)/,
+    /function\s+updateBackgroundPreview\s*\(\s*background\s*\)/,
   );
 
-  assert.match(applyBackgroundBlock, /state\.background\.type\s*===\s*["']image["']/);
+  assert.match(applyBackgroundBlock, /background\.type\s*===\s*["']image["']/);
   assert.match(applyBackgroundBlock, /document\.body\.classList\.toggle\s*\(\s*["']has-image["']/);
   assert.match(applyBackgroundBlock, /document\.documentElement\.style\.setProperty\s*\(\s*["']--bg["']\s*,\s*backgroundColor\s*\)/);
   assert.match(applyBackgroundBlock, /document\.documentElement\.style\.removeProperty\s*\(\s*["']--bg-image["']\s*\)/);
@@ -720,7 +747,7 @@ test('explains file requirements and keeps selected filenames visible', () => {
   );
   assert.match(
     html,
-    /id=["']resetBackgroundButton["'][^>]*data-i18n=["']restoreDefault["'][^>]*>Restore default<\/button>/,
+    /id=["']resetBackgroundButton["'][^>]*data-i18n=["']restoreDefault["'][^>]*>Use default<\/button>/,
   );
 
   assert.match(
@@ -733,12 +760,12 @@ test('explains file requirements and keeps selected filenames visible', () => {
   );
   assert.match(
     script,
-    /elements\.backgroundImage\.addEventListener\s*\(\s*["']change["']\s*,\s*updatePendingBackgroundFile\s*\)/,
+    /elements\.backgroundImage\.addEventListener\s*\(\s*["']change["'][\s\S]*pendingBackgroundSelection\s*=\s*updatePendingBackgroundFile\(\)/,
   );
 
   const backgroundSelectionBlock = getCssBlock(
     script,
-    /function\s+updatePendingBackgroundFile\s*\(\s*\)/,
+    /async\s+function\s+updatePendingBackgroundFile\s*\(\s*\)/,
   );
   assert.match(backgroundSelectionBlock, /elements\.backgroundImage\.files\?\.\[0\]/);
   assert.match(backgroundSelectionBlock, /t\s*\(\s*["']backgroundSelectedFile["']\s*,\s*\[\s*file\.name\s*\]\s*\)/);
@@ -749,9 +776,8 @@ test('explains file requirements and keeps selected filenames visible', () => {
   assert.match(loadImportBlock, /t\s*\(\s*["']importSelectedFile["']\s*,\s*\[\s*pendingImport\.fileName\s*\]\s*\)/);
   assert.match(loadImportBlock, /elements\.importSelectedFile\.hidden\s*=\s*false/);
 
-  const previewNameRule = getCssBlock(styles, /\.background-preview\s+strong\s*(?=\{)/);
-  assert.match(previewNameRule, /(?:^|;)\s*white-space\s*:\s*normal\s*(?:;|$)/);
-  assert.match(previewNameRule, /(?:^|;)\s*overflow-wrap\s*:\s*anywhere\s*(?:;|$)/);
+  assert.match(styles, /\.file-selection\s*\{[^}]*overflow-wrap\s*:\s*anywhere\s*;/);
+  assert.match(html, /id="backgroundPreviewName"[^>]+role="status"/);
 });
 
 test('removes decorative movement when reduced motion is requested', () => {
@@ -782,7 +808,7 @@ test('stages portable imports and commits them before replacing application stat
   assert.match(script, /aria-selected/);
   assert.match(script, /\.tabIndex\s*=/);
   assert.match(script, /function\s+openSettingsDialog\s*\(/);
-  assert.match(script, /updateBackgroundPreview\s*\(\s*\)/);
+  assert.match(script, /updateBackgroundPreview\s*\(\s*settingsDraft\.background\s*\)/);
   assert.match(script, /elements\.backgroundPreviewName\.textContent\s*=/);
   assert.match(script, /normalizeLegacyColorBackground\s*\(/);
 

@@ -102,6 +102,44 @@ test("normalizes a host without a scheme to canonical HTTPS", () => {
   assert.equal(normalizeWebUrl("github.com"), "https://github.com/");
 });
 
+test("round-trips a chosen emoji without changing the sync schema or saving a favicon", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  const state = makeDefaultState();
+  state.links[0].emoji = "🧑‍💻";
+
+  const service = createStorageService({ syncArea, localArea, logger: null });
+  assert.equal((await service.save(state)).ok, true);
+  const payload = JSON.parse(getActivePayloadJson(syncArea));
+  assert.equal(payload.storageVersion, 1);
+  assert.equal(payload.sites["default-google"].emoji, "🧑‍💻");
+  assert.equal(JSON.stringify(payload).includes("favicon"), false);
+
+  const reloaded = await createStorageService({ syncArea, localArea, logger: null })
+    .load(makeDefaultState());
+  assert.equal(reloaded.state.links[0].emoji, "🧑‍💻");
+});
+
+test("ignores a damaged optional emoji while keeping the rest of the sync snapshot", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  const service = createStorageService({ syncArea, localArea, logger: null });
+  assert.equal((await service.save(makeDefaultState())).ok, true);
+
+  const manifest = syncArea.data[STORAGE_KEYS.manifest];
+  const payload = JSON.parse(getActivePayloadJson(syncArea));
+  payload.sites["default-google"].emoji = ["not an emoji"];
+  const json = JSON.stringify(payload);
+  syncArea.data[manifest.active.chunkKeys[0]] = json;
+  manifest.active.byteLength = Buffer.byteLength(json);
+
+  const reloaded = await createStorageService({ syncArea, localArea, logger: null })
+    .load(makeDefaultState());
+  assert.equal(reloaded.ok, true);
+  assert.equal(reloaded.source, "sync");
+  assert.deepEqual(reloaded.state.links, makeDefaultState().links);
+});
+
 test("accepts only HTTP URLs with a hostname and no credentials", () => {
   assert.equal(normalizeWebUrl("http://example.com/path"), "http://example.com/path");
   assert.equal(normalizeWebUrl("javascript:alert(1)"), "");

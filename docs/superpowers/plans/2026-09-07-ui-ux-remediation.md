@@ -210,3 +210,28 @@ assert.equal(selected.state.links.some(item => item.id === site.id), true);
 - [x] **Step 5: Inspect accepted screenshots and accessibility tree; run axe as a supplement, not a compliance claim.**
 - [x] **Step 6: Run `git status --short`, `git diff --check`, and a final full test suite.**
 - [x] **Step 7: Use `superpowers:verification-before-completion`, then `superpowers:finishing-a-development-branch`; do not push or merge without the user's instruction.**
+
+---
+
+## Future improvements — added 2026-09-13
+
+These backlog ideas are carried forward into the [general next-release plan dated 2026-09-22](2026-09-22-next-release-roadmap.md), which also covers update diagnostics and safe update handling. Neither document authorizes implementation or changes the 1.6 release.
+
+**Status:** Both ideas were requested for the backlog. The UX details below are recommendations, not an approved implementation specification. They do not change the completed 1.6 scope, source files, versions, or release packages. Decide the implementation scope before starting either feature.
+
+### 1. Optional emoji instead of a site's favicon
+
+- [ ] Let the user choose an emoji to represent an individual site.
+- **Recommended UX:** Keep automatic favicons as the default. Offer an optional emoji in the existing add/edit-site dialog, with a clear way to return to the automatic icon. Do not replace all existing favicons or change the current card layout.
+- **Data/privacy:** Persist only the chosen Unicode text as lightweight per-site metadata, not an image, base64, or favicon URL. Plan backward-compatible validation, sync, and import/export support without redesigning storage. Preserve Firefox's network-icon consent behavior; an emoji-selected card should not request a remote favicon.
+- **Acceptance checks:** Set, replace, and clear an emoji; handle multi-code-point emoji as one visible symbol; restore after reload; sync and backup round-trip; load older data without the optional choice; keep automatic favicon and letter fallback behavior unchanged. Check EN/RU and both browsers. Native emoji artwork may differ between platforms.
+
+### 2. Trackpad swipe to switch between folders
+
+- [ ] Support deliberate horizontal two-finger swipes to move to the neighboring folder.
+- **Recommended UX:** Follow the visible folder order, including All, and stop at the first/last item without wrapping. Switch at most once per gesture; ignore the remaining momentum so a single swipe cannot skip several folders. Keep the selected folder button visible without increasing the header height.
+- **Gesture boundaries:** Recognize gestures over the site/content area. Keep horizontal scrolling over the folder strip as scrolling, not folder switching. Preserve vertical scrolling and ignore small diagonal movements, open dialogs, text inputs, active drag-and-drop, and pinch-to-zoom gestures. Show normal selection feedback without a large sliding animation; honor reduced motion.
+- **Persistence:** Use the existing folder-selection/save flow, not a write for each wheel event. Preserve existing save-error feedback and never use a stale tab snapshot to overwrite newer data.
+- **Acceptance checks:** Test short/long swipes, momentum, repeated swipes, both directions, boundaries, All, empty folders, and many folders. Verify vertical/diagonal scroll, folder-strip overflow, zoom, keyboard navigation, drag-and-drop, and reload. Use a real macOS trackpad in Chrome and Firefox, including native browser back/forward gesture interaction; synthetic wheel tests alone are insufficient to claim this works reliably.
+
+**Suggested priority:** Validate trackpad gestures first, since this directly improves everyday navigation and is especially important to the user. Emoji customization can follow independently. No implementation or release version is selected by this backlog update.

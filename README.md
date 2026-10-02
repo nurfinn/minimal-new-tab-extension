@@ -6,7 +6,7 @@ A calm, customizable new tab for Chrome and Firefox. Keep favorite sites in fold
 
 ## Browser releases
 
-| Browser | Current version | Source |
+| Browser | Latest published version | Source |
 | --- | ---: | --- |
 | Chrome | 1.6 | Shared files in the repository root |
 | Firefox | 1.6 | Shared root files plus the isolated `firefox/` overlay |
@@ -17,6 +17,21 @@ Release tags and archives should include the platform:
 
 - `chrome-v1.6` → `minimal-new-tab-chrome-v1.6.zip`
 - `firefox-v1.6` → `minimal-new-tab-firefox-v1.6.zip`
+
+## Unreleased development checkpoint
+
+This working branch contains tested improvements beyond the published 1.6 packages:
+
+- An optional built-in emoji picker inside the site's address field, with a way back to automatic favicons.
+- Fast trackpad navigation between folders, reusing loaded cards and icons and coalescing selection saves.
+- More compact General settings, consistent controls and a clearer Firefox icon-permission state.
+- A Chrome-only notification for an update the browser has already downloaded, with Later and checks for unfinished work before applying it. Firefox keeps its existing update behavior.
+
+The manifest versions remain `1.6` until a new release is explicitly prepared. Do not upload a development build as the existing store release. The published ZIPs and bundled wallpaper have not been replaced.
+
+Backups now export format v2 to preserve emoji. This code still imports v1 files, but the published 1.6 cannot import v2 backups. Custom background images remain local and are excluded from backups. Older clients may drop the optional emoji field if they rewrite shared sync data.
+
+Verification records: [Chrome update handling](docs/chrome-update-notification-verification-2026-10-02.md), [Firefox native checks and limitations](docs/firefox-transfer-verification-2026-10-02.md).
 
 ## What's new in 1.6
 
@@ -91,7 +106,7 @@ Neither build requests access to all websites.
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
-4. Select the repository root.
+4. Select the generated Chrome directory from the build step below. The builder includes the Chrome-specific startup code; loading the shared repository root omits that integration.
 
 ## Build Chrome
 
@@ -103,7 +118,7 @@ node scripts/build-chrome.mjs \
   --archive /absolute/path/minimal-new-tab-chrome-v1.6.zip
 ```
 
-The generated directory can be loaded unpacked in Chrome, and the generated root-level ZIP is ready for Chrome Web Store upload.
+The generated directory can be loaded unpacked in Chrome. The ZIP has the required root-level packaging, but development checkpoints still need a release version and final acceptance before store submission.
 
 ## Build Firefox
 
@@ -115,7 +130,7 @@ node scripts/build-firefox.mjs \
   --archive /absolute/path/minimal-new-tab-firefox-v1.6.zip
 ```
 
-Load the output directory temporarily from `about:debugging#/runtime/this-firefox`, or submit the generated ZIP to Firefox Add-ons.
+Load the output directory temporarily from `about:debugging#/runtime/this-firefox`. Submit a ZIP to Firefox Add-ons only after preparing an explicitly approved release version; the current development checkpoint is not a store release.
 
 ## Validation
 
