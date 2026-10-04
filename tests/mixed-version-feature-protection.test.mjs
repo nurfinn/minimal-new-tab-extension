@@ -6,6 +6,8 @@ import { createStorageService, STORAGE_KEYS } from "../storage-service.mjs";
 import { FEATURE_KEYS, readFeatureLayer } from "../feature-generation.mjs";
 import { createStorageService as legacyService } from "./fixtures/published-v1.6/storage-service.mjs";
 import { makeArea, makeState, corePayload, seedCore } from "./helpers/feature-storage-fixtures.mjs";
+import { parseBackupText, serializeBackup, buildImportedState } from "../backup-service.mjs";
+import { getVisibleFolderIds, normalizeFolderNavigation } from "../newtab-core.mjs";
 
 const defaults = () => makeState({ emoji: null, showAllFolder: true });
 const current = (syncArea, options = {}) => createStorageService({ syncArea, localArea: makeArea(), logger: null, ...options });
@@ -146,4 +148,71 @@ test("two loads share a single non-nested lock and bootstrap from a fresh reread
   await Promise.all([current(area, { lockManager }).load(defaults()), current(area, { lockManager }).load(defaults())]);
   assert.equal(readFeatureLayer(area.data).payload.sites.site.emoji, "🚀");
   assert.equal(writes(area).filter(call => Object.hasOwn(call.items, FEATURE_KEYS.manifest)).length, 1);
+});
+
+for (const version of [1, 2]) {
+  test("new JSON v" + version + " import is explicit even for identical protected ID/URL", async () => {
+    const area = makeArea(), local = makeArea(), target = makeState();
+    target.shortcutsEnabled = false;
+    target.background = { type: "image", value: "data:image/png;base64,YWJjZA==", overlay: 13, overlayColor: "#141026" };
+    const active = current(area, { localArea: local });
+    await active.save(target);
+    const localBefore = structuredClone(local.data);
+    const document = JSON.parse(serializeBackup(makeState({ emoji: version === 2 ? "🚀" : null })));
+    document.backupVersion = version;
+    document.data.links = document.data.links.filter(site => site.id === "site");
+    const parsed = parseBackupText(JSON.stringify(document));
+    assert.equal(parsed.ok, true);
+    assert.equal((await active.update(defaults(), latest => normalizeFolderNavigation({
+      ...buildImportedState(latest, parsed.data), showAllFolder: latest.showAllFolder, shortcutsEnabled: latest.shortcutsEnabled
+    }))).ok, true);
+    await legacy(area).update(defaults(), state => { state.links[0].title = "Old edit after import"; });
+    const after = (await current(area, { localArea: local }).load(defaults())).state;
+    assert.equal(after.links.length, 1);
+    assert.equal(after.links[0].emoji, version === 2 ? "🚀" : undefined);
+    assert.equal(after.showAllFolder, false);
+    assert.equal(after.shortcutsEnabled, false);
+    assert.deepEqual(local.data, localBefore);
+    assert.equal(after.background.value, target.background.value);
+    assert.equal(JSON.stringify(document).includes("Feature"), false);
+    assert.equal(JSON.stringify(document).includes("urlHash"), false);
+  });
+}
+
+test("new v2 import with omitted emoji resets, while identical old replacement cannot express reset", async () => {
+  const area = makeArea();
+  await current(area).save(makeState());
+  await legacy(area).save(defaults());
+  assert.equal((await current(area).load(defaults())).state.links[0].emoji, "🗺️");
+  const parsed = parseBackupText(serializeBackup(defaults()));
+  await current(area).update(defaults(), latest => ({
+    ...buildImportedState(latest, parsed.data), showAllFolder: latest.showAllFolder, shortcutsEnabled: latest.shortcutsEnabled
+  }));
+  await legacy(area).update(defaults(), state => { state.links[0].title = "After reset"; });
+  assert.equal((await current(area).load(defaults())).state.links[0].emoji, undefined);
+});
+
+test("feature overlay preserves selected unfiled root before materialization and usable All after final folder deletion", async () => {
+  const area = makeArea();
+  await current(area).save(makeState({ selectedFolderId: "root" }));
+  await legacy(area).update(defaults(), state => { state.selectedFolderId = "root"; });
+  const protectedCore = area.data[STORAGE_KEYS.manifest];
+  // Actual 1.6 canonicalizes root to all; restore an explicit valid root as a remote core-only selection.
+  const payload = JSON.parse(area.data[protectedCore.active.chunkKeys[0]]);
+  payload.layout.selectedFolderId = "root";
+  const json = JSON.stringify(payload); area.data[protectedCore.active.chunkKeys[0]] = json;
+  protectedCore.active.byteLength = Buffer.byteLength(json);
+  const loaded = (await current(area).load(defaults())).state;
+  assert.equal(loaded.selectedFolderId, "root");
+  assert.deepEqual(getVisibleFolderIds(loaded), ["work", "personal", "root"]);
+  await current(area).update(defaults(), state => {
+    state.folders = state.folders.filter(folder => folder.id === "root");
+    state.links.forEach(site => { site.folderId = "root"; });
+    return normalizeFolderNavigation(state);
+  });
+  const after = (await current(area).load(defaults())).state;
+  assert.equal(after.showAllFolder, true);
+  assert.equal(after.selectedFolderId, "all");
+  assert.equal(after.links.length, 2);
+  assert.equal(after.links[0].emoji, "🗺️");
 });
