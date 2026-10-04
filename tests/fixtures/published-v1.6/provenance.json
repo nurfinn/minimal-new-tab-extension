@@ -1,0 +1,12 @@
+{
+  "version": "1.6",
+  "source": "Immutable published Chrome and Firefox v1.6 ZIP archives; both modules are byte-identical.",
+  "archives": {
+    "minimal-new-tab-chrome-v1.6.zip": "370b139877761ebe180d7d923ab4381f087a8ef094aebbc4e8b42ea5ee537794",
+    "minimal-new-tab-firefox-v1.6.zip": "34bd6748a306765bfd40097f915cfc537dfc60b05bb14e2ae9e3bbdf29af1671"
+  },
+  "files": {
+    "storage-service.mjs": "134dacfe20a8f86d1fc218f3e1cb5962fb869ac0165bd1afc7dbe1d2962db778",
+    "extension-api.mjs": "04e51c98a82c0fc7945f94313ce0c4419548fe91872583e1ec29f0738bb3322d"
+  }
+}
