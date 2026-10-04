@@ -42,7 +42,7 @@ export function prepareFeatureGeneration(payload, { generationId, createdAt, pre
   };
 }
 
-export function readFeatureGeneration(stored, descriptor) {
+function decodeFeatureGeneration(stored, descriptor) {
   if (!validDescriptor(descriptor)) return null;
   const parts = descriptor.chunkKeys.map(key => Object.hasOwn(stored, key) ? stored[key] : undefined);
   if (parts.some(part => typeof part !== "string" || !part || bytes(part) > 3500)) return null;
@@ -50,9 +50,14 @@ export function readFeatureGeneration(stored, descriptor) {
   if (bytes(json) !== descriptor.byteLength) return null;
   try {
     const payload = JSON.parse(json);
-    canonicalFeatureJson(payload);
     return { payload, json, descriptor: structuredClone(descriptor) };
   } catch { return null; }
+}
+
+export function readFeatureGeneration(stored, descriptor) {
+  const read = decodeFeatureGeneration(stored, descriptor);
+  if (!read) return null;
+  try { canonicalFeatureJson(read.payload); return read; } catch { return null; }
 }
 
 export function readFeatureLayer(stored, { generationId = null } = {}) {
@@ -64,6 +69,7 @@ export function readFeatureLayer(stored, { generationId = null } = {}) {
   if (!present) return result("absent");
   const candidates = manifests.flatMap(manifest =>
     record(manifest) && manifest.featureVersion === 1 ? [manifest.active, manifest.previous] : [null, null]);
+  if (candidates.some(descriptor => future(decodeFeatureGeneration(stored, descriptor)?.payload))) return result("unsupported");
   for (const [index, descriptor] of candidates.entries()) {
     if (generationId !== null && descriptor?.generationId !== generationId) continue;
     const read = readFeatureGeneration(stored, descriptor);
