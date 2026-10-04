@@ -1,7 +1,7 @@
 # Защита настроек от записей опубликованной 1.6
 
 Дата: 4 октября 2026 года. Рабочая ветка: `codex/ui-polish-settings-toolbar-20260930`.
-Статус: реализация и финальные автоматические проверки завершены; независимое ревью ещё выполняется.
+Статус: реализация и независимое ревью завершены; два Important storage-пути исправлены одним RED→GREEN проходом. Исправленные байты прошли свежую полную проверку: 363 unit/contract, 248 браузерных проверок и 15 проверок артефактов. Это завершение данного storage-этапа, не утверждение общей готовности релиза.
 
 ## Результат и границы
 
@@ -20,17 +20,17 @@ Core остаётся `storageVersion: 1`. Дополнительный слой
 - Большинство fault/quota контрактов уже проходили после первой интеграции; сохранены как characterization, без искусственного нарушения корректного кода ради RED.
 - В gesture runner счётчик захватывал незавершённые сохранения подготовительных кликов. Подготовка теперь дожидается сохранения до замера; прежняя граница числа записей и все проверки жестов сохранены. Код жестов в этом этапе не менялся.
 
-Свежие результаты после последнего исправления:
+Ниже результаты новых полных прогонов **после** исправлений независимого ревью. Все четыре браузерные серии проверяют те же runtime-байты, что и независимые сборки; исторические прогоны до ревью не подменяют эту проверку:
 
 | Проверка | Результат | Доказательство |
 | --- | --- | --- |
-| Unit/contract | 353/353, без skips | `final-unit-lock-fix.log` |
-| Settings, All, RU/EN, два движка + native Chromium | 92/92, errors [] | `accepted-settings/report.json` |
-| Emoji, выбор favicon/reset, cancel, restart | 61/61, errors [] | `accepted-emoji/report.json` |
-| Immutable-package continuity + native Chromium | 19/19, errors [], releaseRisks [] | `accepted-data/report.json` |
-| Быстрые свайпы и сохранение | 76/76, без ошибок | `accepted-gestures/report.json` |
-| Независимые runtime/ZIP и импорты | 15/15 | `artifact-report.json` |
-| Firefox web-ext 10.5.0 | 0 errors, 0 warnings, 0 notices | `accepted-firefox-lint.json` |
+| Unit/contract | 363/363, без skips | `final-closeout-unit.log` |
+| Settings, All, RU/EN, два движка + native Chromium | 92/92, errors [] | `review-fixed-settings/report.json` |
+| Emoji, выбор favicon/reset, cancel, restart | 61/61, errors [] | `review-fixed-emoji-isolated/report.json` |
+| Immutable-package continuity + native Chromium | 19/19, errors [], releaseRisks [] | `review-fixed-data/report.json` |
+| Быстрые свайпы и сохранение | 76/76, все assertions проходят | `review-fixed-gestures-isolated/report.json` |
+| Независимые runtime/ZIP и импорты | 15/15 | `artifact-report-review-fixed.json` |
+| Firefox web-ext 10.5.0 | 0 errors, 0 warnings, 0 notices | `review-fixed-firefox-lint.json` |
 
 Все имена доказательств относятся к отдельной новой QA-папке:
 
@@ -42,9 +42,9 @@ Core остаётся `storageVersion: 1`. Дополнительный слой
 
 Отдельные артефакты только для QA, **не Store-релиз**:
 
-- [Chrome test-only ZIP](/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/manual-tests/feature-protection-20261004-tly0zP/minimal-new-tab-chrome-accepted-test-only.zip)
-- [Firefox test-only ZIP](/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/manual-tests/feature-protection-20261004-tly0zP/minimal-new-tab-firefox-accepted-test-only.zip)
-- [Проверка артефактов](/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/manual-tests/feature-protection-20261004-tly0zP/artifact-report.json)
+- [Chrome test-only ZIP](/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/manual-tests/feature-protection-20261004-tly0zP/minimal-new-tab-chrome-review-fixed-test-only.zip)
+- [Firefox test-only ZIP](/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/manual-tests/feature-protection-20261004-tly0zP/minimal-new-tab-firefox-review-fixed-test-only.zip)
+- [Проверка артефактов](/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/manual-tests/feature-protection-20261004-tly0zP/artifact-report-review-fixed.json)
 
 ## Проверка именно старого опубликованного кода
 
@@ -76,19 +76,50 @@ Core остаётся `storageVersion: 1`. Дополнительный слой
 3. Сохранность новой настройки до доставки/создания её защищённого слоя на старом устройстве. Если старый код уже удалил ещё не защищённое значение, восстановить неизвестное намерение нельзя.
 4. Старый импорт ровно тех же ID/URL неотличим от обычной записи и сохраняет последний защищённый выбор. `storage.clear()`, удаление расширения/профиля и произвольные старые реализации вне гарантии.
 5. Системное отображение emoji на других ОС. Каталог, glyph filtering и внешний вид в этом этапе не менялись.
-6. После перезапуска на неизвестных незавершённых bootstrap-chunks ownership потерян: они не угадываются и не удаляются, данные доступны read-only. Автоматический retry допустим только той службе, которая действительно подготовила эти chunks.
+6. После перезапуска на неизвестных незавершённых initial-publication chunks ownership потерян: они не угадываются и не удаляются, данные доступны read-only. Автоматический retry допустим только той службе, которая действительно подготовила эти chunks, как при bootstrap, так и при первой обычной записи.
+7. Подтверждён ранее существовавший отдельный дефект: при замене уже установленной пользовательской картинки новая local-запись выполняется до sync commit. Если этот commit отклонён, предыдущие байты картинки уже могут быть заменены, а прежний core ссылается на недоступный local asset — после reload показывается default. Диагностика: `preexisting-background-ordering-diagnostic.log`. Неизменённая существующая картинка при feature-save сохраняется (это проверено); транзакционная замена картинки требует отдельного safety-этапа. Это Important follow-up, не Minor и не основание заявлять общую готовность релиза.
 
 ## Решения исполнения и цена ошибки
 
-Полный журнал: `.superpowers/sdd/2026-10-04-mixed-version-feature-protection/progress.md`.
+Полный журнал сохранён в `.superpowers/sdd/2026-10-04-mixed-version-feature-protection/progress.md` и [финальной копии вне source](/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/manual-tests/feature-protection-20261004-tly0zP/execution-ledger-final.md). Ниже все rulings в порядке принятия, включая повторное применение staging-правила:
 
-- Уже dirty файлы принадлежат прежней работе. Коммитятся только отделимые новые дельты; runtime-интеграция сохраняется без поглощения старых изменений. Цена — отложенный интеграционный Git checkpoint, не готовый push.
-- Подтверждение пользователя распространяется на исполнение плана; старый текст «ещё не начато» был историческим статусом, не новым approval gate. Это не расширяет полномочия на выпуск.
-- Уже GREEN safety tests остаются characterization. Цена неверной оценки — неполное покрытие; дополнительный финальный reviewer проверяет эффекты независимо от наличия текста в спецификации.
-- Retry незавершённого bootstrap ограничен доказанным ownership в той же службе. Цена — безопасный read-only после crash/restart вместо угадывания чужих данных.
-- Замер gesture-записей начинается после подготовительного save, без ослабления burst-assertions. Цена неверной диагностики — оставшаяся гонка в тесте; физические серии повторяются без изменений.
-- При отказе lock читаем сохранённое read-only без bootstrap/migration. Цена — возможный несогласованный snapshot при параллельном изменении, но запись запрещена и следующая операция читает заново.
+1. Уже dirty файлы принадлежат прежней работе; stage только отделимой дельты или отложить коммит. Цена — отложенный интеграционный Git checkpoint.
+2. «Сам решай» подтверждает исполнение; старый статус ожидания исторический, не новый approval gate. Цена ошибки — риск неправильного толкования полномочий; выпуск, установка и push явно не разрешены этим планом.
+3. В Task 3 коммитятся только собственные новые fixtures/tests, runtime-интеграция dirty-файлов остаётся unstaged. Цена — runtime не воспроизводится одним новым Git checkout, нужен сохранённый working candidate.
+4. Уже GREEN fault/quota tests остаются characterization; искусственный RED не создаётся. Цена ошибочной оценки — неполное покрытие; реальные RED future-payload/owned-retry отдельно исправлены.
+5. Retry начального bootstrap допустим только с доказанным ownership той же службы и свежим чтением. Цена — read-only после crash/restart при утрате ownership, без угадывания чужих данных.
+6. Замер gesture-записей начинается после завершения подготовительного save, без ослабления burst-assertions. Цена неверной диагностики — оставшаяся гонка измерения.
+7. Отказ lock не скрывает читаемые сайты: read-only fallback без bootstrap/migration. Цена — возможный несогласованный snapshot при параллельном изменении; запись запрещена, следующая операция читает заново.
+8. Account delivery, remote core conflicts и signed-store updates не считаются проверенными локальными тестами. Цена — эти реальные сценарии остаются неподтверждёнными, Store-readiness не заявляется.
+9. После restart неизвестные orphan chunks остаются read-only; same-instance ordinary retry исправлен. Цена — blocked edits после прерванной первой публикации до отдельного recovery-решения.
+10. Прежние UI, OS emoji rendering/catalog и gesture algorithms не переделываются. Цена — нет новой сертификации каждого физического устройства и ОС.
+11. Прежняя замена local wallpaper до sync commit не переустраивается скрыто в этом этапе. Это отдельный Important follow-up; цена — возможная потеря предыдущей пользовательской картинки при отказе замены, общая готовность релиза не подтверждается.
+12. Произвольные старые реализации, destructive clear/profile removal и неразличимые identical old imports вне гарантии. Цена — потеря настроек при удалении данных либо сохранение последнего защищённого выбора вместо невыраженного reset.
+13. Ранние шесть emoji UI timeouts сохраняются как наблюдение; instrumentation и неизменённый isolated runner проходят 61/61, причина не объявляется установленной. Цена — возможный intermittent UI/automation-сбой остаётся открытым.
+14. Один quick-reload сценарий не прошёл; diagnostic и неизменённый isolated runner затем проходят 76/76 без изменения 100 мс или assertions. Цена — абсолютная гарантия сохранения за 100 мс не доказана, ранний timing-сбой остаётся открытым наблюдением.
+15. Ветка/worktree и plan workspace остаются на месте, без push/merge: runtime уже dirty и не включается в чужие изменения. Цена — нужен отдельный интеграционный checkpoint; scratch занимает диск, зато журнал и рабочие байты не теряются.
 
 ## Независимое финальное ревью
 
-Ещё не выполнено. После byte-match gate один reviewer с новым контекстом проверит целый working candidate против сохранённого pre-execution baseline. Critical/Important будут исправлены одним RED→GREEN проходом; Minor — отдельно записаны как отложенные. Повторное ревью и push не входят в этот этап.
+Один fresh-context reviewer (`gpt-6-astra`) read-only проверил working candidate против pre-execution baseline и пяти Review Focus. Самостоятельно прошли 98/98 relevant tests и whitespace gate. Verdict: With fixes; Critical и Minor не обнаружены.
+
+Исправлены одним TDD-проходом:
+
+- Important reviewer finding: незавершённая первая обычная публикация блокировала повторную запись той же службой. Пять regression cases сначала упали, затем прошли: empty/legacy core, частично применённые feature-chunks, отказ backup/head. Retry допускается только при доказанном ownership, свежем чтении и отсутствующих heads; чужие chunks по-прежнему блокируют запись.
+- Important author finding: после core-only partial rejection повторный exact reset ошибочно возвращал успешный no-op, не обновив feature layer; следующий старый save восстанавливал отменённый выбор. Четыре regression cases RED→GREEN: partial/missing/stale head/chunk. Save теперь подтверждает согласованную защиту до no-op; следующий настоящий 1.6 edit сохраняет reset.
+
+Полная suite после исправлений: **363/363**, ноль skips. Повторное ревью не запускалось: исправления доказываются regression tests и новым полным прогоном. [Отчёт reviewer и disposition](/Users/nurfinn/Documents/Codex/2026-06-28/new-chat/outputs/manual-tests/feature-protection-20261004-tly0zP/independent-review.md).
+
+Все рассмотренные, но оставленные за рамками поведения имеют effect/cost ruling: account delivery/remote conflicts/signed updates; unknown orphan ownership после restart; прежние UI/catalog/gesture algorithms; транзакционная замена local wallpaper; arbitrary old code/destructive clears/неразличимый старый импорт. Отложенных Minor нет; риск замены wallpaper остаётся отдельным Important, см. выше.
+
+## Открытые наблюдения повторной QA
+
+В одном concurrent-прогоне после review шесть первых Chrome-EN действий emoji-панели завершились visibility/actionability timeout, без page errors. Отчёт `review-fixed-emoji/report.json` сохранён как неуспешный. Затем instrumentation-прогон `review-fixed-emoji-timing` и повтор **неизменённого** runner `review-fixed-emoji-isolated` отдельно проходят все 61 проверки. Assertions, таймауты и product code не ослаблялись; причина исходного сбоя не установлена. Это открытое наблюдение UI/automation, не заявленное исправление.
+
+В `review-fixed-gestures` Chrome-сценарий «клик → reload через 100 мс» не подтвердил восстановление выбора. Этот отчёт также не засчитывается как финальный PASS. Повтор с записью storage operations и сохранённого head перед reload (`review-fixed-gestures-timing`) проходит 76/76: Chrome head был сохранён до reload; отдельно **неизменённый** runner (`review-fixed-gestures-isolated`) проходит 76/76 в обоих движках и native Chromium. Assertions, 100 мс и product code не менялись. Причина первоначального timing-сбоя не установлена; нет утверждения, что выбор гарантированно сохранится за 100 мс при любой нагрузке.
+
+## Git и передача результата
+
+Собственные helper/test/fixture и новые документы зафиксированы локальными коммитами. Runtime-интеграция и обновления ранее dirty README/roadmap оставлены unstaged согласно согласованным Global Constraints; pre-execution baseline и финальная интеграционная дельта сохранены отдельно в QA-папке. Новый checkout только по HEAD не является проверенной сборкой. Ветка `codex/ui-polish-settings-toolbar-20260930` и рабочая копия `/Users/nurfinn/.codex/worktrees/minimal-tab-ui-20260930` сохранены; push/merge, выпуск и личная установка не выполнялись.
+
+Plan workspace не удалён: исправленная runtime-интеграция ещё не зафиксирована отдельным checkpoint, поэтому Git history пока не заменяет её журнал. Отложенных Minor нет. Отдельный Important wallpaper follow-up и два timing-наблюдения перечислены выше, а не объявлены исправленными.

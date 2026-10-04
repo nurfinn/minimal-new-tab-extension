@@ -8,7 +8,7 @@
 
 **Tech Stack:** JavaScript ES modules, WebExtensions storage, TextEncoder, Web Crypto SHA-256, node:test, существующий Playwright и cached web-ext. Новые production dependencies не нужны.
 
-**Spec:** [Подтверждённая схема](../specs/2026-10-04-mixed-version-feature-protection-design.md), commit `21e80da`; пользователь подтвердил документ «ок», затем делегировал исполнение «сам решай». Выбран Native-метод. Все шесть задач реализованы и автоматически проверены; независимое финальное ревью выполняется. [Результаты и ограничения](../../mixed-version-feature-protection-verification-2026-10-04.md).
+**Spec:** [Подтверждённая схема](../specs/2026-10-04-mixed-version-feature-protection-design.md), commit `21e80da`; пользователь подтвердил документ «ок», затем делегировал исполнение «сам решай». Выбран Native-метод. Все шесть задач реализованы; независимое финальное ревью завершено, два Important storage findings исправлены одним RED→GREEN проходом. Свежие финальные проверки: 363/363 unit, 248/248 browser, 15/15 artifact; Firefox lint 0/0/0. Scoped storage-этап завершён; прежняя замена local wallpaper требует отдельного Important follow-up, ранние timing-наблюдения остаются открытыми. Runtime-интеграция dirty-файлов сохранена unstaged, push/merge и выпуск не выполнялись. [Результаты и ограничения](../../mixed-version-feature-protection-verification-2026-10-04.md).
 
 ## Global Constraints
 
