@@ -306,3 +306,34 @@ test("SHA-256 failure never publishes either head or silently falls back", async
     assert.equal(sets(area).length, 0);
   } finally { Object.defineProperty(globalThis, "crypto", { configurable: true, value: original }); }
 });
+
+test("a rejected mutation lock still exposes the saved core read-only instead of displaying defaults", async () => {
+  const { area } = await protectedArea();
+  const current = createStorageService({ syncArea: area, localArea: makeArea(), logger: null,
+    lockManager: { request: async () => { throw new Error("lock unavailable"); } } });
+  const loaded = await current.load({ ...defaults(), links: [] });
+  assert.equal(loaded.state.links[0].title, "Example");
+  assert.equal(loaded.state.links[0].emoji, "🗺️");
+  assert.equal(loaded.writable, false);
+  assert.equal(sets(area).length, 0);
+  assert.equal((await current.save(defaults())).ok, false);
+});
+
+for (const format of ["unmarked-inline", "local-legacy"]) {
+  test("lock failure reads " + format + " without bootstrapping or migrating it", async () => {
+    const area = makeArea();
+    if (format === "unmarked-inline") await seedCore(area, corePayload(makeState()));
+    const local = makeArea(format === "local-legacy" ? { [STORAGE_KEYS.legacyState]: makeState() } : {});
+    const beforeSync = structuredClone(area.data), beforeLocal = structuredClone(local.data);
+    const current = createStorageService({ syncArea: area, localArea: local, logger: null,
+      lockManager: { request: async () => { throw new Error("lock unavailable"); } } });
+    const loaded = await current.load({ ...defaults(), links: [] });
+    assert.equal(loaded.state.links[0].title, "Example");
+    assert.equal(loaded.writable, false);
+    assert.equal(loaded.error, "lock-failed");
+    assert.equal(sets(area).length, 0);
+    assert.equal(sets(local).length, 0);
+    assert.deepEqual(area.data, beforeSync);
+    assert.deepEqual(local.data, beforeLocal);
+  });
+}

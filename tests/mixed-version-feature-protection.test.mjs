@@ -89,6 +89,22 @@ test("published defaults read causes no sets and no feature bootstrap", async ()
   assert.deepEqual(featureKeys(area), {});
 });
 
+test("unchanged published defaults save is a no-op; first real edit creates even an empty protected layer", async () => {
+  const area = makeArea();
+  await legacy(area).save(defaults());
+  const active = current(area), loaded = await active.load(defaults());
+  area.calls.length = 0;
+  assert.equal((await active.save(loaded.state)).changed, false);
+  assert.equal(writes(area).length, 0);
+  assert.equal((await active.update(defaults(), state => { state.links[0].title = "First real edit"; })).ok, true);
+  const layer = readFeatureLayer(area.data);
+  assert.equal(layer.status, "ready");
+  assert.deepEqual(layer.payload, { featureVersion: 1, showAllFolder: true, sites: {} });
+  const head = area.data[STORAGE_KEYS.manifest];
+  const payload = JSON.parse(head.active.chunkKeys.map(key => area.data[key]).join(""));
+  assert.deepEqual(payload.featureState, { version: 1, generationId: layer.descriptor.generationId });
+});
+
 test("unmarked current-test features bootstrap once without rewriting core", async () => {
   const area = makeArea();
   await seedCore(area, corePayload());
