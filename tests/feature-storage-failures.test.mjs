@@ -337,3 +337,87 @@ for (const format of ["unmarked-inline", "local-legacy"]) {
     assert.deepEqual(local.data, beforeLocal);
   });
 }
+
+for (const initial of ["empty", "legacy-defaults"]) {
+  for (const phase of ["feature-partial", ...(initial === "legacy-defaults" ? ["backup"] : []), "heads"]) {
+    test("initial ordinary publication from " + initial + " retries its own " + phase + " failure", async () => {
+      let reject = false;
+      const area = makeArea({}, { beforeSet: (items, area) => {
+        if (!reject) return;
+        if (phase === "feature-partial" && Object.keys(items).some(key => key.startsWith(FEATURE_KEYS.chunkPrefix))) {
+          assert.ok(Object.keys(items).length > 1);
+          const [key, value] = Object.entries(items)[0];
+          area.data[key] = value;
+          throw new Error("partially staged features");
+        }
+        if (phase === "backup" && Object.hasOwn(items, STORAGE_KEYS.backupManifest)) throw new Error("backup failed");
+        if (phase === "heads" && Object.hasOwn(items, STORAGE_KEYS.manifest)) throw new Error("heads failed");
+      } });
+      if (initial === "legacy-defaults") await legacyService({ syncArea: area, localArea: makeArea(), logger: null }).save(defaults());
+      const current = service(area);
+      const edited = defaults();
+      edited.links = Array.from({ length: 55 }, (_, i) => ({ id: "site-" + i, title: "Changed " + i,
+        url: "https://example.com/" + i, folderId: "work", emoji: "🚀" }));
+      reject = true;
+      assert.equal((await current.update(defaults(), () => edited)).error, "write-failed");
+      reject = false;
+      let transformed = false;
+      const retry = await current.update(defaults(), () => { transformed = true; return edited; });
+      assert.equal(retry.ok, true);
+      assert.equal(transformed, true);
+      assert.equal(readFeatureLayer(area.data).status, "ready");
+      const loaded = await current.load(defaults());
+      assert.equal(loaded.state.links.length, 55);
+      assert.equal(loaded.state.links[0].title, "Changed 0");
+      assert.equal(loaded.state.links[0].emoji, "🚀");
+    });
+  }
+}
+
+test("own initial ordinary failure never authorizes ignoring foreign staged feature chunks", async () => {
+  let reject = true;
+  const area = makeArea({}, { beforeSet: items => {
+    if (reject && Object.hasOwn(items, STORAGE_KEYS.manifest)) throw new Error("heads failed");
+  } }), current = service(area);
+  assert.equal((await current.save(makeState())).ok, false);
+  reject = false;
+  area.data[FEATURE_KEYS.chunkPrefix + "foreign:0"] = "unknown";
+  area.calls.length = 0;
+  assert.equal((await current.save(makeState())).ok, false);
+  assert.equal(sets(area).length, 0);
+  assert.equal(area.data[FEATURE_KEYS.chunkPrefix + "foreign:0"], "unknown");
+});
+
+for (const damage of ["partial-rejected-head", "missing-head", "missing-chunk", "stale-head"]) {
+  test("same-intent save repairs " + damage + " before reporting no-op success", async () => {
+    let partial = false;
+    const area = makeArea({}, { beforeSet: (items, area) => {
+      if (partial && Object.hasOwn(items, STORAGE_KEYS.manifest)) {
+        area.data[STORAGE_KEYS.manifest] = structuredClone(items[STORAGE_KEYS.manifest]);
+        throw new Error("only core head applied");
+      }
+    } }), current = service(area);
+    await current.save(makeState());
+    const oldHead = structuredClone(area.data[FEATURE_KEYS.manifest]);
+    const reset = makeState({ emoji: null, showAllFolder: true });
+    if (damage === "partial-rejected-head") {
+      partial = true;
+      assert.equal((await current.save(reset)).ok, false);
+      partial = false;
+    } else {
+      assert.equal((await current.save(reset)).ok, true);
+      if (damage === "missing-head") delete area.data[FEATURE_KEYS.manifest];
+      if (damage === "missing-chunk") delete area.data[area.data[FEATURE_KEYS.manifest].active.chunkKeys[0]];
+      if (damage === "stale-head") area.data[FEATURE_KEYS.manifest] = oldHead;
+    }
+    const repaired = await current.save(reset);
+    assert.equal(repaired.ok, true);
+    assert.equal(repaired.changed, true);
+    assert.equal(readFeatureLayer(area.data).payload.sites.site.emoji, null);
+    assert.equal(readFeatureLayer(area.data).payload.showAllFolder, true);
+    await legacyService({ syncArea: area, localArea: makeArea(), logger: null }).update(defaults(), state => { state.links[0].title = "Old edit"; });
+    const loaded = await current.load(defaults());
+    assert.equal(loaded.state.showAllFolder, true);
+    assert.equal(Object.hasOwn(loaded.state.links[0], "emoji"), false);
+  });
+}
