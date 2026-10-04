@@ -5,10 +5,12 @@ import {
   getFolderScrollState,
   getFolderWheelScrollLeft,
   getGlobalShortcutAction,
+  getVisibleFolderIds,
   getWheelScrollDelta,
   isUsableFavicon,
   moveItemByDelta,
   normalizeLegacyColorBackground,
+  normalizeFolderNavigation,
   renameFolder,
   validateBackgroundImage,
   validateFolderName,
@@ -24,7 +26,9 @@ import {
 import { createStorageService, normalizeWebUrl } from "./storage-service.mjs";
 import { createTranslator, getUiLocale, localizeDocument } from "./i18n-service.mjs";
 import { createFolderGestureRecognizer, getAdjacentFolderId } from "./folder-gestures.mjs";
-import { SITE_EMOJI_OPTIONS, normalizeSiteEmoji } from "./site-icon.mjs";
+import { normalizeSiteEmoji } from "./site-icon.mjs";
+import { getRenderableSiteEmoji } from "./emoji-support.mjs";
+import { createEmojiPicker } from "./emoji-picker.mjs";
 import { createSettingsDraft, restoreDefaultBackground } from "./settings-draft.mjs";
 
 const ROOT_FOLDER_ID = "root";
@@ -36,6 +40,7 @@ localizeDocument(document, t, uiLocale);
 
 const defaultState = {
   selectedFolderId: "all",
+  showAllFolder: true,
   folders: [
     {
       id: ROOT_FOLDER_ID,
@@ -87,6 +92,7 @@ let state = structuredClone(defaultState);
 let editingLinkId = null;
 let renamingFolderId = null;
 let savingFolderRenameId = null;
+let savingFolderVisibility = false;
 let folderRenameFocusRequest = null;
 let dragState = null;
 let folderDragState = null;
@@ -175,6 +181,8 @@ const elements = {
   folderForm: document.getElementById("folderForm"),
   folderManager: document.getElementById("folderManager"),
   folderList: document.getElementById("folderList"),
+  showAllFolder: document.getElementById("showAllFolder"),
+  folderVisibilityHelp: document.getElementById("folderVisibilityHelp"),
   backgroundForm: document.getElementById("backgroundForm"),
   backgroundFields: document.getElementById("backgroundFields"),
   changeBackgroundImageButton: document.getElementById("changeBackgroundImageButton"),
@@ -223,6 +231,8 @@ const elements = {
   cancelImportButton: document.getElementById("cancelImportButton")
 };
 const storageService = createStorageService({ logger: null });
+const emojiPicker = createEmojiPicker({ root: elements.linkIconPicker, t, locale: uiLocale,
+  onSelect: selectSiteIconEmoji });
 
 init();
 
@@ -231,10 +241,11 @@ async function init() {
   state = normalizeState(result.state);
   if (!result.ok && result.source === "read-error") {
     showAppStatus(t("storageReadWarning"));
+  } else if (!result.writable) {
+    showAppStatus(t("storageSaveWarning"));
   }
 
   bindEvents();
-  renderSiteEmojiPicker();
   render();
   updateAppReady = true;
 }
@@ -246,6 +257,26 @@ function bindEvents() {
   document.addEventListener("keydown", handleGlobalShortcut);
   elements.linksGrid.addEventListener("keydown", handleLinkReorderKeydown);
   elements.folderList.addEventListener("keydown", handleFolderReorderKeydown);
+  elements.showAllFolder.addEventListener("change", async () => {
+    if (savingFolderVisibility || updateInputLocked) return;
+    const showAllFolder = elements.showAllFolder.checked;
+    savingFolderVisibility = true;
+    // The checked value shows the requested change while busy; navigation
+    // changes only on success. A failure restores the committed checkbox.
+    elements.showAllFolder.disabled = true;
+    elements.showAllFolder.setAttribute("aria-busy", "true");
+    clearFieldError(elements.folderFormError);
+    try {
+      await commitStateChange((latestState) => {
+        latestState.showAllFolder = showAllFolder;
+        return latestState;
+      }, { onError: () => showFieldError(elements.folderFormError, t("storageSaveWarning")) });
+    } finally {
+      savingFolderVisibility = false;
+      elements.showAllFolder.removeAttribute("aria-busy");
+      renderFolderVisibility();
+    }
+  });
 
   elements.linkTitle.addEventListener("input", () => {
     clearInputError(elements.linkTitle, elements.linkTitleError);
@@ -257,11 +288,6 @@ function bindEvents() {
   });
   elements.linkIconButton.addEventListener("click", toggleSiteIconPicker);
   elements.linkIconAuto.addEventListener("click", () => selectSiteIconEmoji(""));
-  elements.siteEmojiGrid.addEventListener("click", (event) => {
-    const choice = event.target.closest("[data-site-emoji]");
-    if (choice) selectSiteIconEmoji(choice.dataset.siteEmoji);
-  });
-  elements.siteEmojiGrid.addEventListener("keydown", handleSiteEmojiGridKeydown);
   document.addEventListener("pointerdown", (event) => {
     if (elements.linkIconPicker.hidden) return;
     if (elements.linkIconPicker.contains(event.target)) return;
@@ -370,8 +396,8 @@ function bindEvents() {
             });
           }
 
-          latestState.selectedFolderId =
-            resolvedFolderId === ROOT_FOLDER_ID ? "all" : resolvedFolderId;
+          latestState.selectedFolderId = resolvedFolderId === ROOT_FOLDER_ID && latestState.showAllFolder !== false
+            ? "all" : resolvedFolderId;
           return latestState;
         },
         { onError: () => showFieldError(elements.linkFormError, t("storageSaveWarning")) }
@@ -532,9 +558,9 @@ function bindEvents() {
 
     const selectedFolderId = chip.dataset.folder;
     folderFocusRequest = selectedFolderId;
-    const folderExists = selectedFolderId === "all" ||
-      state.folders.some((folder) => folder.id === selectedFolderId);
-    selectFolder(folderExists ? selectedFolderId : "all", { saveImmediately: true });
+    if (getVisibleFolderIds(state).includes(selectedFolderId)) {
+      selectFolder(selectedFolderId, { saveImmediately: true });
+    }
   });
   elements.folderRow.addEventListener("scroll", updateFolderScrollState, { passive: true });
   elements.folderRow.addEventListener("wheel", handleFolderWheel, { passive: false });
@@ -704,10 +730,12 @@ function renderFolders() {
   for (const link of state.links) {
     counts.set(link.folderId, (counts.get(link.folderId) || 0) + 1);
   }
-  const folders = [
-    ["all", t("allFolders"), state.links.length],
-    ...getUserFolders().map((folder) => [folder.id, folder.name, counts.get(folder.id) || 0])
-  ];
+  const folders = getVisibleFolderIds(state).map((id) => [
+    id,
+    id === "all" ? t("allFolders") : id === ROOT_FOLDER_ID ? t("unfiledFolder")
+      : state.folders.find((folder) => folder.id === id).name,
+    id === "all" ? state.links.length : counts.get(id) || 0
+  ]);
   const structure = JSON.stringify(folders);
   if (structure !== renderedFolderStructure) {
     const chips = folders.map(([id, name, count]) => createFolderChip(id, name, count));
@@ -811,7 +839,7 @@ function handleContentWheel(event) {
   if (consume && event.cancelable) event.preventDefault();
   if (!direction) return;
 
-  const nextFolderId = getAdjacentFolderId(state.folders, state.selectedFolderId, direction);
+  const nextFolderId = getAdjacentFolderId(state.folders, state.selectedFolderId, direction, getVisibleFolderIds(state));
   if (nextFolderId) selectFolder(nextFolderId);
 }
 
@@ -857,10 +885,10 @@ async function persistFolderSelection() {
 
 async function persistFolderSelectionSnapshot(pending) {
   const result = await storageService.update(defaultState, (latestState) => {
+    latestState = normalizeFolderNavigation(latestState);
     // A different tab may have selected a folder since this gesture began.
     if (latestState.selectedFolderId !== pending.baseId) return latestState;
-    const folderExists = pending.folderId === "all" ||
-      latestState.folders.some((folder) => folder.id === pending.folderId);
+    const folderExists = getVisibleFolderIds(latestState).includes(pending.folderId);
     if (folderExists) latestState.selectedFolderId = pending.folderId;
     return latestState;
   });
@@ -1039,6 +1067,7 @@ function cancelFolderRename(folderId = renamingFolderId) {
 }
 
 function renderFolderList() {
+  renderFolderVisibility();
   const folders = getUserFolders();
   elements.folderManager.hidden = folders.length === 0;
 
@@ -1146,10 +1175,18 @@ function renderFolderList() {
   if (focusRequest.target === "input") focusTarget?.select();
 }
 
+function renderFolderVisibility() {
+  const noFolders = getUserFolders().length === 0;
+  elements.showAllFolder.checked = noFolders || state.showAllFolder !== false;
+  elements.showAllFolder.disabled = noFolders || savingFolderVisibility;
+  elements.folderVisibilityHelp.textContent = t(noFolders ? "showAllFolderUnavailable" : "showAllFolderHelp");
+  elements.showAllFolder.parentElement.title = noFolders ? t("showAllFolderUnavailable") : t("showAllFolderHelp");
+}
+
 function renderLinks() {
   const signatures = new Map(state.links.map((link) => [link.id, JSON.stringify([
     link.title, link.url, normalizeSiteEmoji(link.emoji),
-    normalizeSiteEmoji(link.emoji) ? [] : buildFaviconSources(link.url)
+    getRenderableSiteEmoji(link.emoji) ? [] : buildFaviconSources(link.url)
   ])]));
   for (const [id, entry] of linkCardCache) {
     if (entry.signature !== signatures.get(id)) {
@@ -1180,7 +1217,8 @@ function renderLinks() {
   if (state.selectedFolderId === "all") {
     elements.emptyState.textContent = t("emptyAll");
   } else {
-    const folderName = state.folders.find((folder) => folder.id === state.selectedFolderId)?.name;
+    const folderName = state.selectedFolderId === ROOT_FOLDER_ID ? t("unfiledFolder")
+      : state.folders.find((folder) => folder.id === state.selectedFolderId)?.name;
     elements.emptyState.textContent = t("emptyFolder", [folderName || t("favoriteFolder")]);
   }
   elements.emptyState.hidden = visibleLinks.length > 0;
@@ -1231,7 +1269,7 @@ function createLinkCard(link) {
 
   const faviconLetter = document.createElement("span");
   faviconLetter.className = "favicon-letter";
-  const emoji = normalizeSiteEmoji(link.emoji);
+  const emoji = getRenderableSiteEmoji(link.emoji);
   faviconLetter.textContent = emoji || getInitial(link.title);
   favicon.append(faviconImage, faviconLetter);
 
@@ -1681,25 +1719,9 @@ function applyBackground(background = state.background) {
   }
 }
 
-function renderSiteEmojiPicker() {
-  const choices = SITE_EMOJI_OPTIONS.map(({ emoji, labelKey }) => {
-    const button = document.createElement("button");
-    button.className = "site-emoji-choice";
-    button.type = "button";
-    button.dataset.siteEmoji = emoji;
-    button.textContent = emoji;
-    button.setAttribute("aria-label", t(labelKey));
-    button.setAttribute("aria-pressed", "false");
-    return button;
-  });
-  elements.siteEmojiGrid.replaceChildren(...choices);
-}
-
 function updateSiteEmojiSelection() {
   elements.linkIconAuto.setAttribute("aria-pressed", String(!pendingLinkEmoji));
-  elements.siteEmojiGrid.querySelectorAll("[data-site-emoji]").forEach((button) => {
-    button.setAttribute("aria-pressed", String(button.dataset.siteEmoji === pendingLinkEmoji));
-  });
+  emojiPicker.updateSelection(pendingLinkEmoji);
 }
 
 function toggleSiteIconPicker() {
@@ -1713,16 +1735,18 @@ function toggleSiteIconPicker() {
   updateSiteEmojiSelection();
   elements.linkIconPicker.hidden = false;
   elements.linkIconButton.setAttribute("aria-expanded", "true");
+  emojiPicker.open(pendingLinkEmoji);
   const selected = pendingLinkEmoji
     ? [...elements.siteEmojiGrid.querySelectorAll("[data-site-emoji]")].find(
         (button) => button.dataset.siteEmoji === pendingLinkEmoji
       )
-    : elements.linkIconAuto;
-  (selected || elements.linkIconAuto).focus();
+    : elements.linkIconPicker.querySelector("#emojiSearch");
+  (selected || elements.linkIconPicker.querySelector("#emojiSearch")).focus({ preventScroll: true });
 }
 
 function closeSiteIconPicker({ restoreFocus = false } = {}) {
   if (elements.linkIconPicker.hidden) return;
+  emojiPicker.close();
   elements.linkIconPicker.hidden = true;
   elements.linkIconButton.setAttribute("aria-expanded", "false");
   if (restoreFocus) elements.linkIconButton.focus({ preventScroll: true });
@@ -1734,24 +1758,6 @@ function selectSiteIconEmoji(value) {
   updateLinkIconPreview();
   updateSiteEmojiSelection();
   closeSiteIconPicker({ restoreFocus: true });
-}
-
-function handleSiteEmojiGridKeydown(event) {
-  const button = event.target.closest("[data-site-emoji]");
-  if (!button) return;
-  const columns = 5;
-  const delta = {
-    ArrowLeft: -1,
-    ArrowRight: 1,
-    ArrowUp: -columns,
-    ArrowDown: columns
-  }[event.key];
-  if (!delta) return;
-
-  event.preventDefault();
-  const choices = [...elements.siteEmojiGrid.querySelectorAll("[data-site-emoji]")];
-  const nextIndex = Math.min(choices.length - 1, Math.max(0, choices.indexOf(button) + delta));
-  choices[nextIndex]?.focus();
 }
 
 function updateLinkIconLetters() {
@@ -1779,7 +1785,7 @@ function scheduleLinkIconPreview() {
   clearTimeout(linkIconPreviewTimer);
   linkIconPreviewEpoch += 1;
   updateLinkIconLetters();
-  if (pendingLinkEmoji) return;
+  if (getRenderableSiteEmoji(pendingLinkEmoji)) return;
   resetLinkIconImages();
   linkIconPreviewTimer = setTimeout(updateLinkIconPreview, 350);
 }
@@ -1789,7 +1795,7 @@ function updateLinkIconPreview() {
   const epoch = ++linkIconPreviewEpoch;
   updateLinkIconLetters();
   resetLinkIconImages();
-  const emoji = normalizeSiteEmoji(pendingLinkEmoji);
+  const emoji = getRenderableSiteEmoji(pendingLinkEmoji);
   elements.linkIconPreview.classList.toggle("is-emoji", Boolean(emoji));
   elements.linkIconPreviewEmoji.textContent = emoji;
   if (emoji) return;
@@ -2070,7 +2076,8 @@ async function confirmImport() {
     (latestState) =>
       normalizeState({
         ...buildImportedState(latestState, importedData),
-        shortcutsEnabled: latestState.shortcutsEnabled
+        shortcutsEnabled: latestState.shortcutsEnabled,
+        showAllFolder: latestState.showAllFolder
       }),
     { onError: () => showImportError(t("importSaveError")) }
   );
@@ -2246,13 +2253,14 @@ async function commitStateChange(transform, options = {}) {
   return trackUpdateOperation(async () => {
     let observedSelectionRevision = null;
     const result = await storageService.update(defaultState, async (latestState) => {
+      latestState = normalizeFolderNavigation(latestState);
       const pending = pendingFolderSelection;
       observedSelectionRevision = pending?.revision ?? null;
       if (pending && latestState.selectedFolderId === pending.baseId) {
         latestState.selectedFolderId = pending.folderId;
       }
       const transformed = await transform(latestState);
-      return transformed === undefined ? latestState : transformed;
+      return normalizeFolderNavigation(transformed === undefined ? latestState : transformed);
     });
     if (!result.ok) {
       if (typeof options.onError === "function") {
@@ -2357,16 +2365,8 @@ function normalizeState(savedState) {
     folderId: folderIds.has(link.folderId) ? link.folderId : ROOT_FOLDER_ID
   }));
 
-  if (
-    nextState.selectedFolderId === ROOT_FOLDER_ID ||
-    (nextState.selectedFolderId !== "all" && !folderIds.has(nextState.selectedFolderId))
-  ) {
-    nextState.selectedFolderId = "all";
-  }
-
   nextState.shortcutsEnabled = nextState.shortcutsEnabled !== false;
-
-  return nextState;
+  return normalizeFolderNavigation(nextState);
 }
 
 function removeFolder(targetState, folderId) {

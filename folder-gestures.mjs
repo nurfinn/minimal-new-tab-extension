@@ -173,9 +173,9 @@ export function createFolderGestureRecognizer() {
   };
 }
 
-export function getAdjacentFolderId(folders, selectedFolderId, direction) {
+export function getAdjacentFolderId(folders, selectedFolderId, direction, visibleFolderIds = null) {
   if (direction !== -1 && direction !== 1) return null;
-  const ids = ['all', ...folders.filter(({ id }) => id !== 'root').map(({ id }) => id)];
+  const ids = visibleFolderIds ?? ['all', ...folders.filter(({ id }) => id !== 'root').map(({ id }) => id)];
   const index = ids.indexOf(selectedFolderId);
   return index === -1 ? null : ids[index + direction] ?? null;
 }

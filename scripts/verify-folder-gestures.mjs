@@ -50,7 +50,7 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 function makeArea() {
   return {
     data: {}, failGet: false, failSet: false, failManifest: false, readDelay: 0, commits: 0,
-    writeBudget: null, writeAttempts: 0,
+    writeBudget: null, writeAttempts: 0, commitTimeline: [],
     async get(keys = null) {
       if (this.readDelay) await new Promise((resolve) => setTimeout(resolve, this.readDelay));
       if (this.failGet) throw new Error('Test read failure');
@@ -68,7 +68,12 @@ function makeArea() {
         throw new Error('Test write failure');
       }
       Object.assign(this.data, structuredClone(items));
-      if (Object.hasOwn(items, STORAGE_KEYS.manifest)) this.commits += 1;
+      if (Object.hasOwn(items, STORAGE_KEYS.manifest)) {
+        this.commits += 1;
+        const descriptor = items[STORAGE_KEYS.manifest].active;
+        const payload = JSON.parse(descriptor.chunkKeys.map(key => this.data[key]).join(''));
+        this.commitTimeline.push({ commit: this.commits, selectedFolderId: payload.layout.selectedFolderId });
+      }
     },
     async remove(keys) {
       this.writeAttempts += 1;
@@ -294,6 +299,7 @@ async function run(browserName, build) {
       await page.locator('#linkTitle').fill('Edited cached site');
       await page.locator('#linkUrl').fill('https://figma.com/updated');
       await page.locator('#linkIconButton').click();
+      await page.locator('#emojiSearch').fill('🗺️');
       await page.locator('[data-site-emoji="🗺️"]').click();
       await page.locator('#linkSubmitButton').click();
       await page.locator('#linkDialog').waitFor({ state: 'hidden' });
@@ -411,6 +417,8 @@ async function run(browserName, build) {
       await check(`recorded rapid trackpad gestures survive rerenders and ${delay} ms storage latency without clicks`, async () => {
         await page.locator('[data-folder="work"]').click();
         await expectFolder('work');
+        // Measure only this replay, not the previous All click or this setup save.
+        await settleSelection();
         syncArea.readDelay = delay;
         const before = syncArea.commits;
         try {
@@ -418,6 +426,8 @@ async function run(browserName, build) {
           clock = result.lastTime;
           assert.deepEqual(result.folders, ['personal', 'work', 'all', 'work']);
           await settleSelection();
+          console.log('Rapid-series commit evidence:', JSON.stringify({ delay, before, after: syncArea.commits,
+            commits: syncArea.commitTimeline.filter(item => item.commit > before) }));
           assert.ok(syncArea.commits - before <= 1);
           assert.equal((await service.load(seed)).state.selectedFolderId, 'work');
         } finally {

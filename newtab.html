@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title data-i18n="appShortName">Minimal Tab</title>
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -86,15 +88,29 @@
           </div>
           <div class="site-icon-picker" id="linkIconPicker" role="dialog" aria-labelledby="linkIconPickerTitle" hidden>
             <h3 id="linkIconPickerTitle" data-i18n="chooseSiteIcon">Choose an icon</h3>
-            <button class="site-icon-auto" id="linkIconAuto" type="button" aria-pressed="true">
-              <span class="link-icon-preview fallback" id="linkIconAutoPreview" aria-hidden="true">
-                <img id="linkIconAutoImage" alt="">
-                <span class="link-icon-letter" id="linkIconAutoLetter">?</span>
-              </span>
-              <span data-i18n="useWebsiteFavicon">Use website favicon</span>
-              <span class="site-icon-check" aria-hidden="true">✓</span>
-            </button>
+            <label class="visually-hidden" for="emojiSearch" data-i18n="emojiSearchLabel">Search emoji</label>
+            <div class="emoji-search-field">
+              <span class="emoji-search-icon" aria-hidden="true"></span>
+              <input class="emoji-search" id="emojiSearch" type="search" autocomplete="off" spellcheck="false" data-i18n-placeholder="emojiSearchPlaceholder" placeholder="Search emoji…">
+            </div>
+            <div class="emoji-categories" id="emojiCategories" role="group" data-i18n-aria-label="emojiCategoriesLabel"></div>
+            <div class="emoji-results-header">
+              <button class="emoji-back" id="emojiVariantsBack" type="button" data-i18n="emojiBack" hidden>Back</button>
+              <h4 id="emojiResultsHeading" data-i18n="emojiCategoryAll">All emoji</h4>
+            </div>
             <div class="site-emoji-grid" id="siteEmojiGrid" role="group" data-i18n-aria-label="chooseEmoji"></div>
+            <p class="emoji-picker-status" id="emojiPickerStatus" role="status" hidden></p>
+            <button class="emoji-more" id="emojiRetry" type="button" data-i18n="emojiRetry" hidden>Retry</button>
+            <div class="emoji-picker-footer">
+              <button class="site-icon-auto" id="linkIconAuto" type="button" aria-pressed="true">
+                <span class="link-icon-preview fallback" id="linkIconAutoPreview" aria-hidden="true">
+                  <img id="linkIconAutoImage" alt="">
+                  <span class="link-icon-letter" id="linkIconAutoLetter">?</span>
+                </span>
+                <span data-i18n="useWebsiteFavicon">Use website icon</span>
+                <span class="site-icon-check" aria-hidden="true">✓</span>
+              </button>
+            </div>
           </div>
         </div>
         <p class="field-error" id="linkUrlError" role="alert" hidden></p>
@@ -164,7 +180,12 @@
         </div>
 
         <footer class="modal-actions folder-dialog-actions">
-          <button class="text-button" type="button" data-close="folderDialog" data-i18n="cancel">Cancel</button>
+          <label class="folder-visibility-control" for="showAllFolder">
+            <input id="showAllFolder" name="showAllFolder" type="checkbox" aria-describedby="folderVisibilityHelp" checked>
+            <span data-i18n="showAllFolderLabel">Show “All”</span>
+          </label>
+          <span class="visually-hidden" id="folderVisibilityHelp" data-i18n="showAllFolderHelp">Hiding it does not delete sites.</span>
+          <button class="text-button" type="button" data-close="folderDialog" data-i18n="done">Done</button>
         </footer>
       </form>
     </dialog>
@@ -242,9 +263,10 @@
               <article class="backup-card">
                 <div>
                   <h3 data-i18n="exportTitle">Export</h3>
-                  <p data-i18n="exportDescription">Save sites, folders, and their order to a JSON file. The background stays in this browser.</p>
+                  <p id="exportDescription" data-i18n="exportDescription">Save sites, folders, their order, and emoji to a JSON file. The background stays in this browser.</p>
+                  <p class="settings-help" id="exportCompatibility" data-i18n="exportCompatibility">Update Minimal Tab in the other browser before importing. Published versions 1.6 and earlier cannot import this file.</p>
                 </div>
-                <button class="text-button" id="exportBackupButton" data-i18n="downloadFile" type="button">Download file</button>
+                <button class="text-button" id="exportBackupButton" data-i18n="downloadFile" type="button" aria-describedby="exportDescription exportCompatibility">Download file</button>
               </article>
 
               <article class="backup-card">

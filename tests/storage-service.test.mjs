@@ -251,6 +251,71 @@ test("round-trips the optional single-key shortcut preference without changing s
   assert.equal(reloaded.state.shortcutsEnabled, false);
 });
 
+test("round-trips hidden All and the unfiled view as a lightweight optional preference", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  const state = makeDefaultState();
+  state.folders.push({ id: "work", name: "Work" });
+  state.showAllFolder = false;
+  state.selectedFolderId = "root";
+  state.links[0].emoji = "🗺️";
+  const service = createStorageService({ syncArea, localArea, logger: null });
+  assert.equal((await service.save(state)).ok, true);
+  const payload = JSON.parse(getActivePayloadJson(syncArea));
+  assert.equal(payload.storageVersion, 1);
+  assert.equal(payload.preferences.showAllFolder, false);
+  assert.equal(payload.layout.selectedFolderId, "root");
+  assert.deepEqual(localArea.data, {});
+  const reloaded = await createStorageService({ syncArea, localArea, logger: null }).load(makeDefaultState());
+  assert.equal(reloaded.state.showAllFolder, false);
+  assert.equal(reloaded.state.selectedFolderId, "root");
+  assert.deepEqual(reloaded.state.links, state.links);
+  state.showAllFolder = true;
+  assert.equal((await service.save(state)).ok, true);
+  const shown = await createStorageService({ syncArea, localArea, logger: null }).load({ ...makeDefaultState(), showAllFolder: true });
+  assert.equal(shown.state.showAllFolder, true);
+  assert.equal(shown.state.selectedFolderId, "all");
+});
+
+test("missing or damaged optional visibility shows All without replacing sites or writing storage", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  const service = createStorageService({ syncArea, localArea, logger: null });
+  assert.equal((await service.save(makeDefaultState())).ok, true);
+  const defaults = { ...makeDefaultState(), showAllFolder: true };
+  for (const value of [undefined, "false", null]) {
+    const manifest = syncArea.data[STORAGE_KEYS.manifest];
+    const payload = JSON.parse(getActivePayloadJson(syncArea));
+    if (value === undefined) delete payload.preferences.showAllFolder;
+    else payload.preferences.showAllFolder = value;
+    const json = JSON.stringify(payload);
+    syncArea.data[manifest.active.chunkKeys[0]] = json;
+    manifest.active.byteLength = Buffer.byteLength(json);
+    syncArea.calls.length = 0;
+    const loaded = await createStorageService({ syncArea, localArea, logger: null }).load(defaults);
+    assert.equal(loaded.ok, true);
+    assert.equal(loaded.state.showAllFolder, true);
+    assert.deepEqual(loaded.state.links, makeDefaultState().links);
+    assert.equal(syncArea.calls.some(({ method }) => method === "set"), false);
+  }
+});
+
+test("a failed visibility save retains the last valid snapshot and local background", async () => {
+  const syncArea = new FakeStorageArea();
+  const localArea = new FakeStorageArea();
+  const service = createStorageService({ syncArea, localArea, logger: null });
+  const state = { ...makeDefaultState(), showAllFolder: true };
+  assert.equal((await service.save(state)).ok, true);
+  const before = structuredClone(syncArea.data[STORAGE_KEYS.manifest]);
+  syncArea.failSet = () => true;
+  assert.equal((await service.save({ ...state, showAllFolder: false })).ok, false);
+  assert.deepEqual(syncArea.data[STORAGE_KEYS.manifest], before);
+  const loaded = await createStorageService({ syncArea, localArea, logger: null }).load(state);
+  assert.equal(loaded.state.showAllFolder, true);
+  assert.deepEqual(loaded.state.links, state.links);
+  assert.deepEqual(localArea.data, {});
+});
+
 test("prefers the Promise-based Firefox browser storage namespace", async () => {
   const originalBrowser = Object.getOwnPropertyDescriptor(globalThis, "browser");
   const originalChrome = Object.getOwnPropertyDescriptor(globalThis, "chrome");

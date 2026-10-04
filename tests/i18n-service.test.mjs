@@ -67,6 +67,17 @@ test('translator prefers Chrome messages and formats an English fallback', () =>
   assert.equal(translate('missingMessage'), 'missingMessage');
 });
 
+test('export copy names emoji and explains the published 1.6 compatibility limit in both languages', () => {
+  assert.match(english.exportDescription.message, /emoji/i);
+  assert.match(russian.exportDescription.message, /эмодзи/i);
+  assert.match(english.exportCompatibility?.message || '', /published versions 1\.6 and earlier/i);
+  assert.match(english.exportCompatibility?.message || '', /update .*before importing/i);
+  assert.match(russian.exportCompatibility?.message || '', /опубликованные версии 1\.6/i);
+  assert.match(russian.exportCompatibility?.message || '', /обновите .*перед импортом/i);
+  assert.equal(createTranslator({ getMessage: () => '' })('exportCompatibility'),
+    english.exportCompatibility.message);
+});
+
 test('default localization prefers the Firefox browser namespace', () => {
   const originalBrowser = Object.getOwnPropertyDescriptor(globalThis, 'browser');
   const originalChrome = Object.getOwnPropertyDescriptor(globalThis, 'chrome');

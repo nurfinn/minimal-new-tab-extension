@@ -1,0 +1,22 @@
+{
+  "library": "Phosphor Icons",
+  "license": "MIT",
+  "source": "https://github.com/phosphor-icons/core",
+  "commit": "2b75f3ad12b420c9504ef05df8d2564a28f8500e",
+  "weight": "regular",
+  "hashes": {
+    "squares-four.svg": "f70d6b20e08e028ab5b1714077681910a2431092cf7a23b82366ddaec554ab87",
+    "smiley.svg": "9486a397f921e6a6472ae4655002a468b9d4475d1ff44dc639aa95fd830b7d60",
+    "hand-waving.svg": "07c4c9d18c9a4c86508fde52cddaf95aa1499552c99bfeebc404d5b991fdf41f",
+    "plant.svg": "1201f75dac2090de7327228c7413471488d9ecf70ccf438801f1f14796cf4eaa",
+    "orange.svg": "578012ab57bb77c882faf624f76b94310efe92a2558f726a45b0c1115bee5e78",
+    "airplane-tilt.svg": "502cddc0643200dc2843339c7f0fc878a768fe3a6f8874d342ed49fda923a89e",
+    "soccer-ball.svg": "32f4b1b42d041b9b7ba35cd16230bcb478955259df609402ffd96ea731d115a3",
+    "lightbulb.svg": "b61e4d9685a1d74e579a7dbbe0d5222bdf8dcdcaf5b67825a17ff45363e4fadd",
+    "heart.svg": "312dee73d1d969631d5498012f619ccf4edbdf31e1be3e65af4f4f1b3ac1b2dd",
+    "flag.svg": "2460f65cc31b6c3ab52ff936b56cfd38b3f179aab5c27fbd810f177d0c7ad24d",
+    "magnifying-glass.svg": "f9fa2561978a9a3291e8ae0ebfcb651104f5069fade8f84871627bca68889cde",
+    "caret-down.svg": "53f0cf2d0b144ac3cb07e353e0cd0853ffb3ed432d741460ce288edfcb0924b1",
+    "LICENSE": "b5b1f1da112d18ea2147decfd48ddc1bf2b5aeb6c265381579340e95b15a2bb2"
+  }
+}

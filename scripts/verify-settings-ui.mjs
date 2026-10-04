@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { buildChromeRelease } from './build-chrome.mjs';
 import { buildFirefoxRelease } from './build-firefox.mjs';
 import { createStorageService, STORAGE_KEYS } from '../storage-service.mjs';
+import { FEATURE_KEYS } from '../feature-generation.mjs';
 import { serializeBackup } from '../backup-service.mjs';
 
 const require = createRequire(import.meta.url);
@@ -49,7 +50,8 @@ function area() {
         .filter((key) => Object.hasOwn(this.data, key)).map((key) => [key, structuredClone(this.data[key])]));
     },
     async set(values) {
-      if (this.failSet) throw new Error('QA write failed');
+      if (this.delaySet) await new Promise((resolve) => setTimeout(resolve, this.delaySet));
+      if (this.failSet || (this.failManifest && Object.hasOwn(values, STORAGE_KEYS.manifest))) throw new Error('QA write failed');
       Object.assign(this.data, structuredClone(values));
       if (Object.hasOwn(values, STORAGE_KEYS.manifest)) this.commits += 1;
     },
@@ -215,6 +217,42 @@ async function run(platform, build) {
       await page.locator('#settingsDialog').waitFor({ state: 'hidden' });
     });
     await reloadSeed();
+    await check(`${platform}: failed distinct wallpaper replacement retains old bytes and preview after reload`, async () => {
+      const replacement = await page.evaluate(() => {
+        const canvas = document.createElement('canvas'); canvas.width = 2; canvas.height = 2;
+        const context = canvas.getContext('2d'); context.fillStyle = '#247d92'; context.fillRect(0, 0, 2, 2);
+        return canvas.toDataURL('image/png');
+      });
+      const previous = structuredClone(local.data[STORAGE_KEYS.localBackground]);
+      const previousHead = structuredClone(sync.data[STORAGE_KEYS.manifest]);
+      assert.notEqual(replacement, previous.dataUrl);
+      await page.locator('#backgroundImage').setInputFiles({ name: 'replacement.png', mimeType: 'image/png',
+        buffer: Buffer.from(replacement.split(',')[1], 'base64') });
+      await page.waitForFunction(() => document.getElementById('backgroundPreviewImage').style.backgroundImage.includes('blob:'));
+      try {
+        sync.failManifest = true;
+        await page.locator('#saveBackgroundButton').click();
+        await page.locator('#backgroundImageError').waitFor({ state: 'visible' });
+        assert.equal(await page.locator('#settingsDialog[open]').count(), 1);
+        assert.deepEqual(local.data[STORAGE_KEYS.localBackground], previous);
+        assert.deepEqual(sync.data[STORAGE_KEYS.manifest], previousHead);
+        assert.equal(local.data[STORAGE_KEYS.pendingBackground].dataUrl, replacement);
+      } finally { sync.failManifest = false; }
+      await page.reload();
+      await page.locator('#folderRow [data-folder]').first().waitFor();
+      await openSettings(page);
+      assert.ok((await page.locator('#backgroundPreviewImage').evaluate(el => el.style.backgroundImage)).includes(previous.dataUrl));
+      assert.equal((await service.load(seed)).state.background.value, previous.dataUrl);
+      await page.screenshot({ path: join(output, `${platform}-failed-background-restored.png`) });
+      await page.locator('#backgroundImage').setInputFiles({ name: 'replacement.png', mimeType: 'image/png',
+        buffer: Buffer.from(replacement.split(',')[1], 'base64') });
+      await page.waitForFunction(() => document.getElementById('backgroundPreviewImage').style.backgroundImage.includes('blob:'));
+      await page.locator('#saveBackgroundButton').click();
+      await page.locator('#settingsDialog').waitFor({ state: 'hidden' });
+      assert.equal((await service.load(seed)).state.background.value, replacement);
+      assert.equal(Object.hasOwn(local.data, STORAGE_KEYS.pendingBackground), false);
+    });
+    await reloadSeed();
     await check(`${platform}: image button, overlay keyboard and Cancel share one draft`, async () => {
       const commits = sync.commits;
       const choosing = page.waitForEvent('filechooser');
@@ -363,6 +401,7 @@ async function run(platform, build) {
       await page.locator('#linkTitle').fill('GitHub QA');
       await page.locator('#linkFolder').selectOption('work');
       await page.locator('#linkIconButton').click();
+      await page.locator('#emojiSearch').fill('🗺️');
       await page.locator('[data-site-emoji="🗺️"]').click();
       await page.locator('#linkSubmitButton').click();
       await page.locator('#linkDialog').waitFor({ state: 'hidden' });
@@ -457,6 +496,8 @@ async function run(platform, build) {
       await page.locator('#emptyState').waitFor({ state: 'visible' });
       assert.equal(await page.locator('.link-card').count(), 0);
     });
+    await page.close();
+    await verifyFolderVisibility(platform, createContext, url, sync, local);
     await context.close();
     context = null;
     for (const locale of ['en', 'ru']) for (const viewport of [
@@ -517,6 +558,23 @@ async function run(platform, build) {
         assert.equal(await p.locator('#backgroundSettingsTab').getAttribute('aria-selected'), 'true');
         await p.locator('#backgroundSettingsTab').press('End');
         assert.equal(await p.locator('#backupSettingsTab').getAttribute('aria-selected'), 'true');
+        const compatibility = p.locator('#exportCompatibility');
+        await compatibility.scrollIntoViewIfNeeded();
+        assert.equal(await compatibility.isVisible(), true);
+        assert.match(await compatibility.textContent(), locale === 'ru'
+          ? /Опубликованные версии 1\.6 и более ранние/ : /Published versions 1\.6 and earlier/);
+        assert.match(await p.locator('#exportDescription').textContent(), locale === 'ru' ? /эмодзи/ : /emoji/);
+        assert.equal(await p.locator('#exportBackupButton').getAttribute('aria-describedby'),
+          'exportDescription exportCompatibility');
+        const backupMetrics = await p.evaluate(() => {
+          const note = document.getElementById('exportCompatibility');
+          const body = document.querySelector('#settingsDialog .settings-body');
+          return { noteScrollWidth: note.scrollWidth, noteClientWidth: note.clientWidth,
+            bodyScrollWidth: body.scrollWidth, bodyClientWidth: body.clientWidth };
+        });
+        assert.ok(backupMetrics.noteScrollWidth <= backupMetrics.noteClientWidth + 1);
+        assert.ok(backupMetrics.bodyScrollWidth <= backupMetrics.bodyClientWidth + 1);
+        report.layouts.push({ id: `${id}-backup-compatibility`, locale, ...backupMetrics });
         await p.screenshot({ path: join(output, `${id}-backup.png`) });
         await p.keyboard.press('Escape');
         await p.locator('#addLinkButton').click();
@@ -570,10 +628,234 @@ async function run(platform, build) {
       }
     });
     await contrastContext.close();
+    for (const locale of ['en', 'ru']) {
+      const before = structuredClone(sync.data);
+      const commits = sync.commits;
+      sync.data[FEATURE_KEYS.manifest].featureVersion = 2;
+      const blockedContext = await createContext(locale);
+      const blockedPage = await blockedContext.newPage();
+      try {
+        await check(`${platform}-${locale}: unreadable protected settings keep sites visible and disclose blocked saving`, async () => {
+          await blockedPage.goto(url);
+          await blockedPage.locator('.link-card').first().waitFor();
+          assert.equal(await blockedPage.locator('#appStatus').isVisible(), true);
+          const messages = JSON.parse(await readFile(join(root, `_locales/${locale}/messages.json`), 'utf8'));
+          assert.equal(await blockedPage.locator('#appStatus').textContent(), messages.storageSaveWarning.message);
+          assert.equal(sync.commits, commits);
+          const count = await blockedPage.locator('.link-card').count();
+          assert.ok(count > 0);
+          await blockedPage.locator('[data-edit-link]').first().click();
+          await blockedPage.locator('#linkTitle').fill('Unsaved protected draft');
+          await blockedPage.locator('#linkSubmitButton').click();
+          await blockedPage.locator('#linkFormError').waitFor({ state: 'visible' });
+          assert.equal(await blockedPage.locator('#linkDialog').isVisible(), true);
+          assert.equal(await blockedPage.locator('#linkTitle').inputValue(), 'Unsaved protected draft');
+          assert.equal(sync.commits, commits);
+        });
+      } finally { sync.data = before; await blockedContext.close(); }
+    }
   } finally {
     permission.pending?.resolve(false);
     await context?.close();
     await browser.close();
+  }
+}
+
+async function verifyFolderVisibility(platform, createContext, url, sync, local) {
+  const folders = [{ id: 'root', name: 'Favorites' },
+    ...['AI', 'Entertainment', 'Google', 'Job', 'Dev'].map((name, i) => ({ id: `folder-${i}`, name }))];
+  const counts = [5, 9, 6, 13, 9];
+  const links = folders.slice(1).flatMap((folder, i) => Array.from({ length: counts[i] }, (_, n) => ({
+    id: `site-${i}-${n}`, title: `Site ${i}-${n}`, url: `https://example.com/${i}/${n}`, folderId: folder.id,
+  })));
+  const seed = { ...fixture(), folders, links };
+  const read = async () => (await createStorageService({ syncArea: sync, localArea: local, logger: null }).load({})).state;
+  for (const locale of ['en', 'ru']) {
+    const ctx = await createContext(locale, { width: 1488, height: 1056 });
+    let p;
+    let clock = 0;
+    const label = `${platform}-${locale}: All visibility`;
+    async function reset(value = seed) {
+      await p?.close();
+      sync.failSet = false;
+      sync.delaySet = 0;
+      assert.equal((await createStorageService({ syncArea: sync, localArea: local, logger: null }).save(value)).ok, true);
+      p = await ctx.newPage();
+      await p.goto(url);
+      await p.locator('#folderRow [data-folder]').first().waitFor();
+      await p.locator('#addFolderButton').click();
+    }
+    const ready = () => p.waitForFunction(() => !document.getElementById('showAllFolder').hasAttribute('aria-busy'));
+    const done = () => p.locator('#folderDialog [data-close="folderDialog"]').last().click();
+    const ids = () => p.locator('#folderRow [data-folder]').evaluateAll((els) => els.map((el) => el.dataset.folder));
+    async function wheel(deltaX) {
+      clock += 500;
+      await p.locator('.content').evaluate((el, { deltaX, clock }) => {
+        const event = new WheelEvent('wheel', { deltaX, deltaY: 0, bubbles: true, cancelable: true });
+        Object.defineProperty(event, 'timeStamp', { value: clock });
+        el.dispatchEvent(event);
+      }, { deltaX, clock });
+    }
+    try {
+      await check(`${label} is a small localized footer checkbox`, async () => {
+        await reset();
+        assert.equal(await p.locator('#showAllFolder').isChecked(), true);
+        assert.equal(await p.locator('#folderDialog [data-i18n="showAllFolderLabel"]').textContent(), locale === 'ru' ? 'Показывать «Все»' : 'Show “All”');
+        assert.equal(await p.locator('#folderDialog [data-i18n="done"]').textContent(), locale === 'ru' ? 'Готово' : 'Done');
+        const footer = await p.locator('.folder-dialog-actions').boundingBox();
+        const list = await p.locator('#folderList').boundingBox();
+        assert.ok(footer.y > list.y + list.height);
+        assert.ok(footer.height <= 60);
+        assert.equal(await p.locator('#settingsDialog #showAllFolder').count(), 0);
+        await p.screenshot({ path: join(output, `${platform}-${locale}-folder-visibility.png`) });
+        await p.locator('#folderDialog').screenshot({ path: join(output, `${platform}-${locale}-folder-visibility-modal.png`) });
+      });
+      await check(`${label} hides only All and keeps sites, order, emoji and background`, async () => {
+        const before = await read();
+        const beforeLocal = structuredClone(local.data);
+        await p.locator('#showAllFolder').click();
+        await ready();
+        assert.equal(await p.locator('#showAllFolder').isChecked(), false);
+        assert.deepEqual(await ids(), folders.slice(1).map(({ id }) => id));
+        const saved = await read();
+        assert.equal(saved.showAllFolder, false);
+        assert.equal(saved.selectedFolderId, 'folder-0');
+        for (const key of ['links', 'folders', 'background', 'shortcutsEnabled']) assert.deepEqual(saved[key], before[key]);
+        assert.deepEqual(local.data, beforeLocal);
+      });
+      await check(`${label} survives reload and a second tab and is easy to restore`, async () => {
+        await p.reload();
+        await p.locator('#folderRow [data-folder]').first().waitFor();
+        assert.equal(await p.locator('[data-folder="all"]').count(), 0);
+        const other = await ctx.newPage();
+        await other.goto(url);
+        await other.locator('#folderRow [data-folder]').first().waitFor();
+        assert.equal(await other.locator('[data-folder="all"]').count(), 0);
+        await other.close();
+        await p.locator('#addFolderButton').click();
+        assert.equal(await p.locator('#showAllFolder').isChecked(), false);
+        await p.locator('#showAllFolder').click();
+        await ready();
+        assert.equal(await p.locator('[data-folder="all"]').count(), 1);
+        assert.equal((await read()).selectedFolderId, 'folder-0');
+      });
+      await check(`${label} keeps selected user folders and swipe boundaries consistent`, async () => {
+        await reset({ ...seed, showAllFolder: false, selectedFolderId: 'folder-0' });
+        await done();
+        await wheel(-90);
+        assert.equal(await p.locator('[data-folder="folder-0"]').getAttribute('aria-pressed'), 'true');
+        await wheel(90);
+        assert.equal(await p.locator('[data-folder="folder-1"]').getAttribute('aria-pressed'), 'true');
+        await wheel(-90);
+        assert.equal(await p.locator('[data-folder="folder-0"]').getAttribute('aria-pressed'), 'true');
+        await p.waitForFunction(async () => {
+          const { createStorageService } = await import('./storage-service.mjs');
+          return (await createStorageService({ logger: null }).load({})).state.selectedFolderId === 'folder-0';
+        });
+      });
+      await check(`${label} rolls back a failed save and keeps the previous snapshot`, async () => {
+        await reset();
+        const before = await read();
+        sync.failSet = true;
+        await p.locator('#showAllFolder').click();
+        await ready();
+        await p.locator('#folderFormError').waitFor({ state: 'visible' });
+        assert.equal(await p.locator('#showAllFolder').isChecked(), true);
+        assert.equal(await p.locator('[data-folder="all"]').count(), 1);
+        assert.deepEqual(await read(), before);
+        sync.failSet = false;
+      });
+      await check(`${label} shows a coherent pending checkbox without a visual reversal`, async () => {
+        await reset();
+        sync.delaySet = 120;
+        await p.locator('#showAllFolder').click();
+        assert.equal(await p.locator('#showAllFolder').isChecked(), false);
+        assert.equal(await p.locator('#showAllFolder').isDisabled(), true);
+        await ready();
+        sync.delaySet = 0;
+        assert.equal(await p.locator('#showAllFolder').isChecked(), false);
+      });
+      await check(`${label} no folders and empty data keep All accessible`, async () => {
+        await reset({ ...seed, folders: [folders[0]], links: [], showAllFolder: false });
+        assert.deepEqual(await ids(), ['all']);
+        assert.equal(await p.locator('#showAllFolder').isChecked(), true);
+        assert.equal(await p.locator('#showAllFolder').isDisabled(), true);
+        assert.match(await p.locator('.folder-visibility-control').getAttribute('title'), locale === 'ru' ? /создайте папку/ : /Create a folder/);
+        await p.locator('#folderName').fill('First');
+        await p.locator('#createFolderSubmitButton').click();
+        await p.locator('#folderDialog').waitFor({ state: 'hidden' });
+        assert.equal(await p.locator('[data-folder="all"]').count(), 1);
+      });
+      await check(`${label} deleting folders never makes their sites inaccessible`, async () => {
+        await reset({ ...seed, folders: folders.slice(0, 3), links: links.slice(0, 5), showAllFolder: false, selectedFolderId: 'folder-0' });
+        await p.locator('[data-delete-folder="folder-0"]').click();
+        await p.locator('#confirmDeleteButton').click();
+        await p.locator('[data-delete-folder="folder-0"]').waitFor({ state: 'hidden' });
+        assert.deepEqual(await ids(), ['folder-1', 'root']);
+        assert.equal((await read()).links.length, 5);
+        assert.equal((await read()).selectedFolderId, 'folder-1');
+        await p.locator('[data-delete-folder="folder-1"]').click();
+        await p.locator('#confirmDeleteButton').click();
+        await p.locator('[data-delete-folder="folder-1"]').waitFor({ state: 'hidden' });
+        assert.deepEqual(await ids(), ['all']);
+        assert.equal(await p.locator('#showAllFolder').isChecked(), true);
+        assert.equal(await p.locator('#showAllFolder').isDisabled(), true);
+        assert.equal((await read()).links.length, 5);
+      });
+      await check(`${label} unfiled add, reload, edit and reassignment remain usable`, async () => {
+        await reset({ ...seed, showAllFolder: false, selectedFolderId: 'folder-0' });
+        await done();
+        await p.locator('#addLinkButton').click();
+        await p.locator('#linkTitle').fill('Unfiled QA');
+        await p.locator('#linkUrl').fill('github.com');
+        await p.locator('#linkFolder').selectOption('root');
+        await p.locator('#linkSubmitButton').click();
+        await p.locator('#linkDialog').waitFor({ state: 'hidden' });
+        assert.equal(await p.locator('[data-folder="root"]').getAttribute('aria-pressed'), 'true');
+        assert.equal(await p.locator('[data-folder="root"] .folder-name').textContent(), locale === 'ru' ? 'Без папки' : 'Unfiled');
+        const site = (await read()).links.find(({ title }) => title === 'Unfiled QA');
+        assert.equal(site.url, 'https://github.com/');
+        await p.reload();
+        await p.locator('[data-folder="root"][aria-pressed="true"]').waitFor();
+        await p.locator(`[data-edit-link="${site.id}"]`).click();
+        await p.locator('#linkFolder').selectOption('folder-0');
+        await p.locator('#linkSubmitButton').click();
+        await p.locator('#linkDialog').waitFor({ state: 'hidden' });
+        assert.equal(await p.locator('[data-folder="root"]').count(), 0);
+        assert.equal(await p.locator('[data-folder="all"]').count(), 0);
+        assert.equal((await read()).selectedFolderId, 'folder-0');
+      });
+      await check(`${label} import keeps the visibility preference and keyboard toggle works`, async () => {
+        await reset({ ...seed, showAllFolder: false, selectedFolderId: 'folder-0' });
+        await done();
+        await openSettings(p);
+        await p.locator('#backupSettingsTab').click();
+        await p.locator('#importBackupInput').setInputFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(serializeBackup(seed)) });
+        await p.locator('#confirmImportButton').waitFor({ state: 'visible' });
+        await p.locator('#confirmImportButton').click();
+        await p.locator('#confirmImportButton').waitFor({ state: 'hidden' });
+        assert.equal((await read()).showAllFolder, false);
+        assert.equal(await p.locator('[data-folder="all"]').count(), 0);
+        await p.keyboard.press('Escape');
+        await p.locator('#addFolderButton').click();
+        await p.locator('#showAllFolder').focus();
+        await p.keyboard.press('Space');
+        await ready();
+        assert.equal(await p.locator('#showAllFolder').isChecked(), true);
+      });
+      await check(`${label} narrow layout and zoom retain checkbox and Done`, async () => {
+        await reset();
+        for (const viewport of [{ width: 390, height: 700 }, { width: 320, height: 480 }, { width: 820, height: 480 }]) {
+          await p.setViewportSize(viewport);
+          const box = await p.locator('.folder-visibility-control').boundingBox();
+          const button = await p.locator('#folderDialog [data-i18n="done"]').boundingBox();
+          assert.ok(box.x >= 0 && box.y >= 0 && box.y + box.height <= viewport.height);
+          assert.ok(button.x + button.width <= viewport.width && button.y + button.height <= viewport.height);
+          assert.ok(box.x + box.width <= button.x);
+        }
+        await p.screenshot({ path: join(output, `${platform}-${locale}-folder-visibility-narrow.png`) });
+      });
+    } finally { sync.failSet = false; sync.delaySet = 0; await ctx.close(); }
   }
 }
 
@@ -637,11 +919,75 @@ async function runRealChromeSettings() {
       await openSettings(page);
       assert.equal(await page.locator('#singleKeyShortcuts').isChecked(), false);
     });
+    await check('chrome-extension: failed distinct wallpaper replacement preserves real local data across reload', async () => {
+      const previous = await load(page);
+      const beforeLocal = await page.evaluate(() => chrome.storage.local.get(null));
+      const replacement = await page.evaluate(() => {
+        const canvas = document.createElement('canvas'); canvas.width = 2; canvas.height = 2;
+        const context = canvas.getContext('2d'); context.fillStyle = '#247d92'; context.fillRect(0, 0, 2, 2);
+        return canvas.toDataURL('image/png');
+      });
+      assert.notEqual(replacement, previous.background.value);
+      await page.locator('#backgroundImage').setInputFiles({ name: 'replacement.png', mimeType: 'image/png',
+        buffer: Buffer.from(replacement.split(',')[1], 'base64') });
+      await page.waitForFunction(() => document.getElementById('backgroundPreviewImage').style.backgroundImage.includes('blob:'));
+      await page.evaluate(() => {
+        const area = chrome.storage.sync;
+        globalThis.__qaBackgroundOriginalSet = area.set;
+        area.set = async (items) => {
+          if (Object.hasOwn(items, 'minimalNewTabSyncManifest')) throw new Error('Injected native-QA head rejection');
+          return globalThis.__qaBackgroundOriginalSet.call(area, items);
+        };
+      });
+      try {
+        await page.locator('#saveBackgroundButton').click();
+        await page.locator('#backgroundImageError').waitFor({ state: 'visible' });
+        const afterLocal = await page.evaluate(() => chrome.storage.local.get(null));
+        assert.deepEqual(afterLocal[STORAGE_KEYS.localBackground], beforeLocal[STORAGE_KEYS.localBackground]);
+        assert.equal(afterLocal[STORAGE_KEYS.pendingBackground].dataUrl, replacement);
+      } finally {
+        await page.evaluate(() => {
+          chrome.storage.sync.set = globalThis.__qaBackgroundOriginalSet;
+          delete globalThis.__qaBackgroundOriginalSet;
+        });
+      }
+      await page.reload();
+      await page.locator('#folderRow [data-folder]').first().waitFor();
+      assert.deepEqual((await load(page)).background, previous.background);
+      await openSettings(page);
+      assert.ok((await page.locator('#backgroundPreviewImage').evaluate(el => el.style.backgroundImage)).includes(previous.background.value));
+      await page.screenshot({ path: join(output, 'chrome-extension-failed-background-restored.png') });
+      await page.locator('#backgroundImage').setInputFiles({ name: 'replacement.png', mimeType: 'image/png',
+        buffer: Buffer.from(replacement.split(',')[1], 'base64') });
+      await page.waitForFunction(() => document.getElementById('backgroundPreviewImage').style.backgroundImage.includes('blob:'));
+      await page.locator('#saveBackgroundButton').click();
+      await page.locator('#settingsDialog').waitFor({ state: 'hidden' });
+      assert.equal((await load(page)).background.value, replacement);
+      assert.equal(Object.hasOwn(await page.evaluate(() => chrome.storage.local.get(null)), STORAGE_KEYS.pendingBackground), false);
+      await openSettings(page);
+    });
+    await check('chrome-extension: All visibility writes real sync without changing local data', async () => {
+      await page.keyboard.press('Escape');
+      const before = await load(page);
+      const beforeLocal = await page.evaluate(() => chrome.storage.local.get(null));
+      await page.locator('#addFolderButton').click();
+      await page.locator('#showAllFolder').click();
+      await page.waitForFunction(() => !document.getElementById('showAllFolder').hasAttribute('aria-busy'));
+      const saved = await load(page);
+      assert.equal(saved.showAllFolder, false);
+      assert.equal(saved.selectedFolderId, 'work');
+      assert.equal(await page.locator('[data-folder="all"]').count(), 0);
+      for (const key of ['links', 'folders', 'background', 'shortcutsEnabled']) assert.deepEqual(saved[key], before[key]);
+      assert.deepEqual(await page.evaluate(() => chrome.storage.local.get(null)), beforeLocal);
+      await page.keyboard.press('Escape');
+    });
     await check('chrome-extension: full browser close and reopen restores settings and background', async () => {
       const saved = await load(page);
       await context.close();
       page = await open();
       assert.deepEqual(await load(page), saved);
+      assert.equal(await page.locator('[data-folder="all"]').count(), 0);
+      assert.equal((await load(page)).showAllFolder, false);
       await openSettings(page);
       assert.equal(await page.locator('#singleKeyShortcuts').isChecked(), false);
       assert.ok((await page.locator('#backgroundPreviewImage').evaluate((el) => el.style.backgroundImage)).includes('data:image/'));

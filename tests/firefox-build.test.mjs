@@ -64,11 +64,17 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
   assert.deepEqual(await readdir(outputDir), [
     '_locales',
     'backup-service.mjs',
+    'emoji',
+    'emoji-catalog.mjs',
+    'emoji-picker.mjs',
+    'emoji-support.mjs',
     'extension-api.mjs',
     'favicon-catalog.mjs',
     'favicon-service.mjs',
     'favicon-settings.css',
     'favicon-settings.mjs',
+    'feature-generation.mjs',
+    'feature-state.mjs',
     'firefox-bootstrap.mjs',
     'folder-gestures.mjs',
     'i18n-service.mjs',
@@ -102,6 +108,10 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
     await readFile(join(outputDir, 'site-icon.mjs')),
     await readFile(join(sourceRoot, 'site-icon.mjs')),
   );
+  for (const path of ['feature-generation.mjs', 'feature-state.mjs', 'emoji-catalog.mjs', 'emoji-picker.mjs', 'emoji-support.mjs', 'emoji/catalog.json',
+    'emoji/UNICODE-LICENSE.txt', 'emoji/THIRD_PARTY_NOTICES.md']) {
+    assert.deepEqual(await readFile(join(outputDir, path)), await readFile(join(sourceRoot, path)), path);
+  }
 
   const builtHtml = await readFile(join(outputDir, 'newtab.html'), 'utf8');
   const builtScript = await readFile(join(outputDir, 'newtab.js'), 'utf8');
@@ -147,6 +157,9 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
     'storage-service.mjs',
     'newtab-core.mjs',
     'images/default-background.png',
+    'icons/icon-16.png',
+    'icons/icon-32.png',
+    'icons/icon-48.png',
     'icons/icon-128.png',
   ]) {
     assert.deepEqual(

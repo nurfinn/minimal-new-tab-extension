@@ -159,6 +159,14 @@ test('emoji use the installed color font and the expanded picker scrolls without
   assert.match(emojiFont, /"Segoe UI Emoji"\s*,\s*"Noto Color Emoji"/);
 });
 
+test('compact emoji palette helper text keeps at least 4.5 to 1 contrast', () => {
+  const picker = getCssBlock(styles, /\.site-icon-picker\s*/);
+  const color = picker.match(/--muted\s*:\s*#([a-f\d]{6})\s*;/i)?.[1];
+  assert.ok(color, 'The palette needs its own accessible muted text token');
+  const rgb = [0, 2, 4].map(index => parseInt(color.slice(index, index + 2), 16));
+  assert.ok(contrastRatio(rgb, [252, 253, 252]) >= 4.5);
+});
+
 test('keeps full truncated site names and hosts available on hover and focus', () => {
   const createLinkCardBlock = getCssBlock(script, /function\s+createLinkCard\s*\(\s*link\s*\)/);
 
@@ -676,6 +684,13 @@ test('keeps the URL field focused when adding a new site', () => {
   assert.doesNotMatch(openDialogBlock, /requestAnimationFrame\s*\(/);
 });
 
+test('export has a visible localized compatibility note associated with the download action', () => {
+  const exportCard = html.match(/<article\b[^>]*class=["']backup-card["'][^>]*>([\s\S]*?)<\/article>/)?.[1] || '';
+  assert.match(exportCard, /id=["']exportDescription["'][^>]*data-i18n=["']exportDescription["']/);
+  assert.match(exportCard, /<p\b(?=[^>]*\bid=["']exportCompatibility["'])(?=[^>]*\bclass=["']settings-help["'])(?=[^>]*\bdata-i18n=["']exportCompatibility["'])[^>]*>[^<]+<\/p>/);
+  assert.match(exportCard, /id=["']exportBackupButton["'][^>]*aria-describedby=["']exportDescription exportCompatibility["']/);
+});
+
 test('combines background and portable backup tools in accessible settings tabs', () => {
   assert.match(html, /id=["']addLinkButton["'][\s\S]*?<path\s+d=["']M12 5v14M5 12h14["']/);
   assert.match(
@@ -970,6 +985,27 @@ test('keeps folder creation beside its action while only the folder list scrolls
   assert.match(folderManagerRule, /(?:^|;)\s*min-height\s*:\s*0\s*(?:;|$)/);
   assert.match(folderListRule, /(?:^|;)\s*max-height\s*:/);
   assert.match(folderListRule, /(?:^|;)\s*overflow-y\s*:\s*auto\s*(?:;|$)/);
+});
+
+test('keeps All visibility a native checkbox in the folder footer, not a main setting', () => {
+  const folderDialog = html.slice(html.indexOf('id="folderDialog"'), html.indexOf('id="settingsDialog"'));
+  const footer = folderDialog.slice(folderDialog.indexOf('<footer'));
+  assert.match(footer, /<input[^>]*id="showAllFolder"[^>]*type="checkbox"/);
+  assert.match(footer, /data-i18n="showAllFolderLabel"/);
+  assert.match(footer, /data-i18n="done"/);
+  assert.ok(folderDialog.indexOf('id="folderList"') < folderDialog.indexOf('id="showAllFolder"'));
+  assert.doesNotMatch(html.slice(html.indexOf('id="settingsDialog"')), /id="showAllFolder"/);
+});
+
+test('All visibility label keeps readable small-text contrast on existing glass', () => {
+  const label = getCssBlock(styles, /\.folder-visibility-control\s*(?=\{)/);
+  const variable = label.match(/color\s*:\s*var\(--([\w-]+)\)/)?.[1];
+  const root = getCssBlock(styles, /:root\s*(?=\{)/);
+  const hex = root.match(new RegExp(`--${variable}\\s*:\\s*#([a-f\\d]{6})`, 'i'))?.[1];
+  assert.ok(hex, 'The checkbox uses an existing text token');
+  const rgb = [0, 2, 4].map(index => parseInt(hex.slice(index, index + 2), 16));
+  // Existing 92%-white modal over the darkest possible underlying pixels.
+  assert.ok(contrastRatio(rgb, [234.6, 234.6, 234.6]) >= 4.5);
 });
 
 test('uses a contextual empty message for all sites and individual folders', () => {

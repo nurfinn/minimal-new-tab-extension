@@ -22,16 +22,23 @@ Release tags and archives should include the platform:
 
 This working branch contains tested improvements beyond the published 1.6 packages:
 
-- An optional built-in emoji picker inside the site's address field, with a way back to automatic favicons.
+- An optional offline emoji catalog inside the site's address field, with categories, English/Russian search, tone variants, unsupported-glyph filtering and a way back to automatic favicons.
 - Fast trackpad navigation between folders, reusing loaded cards and icons and coalescing selection saves.
 - More compact General settings, consistent controls and a clearer Firefox icon-permission state.
 - A Chrome-only notification for an update the browser has already downloaded, with Later and checks for unfinished work before applying it. Firefox keeps its existing update behavior.
+- An optional Show “All” checkbox in the folder manager; unfiled sites remain accessible when All is hidden.
+- The approved softer grid icon and explicit local 16/32 px tab favicons in both builds.
+- Safer local background replacement: stage and verify the new image before publishing settings, retaining readable copies after a failed or interrupted save.
 
 The manifest versions remain `1.6` until a new release is explicitly prepared. Do not upload a development build as the existing store release. The published ZIPs and bundled wallpaper have not been replaced.
 
-Backups now export format v2 to preserve emoji. This code still imports v1 files, but the published 1.6 cannot import v2 backups. Custom background images remain local and are excluded from backups. Older clients may drop the optional emoji field if they rewrite shared sync data.
+Backups now export format v2 to preserve emoji. This code still imports v1 files, but the published 1.6 cannot import v2 backups. The Export panel explains this in English and Russian. Custom background images remain local and are excluded from backups.
 
-Verification records: [Chrome update handling](docs/chrome-update-notification-verification-2026-10-02.md), [Firefox native checks and limitations](docs/firefox-transfer-verification-2026-10-02.md).
+The working code now protects emoji and All visibility from ordinary writes by the actual published Chrome/Firefox 1.6 serializers using a bounded, independent sync layer. Old edits still apply; explicit favicon/All resets are preserved. This is verified with both immutable packages and disposable native Chromium, not real account cross-device delivery or signed store updates. Protection requires valid protected data to be present; an identical old import cannot express a new reset, and unknown/unsupported data stays read-only. [Verification and limits](docs/mixed-version-feature-protection-verification-2026-10-04.md).
+
+The separately approved background-safety stage now fixes replacement overwriting the previous local image before sync commit. It stages a separate copy, verifies publication and only then promotes/cleans up; interrupted commits remain readable by the current code. Verified with 388 unit/contract, 251 browser and 17 artifact checks plus independent re-review. This bounded local guarantee uses the existing serialized mutation path, not unlocked concurrent writers or distributed atomicity. A subsequent isolated native Firefox check passed 14 UI checkpoints with two human-confirmed page reloads after quota rejection and successful retry; full Firefox restart persistence and signed delivery remain unverified. [Background verification and limits](docs/background-transaction-verification-2026-10-04.md), [native Firefox evidence and UI observation](docs/firefox-background-native-verification-2026-10-04.md). Earlier intermittent emoji UI and 100 ms reload observations remain disclosed in the preceding verification report, not claimed fixed by this change.
+
+Verification records: [Chrome update handling](docs/chrome-update-notification-verification-2026-10-02.md), [Firefox native checks and limitations](docs/firefox-transfer-verification-2026-10-02.md), [release checks and mixed-version limits](docs/release-acceptance-2026-10-04.md).
 
 ## What's new in 1.6
 
