@@ -19,6 +19,10 @@ await mkdir(output, {recursive:true});
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const extension = join(output, 'chrome');
 await buildChromeRelease({sourceRoot:root, outputDir:extension, archivePath:join(output,'chrome-update-qa.zip')});
+const releaseVersion = JSON.parse(await readFile(join(extension, 'manifest.json'), 'utf8')).version;
+const [major, minor = 0] = releaseVersion.split('.').map(Number);
+const pendingVersion = `${major}.${minor + 1}`;
+const newerVersion = `${major}.${minor + 2}`;
 // Instrument only the disposable copy. Release sources expose no signal hook.
 const bootstrapPath=join(extension,'chrome-bootstrap.mjs');
 const bootstrap=await readFile(bootstrapPath,'utf8');
@@ -29,7 +33,7 @@ chrome.runtime.onUpdateAvailable.addListener=fn=>{window.__updateSignal=fn;nativ
 const nativeReload=chrome.runtime.reload.bind(chrome.runtime);
 chrome.runtime.reload=()=>{window.__reloads++;if(window.__realReload)nativeReload();};
 `+bootstrap+`\nwindow.__updateTestService=service;window.__safety=updateSafety;`);
-const report = { mode, output, checks:[], consoleErrors:[], limitations:[
+const report = { mode, output, releaseVersion, pendingVersion, newerVersion, checks:[], consoleErrors:[], limitations:[
   'Isolated unpacked Chromium, no personal profile or signed CWS update.',
   'Listener registration is native; any emitted update signal in this runner is synthetic.',
 ] };
@@ -52,7 +56,7 @@ async function verifyUI(page,url,seed) {
   await check('banner does not steal focus or move header, and hides under dialogs',async()=>{
     await page.locator('#settingsButton').focus();
     const header=await page.locator('.topbar').boundingBox();
-    await page.evaluate(()=>window.__updateSignal({version:'1.8'}));
+    await page.evaluate(version=>window.__updateSignal({version}),pendingVersion);
     await page.locator('#updateNotice').waitFor({state:'visible'});
     assert.equal(await page.locator('#updateNotice [role="status"]').textContent(),'Update ready');
     assert.equal(await page.evaluate(()=>document.activeElement.id),'settingsButton');
@@ -72,9 +76,9 @@ async function verifyUI(page,url,seed) {
     assert.equal(await page.evaluate(()=>document.activeElement.id),'settingsButton');
     const data=await page.evaluate(async()=> (await chrome.storage.local.get('minimalTab.update.snooze.v1'))['minimalTab.update.snooze.v1']);
     assert(data.snoozedUntil>Date.now()+86_390_000&&data.snoozedUntil<=Date.now()+86_400_000);
-    await page.evaluate(()=>window.__updateSignal({version:'1.8'}));
+    await page.evaluate(version=>window.__updateSignal({version}),pendingVersion);
     assert.equal(await page.locator('#updateNotice').isVisible(),false);
-    await page.evaluate(()=>window.__updateSignal({version:'1.9'}));
+    await page.evaluate(version=>window.__updateSignal({version}),newerVersion);
     await page.locator('#updateNotice').waitFor({state:'visible'});
   });
   await check('desktop and narrow layout reserve space above the last card',async()=>{
@@ -147,10 +151,24 @@ async function verifyUI(page,url,seed) {
     await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
     const origin=`http://127.0.0.1:${server.address().port}`;
     const preview=await context.newPage();
+    const previewErrors = [];
+    preview.on('pageerror', error => previewErrors.push(error.message));
     try {
       await preview.route(origin+'/**',route=>route.continue());await preview.goto(origin);
+      // The bootstrap imports the app dynamically; navigation load is not app readiness.
+      report.previewStartupFolders = await preview.locator('#folderRow [data-folder]').count();
+      await preview.locator('#folderRow [data-folder]').first().waitFor();
+      assert.equal(await preview.evaluate(()=>Boolean(globalThis.chrome?.runtime?.getManifest)),false);
       await preview.locator('#settingsButton').click();await preview.locator('dialog[open]').waitFor();
       assert.equal(await preview.locator('#updateNotice').isVisible(),false);
+      assert.deepEqual(previewErrors, []);
+    } catch (error) {
+      report.previewFailure = { errors: previewErrors, state: await preview.evaluate(() => ({
+        readyState: document.readyState, folders: document.querySelectorAll('[data-folder]').length,
+        inert: document.querySelector('.shell')?.inert, status: document.getElementById('appStatus')?.textContent,
+        scripts: [...document.scripts].map(script => script.src),
+      })) };
+      throw error;
     }finally{await preview.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
   });
 }
@@ -219,7 +237,7 @@ try {
     for(const p of pages) {
       await p.reload();await p.locator('[data-folder="work"]').waitFor();
       await p.waitForFunction(()=>Boolean(window.__updateTestService));
-      await p.evaluate(()=>window.__updateSignal({version:'1.7'}));
+      await p.evaluate(version=>window.__updateSignal({version}),pendingVersion);
     }
     const apply=()=>page.evaluate(()=>window.__updateTestService.apply());
     const ready=()=>Promise.all(pages.map(p=>p.waitForFunction(()=>window.__safety.getBlockReason()===null)));

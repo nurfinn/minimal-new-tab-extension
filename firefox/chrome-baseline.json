@@ -1,7 +1,7 @@
 {
   "files": {
-    "manifest.json": "685f7afe1c108311737a6ca3d4f7d6593ff8f5b39668ecf3eb08278b3d77b51e",
-    "backup-service.mjs": "3724a3cf79fb38edafa4caddf73fcadcbbc6036f2976c7224f41b635ecc09464",
+    "manifest.json": "49e07ce91c3f36e6f3f647d0c129ff3cab2058fca61bb5df62970f43d01cf8b3",
+    "backup-service.mjs": "1da0e9f9d499396e9f266e8ed7429f88ffe1ad2eef9371ca044e6769f6f8469d",
     "favicon-service.mjs": "69f5215fb94e93505be864700031a9a257e19b6b02c8b60ac06581a09389bc66",
     "folder-gestures.mjs": "f4e3ec7717badd22ad66e7b162c7cb50d8047d7beb93661e720c4cbde8129fbb",
     "i18n-service.mjs": "029cd8c002da481c97863e5f8306318f6d3ad74d7f03d65b071d4100650cf82b",

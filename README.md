@@ -6,21 +6,22 @@ A calm, customizable new tab for Chrome and Firefox. Keep favorite sites in fold
 
 ## Browser releases
 
-| Browser | Latest published version | Source |
-| --- | ---: | --- |
-| Chrome | 1.6 | Shared files in the repository root |
-| Firefox | 1.6 | Shared root files plus the isolated `firefox/` overlay |
+| Browser | Latest published version | Prepared version | Source |
+| --- | ---: | ---: | --- |
+| Chrome | 1.6 | 1.7 | Shared files in the repository root |
+| Firefox | 1.6 | 1.7 | Shared root files plus the isolated `firefox/` overlay |
 
 Chrome and Firefox live in one repository because most product logic is shared. Browser-specific manifests, favicon providers, permissions, UI additions, and release assets remain isolated. Both store archives are produced from explicit allowlists and validated independently before release.
 
 Release tags and archives should include the platform:
 
-- `chrome-v1.6` → `minimal-new-tab-chrome-v1.6.zip`
-- `firefox-v1.6` → `minimal-new-tab-firefox-v1.6.zip`
+- `chrome-v1.7` → `minimal-new-tab-chrome-v1.7.zip`
+- `firefox-v1.7` → `minimal-new-tab-firefox-v1.7.zip`
 
-## Unreleased development checkpoint
+## Prepared release 1.7
 
-This working branch contains tested improvements beyond the published 1.6 packages:
+Version 1.7 is prepared in this branch, **not yet published** to either store.
+It includes the accepted improvements beyond the published 1.6 packages:
 
 - An optional offline emoji catalog inside the site's address field, with categories, English/Russian search, tone variants, unsupported-glyph filtering and a way back to automatic favicons.
 - Fast trackpad navigation between folders, reusing loaded cards and icons and coalescing selection saves.
@@ -30,7 +31,14 @@ This working branch contains tested improvements beyond the published 1.6 packag
 - The approved softer grid icon and explicit local 16/32 px tab favicons in both builds.
 - Safer local background replacement: stage and verify the new image before publishing settings, retaining readable copies after a failed or interrupted save.
 
-The manifest versions remain `1.6` until a new release is explicitly prepared. Do not upload a development build as the existing store release. The published ZIPs and bundled wallpaper have not been replaced.
+Both manifests and default exported `appVersion` now use `1.7`. The published 1.6
+ZIPs, existing installations and bundled wallpaper have not been replaced.
+[Release 1.7 notes and verification limits](docs/release-1.7.md).
+
+What's New: [Chrome EN](docs/whats-new-1.7-chrome-en.txt),
+[Chrome RU](docs/whats-new-1.7-chrome-ru.txt),
+[Firefox EN](docs/whats-new-1.7-firefox-en.txt),
+[Firefox RU](docs/whats-new-1.7-firefox-ru.txt).
 
 Backups now export format v2 to preserve emoji. This code still imports v1 files, but the published 1.6 cannot import v2 backups. The Export panel explains this in English and Russian. Custom background images remain local and are excluded from backups.
 
@@ -122,10 +130,11 @@ The output directory and ZIP must be outside the source tree, and the archive na
 ```bash
 node scripts/build-chrome.mjs \
   --output-dir /absolute/path/minimal-new-tab-chrome \
-  --archive /absolute/path/minimal-new-tab-chrome-v1.6.zip
+  --archive /absolute/path/minimal-new-tab-chrome-v1.7.zip
 ```
 
-The generated directory can be loaded unpacked in Chrome. The ZIP has the required root-level packaging, but development checkpoints still need a release version and final acceptance before store submission.
+The generated directory can be loaded unpacked in Chrome. The ZIP has root-level
+packaging for the prepared 1.7 release. Store submission and approval remain separate.
 
 ## Build Firefox
 
@@ -134,10 +143,12 @@ The output directory and ZIP must be outside the source tree, and the archive na
 ```bash
 node scripts/build-firefox.mjs \
   --output-dir /absolute/path/minimal-new-tab-firefox \
-  --archive /absolute/path/minimal-new-tab-firefox-v1.6.zip
+  --archive /absolute/path/minimal-new-tab-firefox-v1.7.zip
 ```
 
-Load the output directory temporarily from `about:debugging#/runtime/this-firefox`. Submit a ZIP to Firefox Add-ons only after preparing an explicitly approved release version; the current development checkpoint is not a store release.
+Load the output directory temporarily from `about:debugging#/runtime/this-firefox`.
+The prepared ZIP is for Firefox Add-ons submission; it is not yet signed and is
+not a persistently installed Firefox add-on. Submission and approval are separate.
 
 ## Validation
 
@@ -147,10 +158,10 @@ GitHub Actions runs the complete tests, builds both browser archives, verifies Z
 node --test tests/*.test.mjs
 node scripts/build-chrome.mjs \
   --output-dir /absolute/path/minimal-new-tab-chrome \
-  --archive /absolute/path/minimal-new-tab-chrome-v1.6.zip
+  --archive /absolute/path/minimal-new-tab-chrome-v1.7.zip
 node scripts/build-firefox.mjs \
   --output-dir /absolute/path/minimal-new-tab-firefox \
-  --archive /absolute/path/minimal-new-tab-firefox-v1.6.zip
+  --archive /absolute/path/minimal-new-tab-firefox-v1.7.zip
 npx web-ext lint --source-dir /absolute/path/minimal-new-tab-firefox
 ```
 

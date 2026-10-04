@@ -13,7 +13,7 @@ const encoder = new TextEncoder();
 
 export function serializeBackup(
   state,
-  { now = new Date(), appVersion = '1.6' } = {},
+  { now = new Date(), appVersion = '1.7' } = {},
 ) {
   if (!isRecord(state) || !Array.isArray(state.folders) || !Array.isArray(state.links)) {
     throw new TypeError('Invalid application state');
