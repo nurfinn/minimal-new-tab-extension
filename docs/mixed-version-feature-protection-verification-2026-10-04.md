@@ -123,3 +123,13 @@ Core остаётся `storageVersion: 1`. Дополнительный слой
 Собственные helper/test/fixture и новые документы зафиксированы локальными коммитами. Runtime-интеграция и обновления ранее dirty README/roadmap оставлены unstaged согласно согласованным Global Constraints; pre-execution baseline и финальная интеграционная дельта сохранены отдельно в QA-папке. Новый checkout только по HEAD не является проверенной сборкой. Ветка `codex/ui-polish-settings-toolbar-20260930` и рабочая копия `/Users/nurfinn/.codex/worktrees/minimal-tab-ui-20260930` сохранены; push/merge, выпуск и личная установка не выполнялись.
 
 Plan workspace не удалён: исправленная runtime-интеграция ещё не зафиксирована отдельным checkpoint, поэтому Git history пока не заменяет её журнал. Отложенных Minor нет. Отдельный Important wallpaper follow-up и два timing-наблюдения перечислены выше, а не объявлены исправленными.
+
+## Отдельный последующий safety-этап — 4 октября
+
+После отдельного согласования пользователя Important wallpaper follow-up закрыт
+bounded-исправлением новой local-копии и подтверждения перед заменой. Новые exact-byte
+прогоны: 388 unit/contract, 251 браузерная и 17 artifact checks; повторное независимое
+ревью подтвердило исправление собственного Important finding. Это не переписывает
+исторические результаты/границы данного feature-этапа и не закрывает прежние
+emoji/100 ms timing-наблюдения, account delivery или native Firefox persistence.
+[Новый результат и ограничения](background-transaction-verification-2026-10-04.md).
