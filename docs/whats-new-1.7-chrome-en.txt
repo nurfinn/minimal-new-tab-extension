@@ -1,0 +1,10 @@
+- Choose emoji instead of website icons from a built-in catalog with search, categories, and skin-tone variants.
+- Switch folders with horizontal trackpad swipes.
+- Hide the All view from the folder manager without deleting any sites.
+- Refined Settings and more consistent form controls.
+- A softer app icon with the same familiar shape.
+- JSON backups now include your chosen emoji.
+- An update-ready notice lets you choose Update or Later when Chrome has downloaded an update.
+- Improved saving reliability and safer replacement of custom backgrounds.
+
+Backup compatibility: update Minimal Tab in the receiving browser before importing a new backup. Published versions 1.6 and earlier cannot import the new JSON format. Older backups can still be imported. Background images stay in their browser and are not included in JSON backups.

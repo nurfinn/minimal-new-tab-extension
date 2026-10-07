@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title data-i18n="appShortName">Minimal Tab</title>
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -67,17 +69,59 @@
         </label>
         <p class="field-error" id="linkTitleError" role="alert" hidden></p>
 
-        <label class="field">
-          <span data-i18n="urlLabel">Address</span>
-          <input id="linkUrl" name="url" type="text" aria-describedby="linkUrlError" placeholder="github.com" autocomplete="off" required>
-        </label>
+        <div class="field link-url-field">
+          <label for="linkUrl" data-i18n="urlLabel">Address</label>
+          <div class="link-url-shell">
+            <input id="linkUrl" name="url" type="text" aria-describedby="linkUrlError" placeholder="github.com" autocomplete="off" required>
+            <div class="link-url-icon-controls">
+              <span class="link-icon-preview fallback" id="linkIconPreview" aria-hidden="true">
+                <img id="linkIconPreviewImage" alt="">
+                <span class="link-icon-letter" id="linkIconPreviewLetter">?</span>
+                <span class="link-icon-emoji" id="linkIconPreviewEmoji"></span>
+              </span>
+              <button class="link-icon-edit" id="linkIconButton" type="button" aria-haspopup="dialog" aria-controls="linkIconPicker" aria-expanded="false" data-i18n-aria-label="changeSiteIcon" data-i18n-title="changeSiteIcon">
+                <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="site-icon-picker" id="linkIconPicker" role="dialog" aria-labelledby="linkIconPickerTitle" hidden>
+            <h3 id="linkIconPickerTitle" data-i18n="chooseSiteIcon">Choose an icon</h3>
+            <label class="visually-hidden" for="emojiSearch" data-i18n="emojiSearchLabel">Search emoji</label>
+            <div class="emoji-search-field">
+              <span class="emoji-search-icon" aria-hidden="true"></span>
+              <input class="emoji-search" id="emojiSearch" type="search" autocomplete="off" spellcheck="false" data-i18n-placeholder="emojiSearchPlaceholder" placeholder="Search emoji…">
+            </div>
+            <div class="emoji-categories" id="emojiCategories" role="group" data-i18n-aria-label="emojiCategoriesLabel"></div>
+            <div class="emoji-results-header">
+              <button class="emoji-back" id="emojiVariantsBack" type="button" data-i18n="emojiBack" hidden>Back</button>
+              <h4 id="emojiResultsHeading" data-i18n="emojiCategoryAll">All emoji</h4>
+            </div>
+            <div class="site-emoji-grid" id="siteEmojiGrid" role="group" data-i18n-aria-label="chooseEmoji"></div>
+            <p class="emoji-picker-status" id="emojiPickerStatus" role="status" hidden></p>
+            <button class="emoji-more" id="emojiRetry" type="button" data-i18n="emojiRetry" hidden>Retry</button>
+            <div class="emoji-picker-footer">
+              <button class="site-icon-auto" id="linkIconAuto" type="button" aria-pressed="true">
+                <span class="link-icon-preview fallback" id="linkIconAutoPreview" aria-hidden="true">
+                  <img id="linkIconAutoImage" alt="">
+                  <span class="link-icon-letter" id="linkIconAutoLetter">?</span>
+                </span>
+                <span data-i18n="useWebsiteFavicon">Use website icon</span>
+                <span class="site-icon-check" aria-hidden="true">✓</span>
+              </button>
+            </div>
+          </div>
+        </div>
         <p class="field-error" id="linkUrlError" role="alert" hidden></p>
 
         <p class="field-error" id="linkFormError" role="alert" hidden></p>
 
         <label class="field">
           <span data-i18n="folderLabel">Folder</span>
-          <select id="linkFolder" name="folder"></select>
+          <span class="folder-picker">
+            <select id="linkFolder" name="folder"></select>
+          </span>
         </label>
 
         <footer class="modal-actions">
@@ -136,7 +180,12 @@
         </div>
 
         <footer class="modal-actions folder-dialog-actions">
-          <button class="text-button" type="button" data-close="folderDialog" data-i18n="cancel">Cancel</button>
+          <label class="folder-visibility-control" for="showAllFolder">
+            <input id="showAllFolder" name="showAllFolder" type="checkbox" aria-describedby="folderVisibilityHelp" checked>
+            <span data-i18n="showAllFolderLabel">Show “All”</span>
+          </label>
+          <span class="visually-hidden" id="folderVisibilityHelp" data-i18n="showAllFolderHelp">Hiding it does not delete sites.</span>
+          <button class="text-button" type="button" data-close="folderDialog" data-i18n="done">Done</button>
         </footer>
       </form>
     </dialog>
@@ -153,98 +202,108 @@
         </header>
 
         <div class="settings-tabs" role="tablist" aria-label="Settings sections" data-i18n-aria-label="settingsSections">
-          <button class="settings-tab" id="backgroundSettingsTab" role="tab" aria-selected="true" aria-controls="backgroundSettingsPanel" tabindex="0" data-settings-tab="background" data-i18n="backgroundTab" type="button">Background</button>
+          <button class="settings-tab" id="backgroundSettingsTab" role="tab" aria-selected="true" aria-controls="backgroundSettingsPanel" tabindex="0" data-settings-tab="background" data-i18n="backgroundTab" type="button">General</button>
           <button class="settings-tab" id="backupSettingsTab" role="tab" aria-selected="false" aria-controls="backupSettingsPanel" tabindex="-1" data-settings-tab="backup" data-i18n="backupTab" type="button">Import and export</button>
         </div>
 
-        <section class="settings-panel" id="backgroundSettingsPanel" role="tabpanel" aria-labelledby="backgroundSettingsTab">
-          <form id="backgroundForm">
-            <div class="background-preview" id="backgroundPreview">
-              <div class="background-preview-visual" id="backgroundPreviewImage" aria-hidden="true"></div>
-              <div>
-                <span data-i18n="currentBackground">Current background</span>
-                <strong id="backgroundPreviewName" data-i18n="standardImage">Standard image</strong>
+        <div class="settings-body">
+          <section class="settings-panel" id="backgroundSettingsPanel" role="tabpanel" aria-labelledby="backgroundSettingsTab">
+            <form id="backgroundForm">
+              <fieldset class="settings-fields" id="backgroundFields">
+                <div class="settings-section-heading">
+                  <h3 data-i18n="backgroundTitle">Background</h3>
+                  <button class="text-button default-background-button" id="resetBackgroundButton" data-i18n="restoreDefault" type="button">Use default</button>
+                </div>
+                <div class="background-preview" id="backgroundPreview">
+                  <div class="background-preview-visual" id="backgroundPreviewImage" aria-hidden="true"></div>
+                  <span class="visually-hidden" id="backgroundPreviewName" role="status"></span>
+                  <button class="change-image-button" id="changeBackgroundImageButton" type="button" aria-describedby="backgroundImageLimits backgroundSelectedFile backgroundImageError">
+                    <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+                      <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                      <path d="m3 17 5-5 4 4 4-6 5 7"></path>
+                    </svg>
+                    <span data-i18n="changeBackgroundImage">Change image</span>
+                  </button>
+                  <input id="backgroundImage" name="backgroundImage" type="file" accept="image/png,image/jpeg,image/webp" data-i18n-aria-label="changeBackgroundImage" aria-label="Change image" aria-describedby="backgroundImageLimits backgroundSelectedFile backgroundImageError" hidden>
+                </div>
+
+                <div class="background-toolbar">
+                  <label class="overlay-color-control" for="backgroundOverlayColor">
+                    <span data-i18n="overlayColor">Overlay</span>
+                    <input id="backgroundOverlayColor" name="backgroundOverlayColor" type="color" value="#17122b">
+                  </label>
+                  <div class="overlay-opacity-control">
+                    <label for="backgroundOverlay" data-i18n="opacity">Opacity</label>
+                    <input id="backgroundOverlay" name="backgroundOverlay" type="range" min="0" max="100" value="0" aria-describedby="backgroundOverlayValue">
+                    <output id="backgroundOverlayValue" for="backgroundOverlay">0%</output>
+                  </div>
+                </div>
+                <p class="settings-help" id="backgroundImageLimits" data-i18n="backgroundImageLimits">PNG, JPEG, WebP · Up to 3 MB · 4096 px per side</p>
+                <p class="file-selection" id="backgroundSelectedFile" role="status" hidden></p>
+                <p id="backgroundImageError" role="alert" class="settings-error" hidden></p>
+
+                <label class="settings-preference" for="singleKeyShortcuts">
+                  <span class="settings-preference-copy">
+                    <span class="settings-preference-title" data-i18n="singleKeyShortcutsLabel">Keyboard shortcuts</span>
+                    <span class="settings-help" id="singleKeyShortcutsHelp" data-i18n="singleKeyShortcutsDescription">A: site · F: folder · S: settings</span>
+                  </span>
+                  <span class="settings-switch-control">
+                    <input id="singleKeyShortcuts" name="singleKeyShortcuts" type="checkbox" aria-describedby="singleKeyShortcutsHelp" checked>
+                    <span class="settings-switch-track" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </fieldset>
+            </form>
+            <!-- Firefox site-icon settings -->
+          </section>
+
+          <section class="settings-panel" id="backupSettingsPanel" role="tabpanel" aria-labelledby="backupSettingsTab" hidden>
+            <div class="backup-stack">
+              <article class="backup-card">
+                <div>
+                  <h3 data-i18n="exportTitle">Export</h3>
+                  <p id="exportDescription" data-i18n="exportDescription">Save sites, folders, their order, and emoji to a JSON file. The background stays in this browser.</p>
+                  <p class="settings-help" id="exportCompatibility" data-i18n="exportCompatibility">Update Minimal Tab in the other browser before importing. Published versions 1.6 and earlier cannot import this file.</p>
+                </div>
+                <button class="text-button" id="exportBackupButton" data-i18n="downloadFile" type="button" aria-describedby="exportDescription exportCompatibility">Download file</button>
+              </article>
+
+              <article class="backup-card">
+                <div>
+                  <h3 data-i18n="importTitle">Import</h3>
+                  <p data-i18n="importDescription">Import replaces the current sites and folders. The background settings stay unchanged.</p>
+                </div>
+                <label class="file-field backup-file-field">
+                  <span data-i18n="chooseJsonFile">Choose a JSON file</span>
+                  <input id="importBackupInput" accept="application/json,.json" aria-describedby="importSelectedFile importError" type="file">
+                </label>
+                <p class="file-selection backup-selected-file" id="importSelectedFile" role="status" hidden></p>
+              </article>
+
+              <div class="backup-preview" id="importPreview" hidden>
+                <h3 data-i18n="importPreviewTitle">What will be imported</h3>
+                <dl>
+                  <div><dt data-i18n="backupDate">Backup date</dt><dd id="importPreviewDate">—</dd></div>
+                  <div><dt data-i18n="sitesCount">Sites</dt><dd id="importPreviewSites">0</dd></div>
+                  <div><dt data-i18n="foldersCount">Folders</dt><dd id="importPreviewFolders">0</dd></div>
+                </dl>
               </div>
+              <p class="settings-status" id="importStatus" role="status" hidden></p>
+              <p class="settings-error" id="importError" role="alert" hidden></p>
             </div>
-
-            <label class="file-field">
-              <span data-i18n="imageLabel">Image</span>
-              <input id="backgroundImage" name="backgroundImage" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="backgroundImageLimits backgroundSelectedFile backgroundImageError">
-            </label>
-
-            <p class="settings-help" id="backgroundImageLimits" data-i18n="backgroundImageLimits">PNG, JPEG, or WebP — up to 3 MB and 4096 px per side.</p>
-            <p class="file-selection" id="backgroundSelectedFile" role="status" hidden></p>
-            <p id="backgroundImageError" role="alert" class="settings-error" hidden></p>
-
-            <label class="field compact-field">
-              <span data-i18n="overlayColor">Overlay color</span>
-              <input id="backgroundOverlayColor" name="backgroundOverlayColor" type="color" value="#f4f6f3">
-            </label>
-
-            <label class="field range-field">
-              <span data-i18n="opacity">Opacity</span>
-              <input id="backgroundOverlay" name="backgroundOverlay" type="range" min="0" max="100" value="0">
-              <output id="backgroundOverlayValue" for="backgroundOverlay">0%</output>
-            </label>
-
-            <label class="toggle-field">
-              <span class="toggle-copy">
-                <strong data-i18n="singleKeyShortcutsLabel">Single-key shortcuts</strong>
-                <span data-i18n="singleKeyShortcutsDescription">Use A, F, and S when no dialog or field is active.</span>
-              </span>
-              <input id="singleKeyShortcuts" name="singleKeyShortcuts" type="checkbox" checked>
-            </label>
-
-            <footer class="modal-actions split-actions">
-              <button class="text-button" id="resetBackgroundButton" data-i18n="restoreDefault" type="button">Restore default</button>
-              <div class="modal-action-end">
-                <button class="text-button" type="button" data-close="settingsDialog" data-i18n="cancel">Cancel</button>
-                <button class="primary-button" type="submit" data-i18n="save">Save</button>
-              </div>
-            </footer>
-          </form>
-        </section>
-
-        <section class="settings-panel" id="backupSettingsPanel" role="tabpanel" aria-labelledby="backupSettingsTab" hidden>
-          <div class="backup-stack">
-            <article class="backup-card">
-              <div>
-                <h3 data-i18n="exportTitle">Export</h3>
-                <p data-i18n="exportDescription">Save sites, folders, and their order to a JSON file. The background stays in this browser.</p>
-              </div>
-              <button class="text-button" id="exportBackupButton" data-i18n="downloadFile" type="button">Download file</button>
-            </article>
-
-            <article class="backup-card">
-              <div>
-                <h3 data-i18n="importTitle">Import</h3>
-                <p data-i18n="importDescription">Import replaces the current sites and folders. The background settings stay unchanged.</p>
-              </div>
-              <label class="file-field backup-file-field">
-                <span data-i18n="chooseJsonFile">Choose a JSON file</span>
-                <input id="importBackupInput" accept="application/json,.json" aria-describedby="importSelectedFile importError" type="file">
-              </label>
-              <p class="file-selection backup-selected-file" id="importSelectedFile" role="status" hidden></p>
-            </article>
-
-            <div class="backup-preview" id="importPreview" hidden>
-              <h3 data-i18n="importPreviewTitle">What will be imported</h3>
-              <dl>
-                <div><dt data-i18n="backupDate">Backup date</dt><dd id="importPreviewDate">—</dd></div>
-                <div><dt data-i18n="sitesCount">Sites</dt><dd id="importPreviewSites">0</dd></div>
-                <div><dt data-i18n="foldersCount">Folders</dt><dd id="importPreviewFolders">0</dd></div>
-              </dl>
-            </div>
-
-            <p class="settings-status" id="importStatus" role="status" hidden></p>
-            <p class="settings-error" id="importError" role="alert" hidden></p>
-
-            <footer class="modal-actions backup-actions">
-              <button class="text-button" id="cancelImportButton" data-i18n="cancelImport" type="button" hidden>Cancel import</button>
-              <button class="danger-button" id="confirmImportButton" data-i18n="replaceCurrentData" type="button" hidden>Replace current data</button>
-            </footer>
+          </section>
+        </div>
+        <footer class="settings-footer">
+          <div class="modal-action-end settings-general-actions" id="settingsGeneralActions">
+            <button class="text-button" type="button" data-close="settingsDialog" data-i18n="cancel">Cancel</button>
+            <button class="primary-button" id="saveBackgroundButton" type="submit" form="backgroundForm" data-i18n="save">Save</button>
           </div>
-        </section>
+          <div class="settings-backup-actions" id="settingsBackupActions" hidden>
+            <button class="text-button" id="cancelImportButton" data-i18n="cancelImport" type="button" hidden>Cancel import</button>
+            <button class="danger-button" id="confirmImportButton" data-i18n="replaceCurrentData" type="button" hidden>Replace current data</button>
+          </div>
+        </footer>
       </div>
     </dialog>
 

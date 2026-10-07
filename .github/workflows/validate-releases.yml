@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - "firefox/**"
+      - "codex/**"
 
 permissions:
   contents: read
@@ -35,8 +36,8 @@ jobs:
         run: |
           node scripts/build-chrome.mjs \
             --output-dir "$RUNNER_TEMP/minimal-new-tab-chrome" \
-            --archive "$RUNNER_TEMP/minimal-new-tab-chrome-v1.6.zip"
-          unzip -t "$RUNNER_TEMP/minimal-new-tab-chrome-v1.6.zip"
+            --archive "$RUNNER_TEMP/minimal-new-tab-chrome-v1.7.zip"
+          unzip -t "$RUNNER_TEMP/minimal-new-tab-chrome-v1.7.zip"
 
   firefox-release:
     name: Firefox release
@@ -51,8 +52,8 @@ jobs:
         run: |
           node scripts/build-firefox.mjs \
             --output-dir "$RUNNER_TEMP/minimal-new-tab-firefox" \
-            --archive "$RUNNER_TEMP/minimal-new-tab-firefox-v1.6.zip"
-          unzip -t "$RUNNER_TEMP/minimal-new-tab-firefox-v1.6.zip"
+            --archive "$RUNNER_TEMP/minimal-new-tab-firefox-v1.7.zip"
+          unzip -t "$RUNNER_TEMP/minimal-new-tab-firefox-v1.7.zip"
       - name: Lint Firefox package
         run: >-
           npx --yes --cache "$RUNNER_TEMP/npm-cache" web-ext@10.5.0 lint

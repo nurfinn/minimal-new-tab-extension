@@ -1,0 +1,907 @@
+{
+  "output": "/var/folders/9z/bxm8yx1d5dx0f3ltdq0w7bph0000gn/T/minimal-tab-settings-t1y2JA",
+  "checks": [
+    {
+      "name": "chrome: default is a cancellable draft, not an immediate write",
+      "ok": true
+    },
+    {
+      "name": "chrome: choosing, changing tabs and Cancel preserve draft without writes",
+      "ok": true
+    },
+    {
+      "name": "chrome: Save persists upload and shortcut choice across reload",
+      "ok": true
+    },
+    {
+      "name": "chrome: failed Save keeps the draft and image preview",
+      "ok": true
+    },
+    {
+      "name": "chrome: image button, overlay keyboard and Cancel share one draft",
+      "ok": true
+    },
+    {
+      "name": "chrome: missing local image stays a fallback and keeps its identity",
+      "ok": true
+    },
+    {
+      "name": "chrome: invalid and undecodable uploads are recoverable",
+      "ok": true
+    },
+    {
+      "name": "chrome: backup file validation, cancel, preview, import and export",
+      "ok": true
+    },
+    {
+      "name": "chrome: add, edit, emoji, reorder, reload and delete stay intact",
+      "ok": true
+    },
+    {
+      "name": "chrome: long folder names retain a visible nonzero count",
+      "ok": true
+    },
+    {
+      "name": "chrome: folder manager keeps native keyboard reorder, rename and empty states",
+      "ok": true
+    },
+    {
+      "name": "chrome-en-1280x800: fixed controls, one scroller, reference-aligned opacity, no overflow",
+      "ok": true
+    },
+    {
+      "name": "chrome-en-1024x600: fixed controls, one scroller, reference-aligned opacity, no overflow",
+      "ok": true
+    },
+    {
+      "name": "chrome-en-390x700: fixed controls, one scroller, reference-aligned opacity, no overflow",
+      "ok": true
+    },
+    {
+      "name": "chrome-ru-1280x800: fixed controls, one scroller, reference-aligned opacity, no overflow",
+      "ok": true
+    },
+    {
+      "name": "chrome-ru-1024x600: fixed controls, one scroller, reference-aligned opacity, no overflow",
+      "ok": true
+    },
+    {
+      "name": "chrome-ru-390x700: fixed controls, one scroller, reference-aligned opacity, no overflow",
+      "ok": true
+    },
+    {
+      "name": "chrome: 125 percent desktop layout retains close and Save",
+      "ok": true
+    },
+    {
+      "name": "chrome: bright and detailed previews keep settings legible and keyboard reachable",
+      "ok": true
+    },
+    {
+      "name": "firefox: default is a cancellable draft, not an immediate write",
+      "ok": true
+    },
+    {
+      "name": "firefox: choosing, changing tabs and Cancel preserve draft without writes",
+      "ok": true
+    },
+    {
+      "name": "firefox: Save persists upload and shortcut choice across reload",
+      "ok": true
+    },
+    {
+      "name": "firefox: failed Save keeps the draft and image preview",
+      "ok": true
+    },
+    {
+      "name": "firefox: image button, overlay keyboard and Cancel share one draft",
+      "ok": true
+    },
+    {
+      "name": "firefox: missing local image stays a fallback and keeps its identity",
+      "ok": true
+    },
+    {
+      "name": "firefox: invalid and undecodable uploads are recoverable",
+      "ok": true
+    },
+    {
+      "name": "firefox: granted startup remains coherent after localization",
+      "ok": true
+    },
+    {
+      "name": "firefox: wait, deny, allow, revoke and error keep a consistent switch",
+      "ok": true
+    },
+    {
+      "name": "firefox: backup file validation, cancel, preview, import and export",
+      "ok": true
+    },
+    {
+      "name": "firefox: add, edit, emoji, reorder, reload and delete stay intact",
+      "ok": true
+    },
+    {
+      "name": "firefox: long folder names retain a visible nonzero count",
+      "ok": true
+    },
+    {
+      "name": "firefox: folder manager keeps native keyboard reorder, rename and empty states",
+      "ok": true
+    },
+    {
+      "name": "firefox-en-1280x800: fixed controls, one scroller, reference-aligned opacity, no overflow",
+      "ok": true
+    },
+    {
+      "name": "firefox-en-1024x600: fixed controls, one scroller, reference-aligned opacity, no overflow",
+      "ok": true
+    },
+    {
+      "name": "firefox-en-390x700: fixed controls, one scroller, reference-aligned opacity, no overflow",
+      "ok": true
+    },
+    {
+      "name": "firefox-ru-1280x800: fixed controls, one scroller, reference-aligned opacity, no overflow",
+      "ok": true
+    },
+    {
+      "name": "firefox-ru-1024x600: fixed controls, one scroller, reference-aligned opacity, no overflow",
+      "ok": true
+    },
+    {
+      "name": "firefox-ru-390x700: fixed controls, one scroller, reference-aligned opacity, no overflow",
+      "ok": true
+    },
+    {
+      "name": "firefox: 125 percent desktop layout retains close and Save",
+      "ok": true
+    },
+    {
+      "name": "firefox: bright and detailed previews keep settings legible and keyboard reachable",
+      "ok": true
+    },
+    {
+      "name": "chrome-extension: Cancel does not write real sync or local storage",
+      "ok": true
+    },
+    {
+      "name": "chrome-extension: Save persists a local image and lightweight sync settings",
+      "ok": true
+    },
+    {
+      "name": "chrome-extension: full browser close and reopen restores settings and background",
+      "ok": true
+    }
+  ],
+  "layouts": [
+    {
+      "id": "chrome-en-1280x800",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "deviceScaleFactor": 1,
+      "dialog": {
+        "x": 350,
+        "y": 108.6875,
+        "width": 580,
+        "height": 582.625
+      },
+      "header": {
+        "x": 351,
+        "y": 109.6875,
+        "width": 578,
+        "height": 72
+      },
+      "footer": {
+        "x": 351,
+        "y": 615.3125,
+        "width": 578,
+        "height": 75
+      },
+      "body": {
+        "x": 351,
+        "y": 224.6875,
+        "width": 578,
+        "height": 390.625
+      },
+      "rail": {
+        "x": 627.53125,
+        "y": 458.6875,
+        "width": 214,
+        "height": 28
+      },
+      "preview": {
+        "x": 375,
+        "y": 286.6875,
+        "width": 530,
+        "height": 156
+      },
+      "opacityLabel": {
+        "x": 558.265625,
+        "y": 464.6875,
+        "width": 49.265625,
+        "height": 16
+      },
+      "opacityValue": {
+        "x": 861.53125,
+        "y": 464.6875,
+        "width": 22,
+        "height": 16
+      },
+      "scrollWidth": 578,
+      "clientWidth": 578,
+      "bodyScrollWidth": 578,
+      "bodyClientWidth": 578
+    },
+    {
+      "id": "chrome-en-1024x600",
+      "viewport": {
+        "width": 1024,
+        "height": 600
+      },
+      "deviceScaleFactor": 1,
+      "dialog": {
+        "x": 222,
+        "y": 16,
+        "width": 580,
+        "height": 568
+      },
+      "header": {
+        "x": 223,
+        "y": 17,
+        "width": 578,
+        "height": 72
+      },
+      "footer": {
+        "x": 223,
+        "y": 508,
+        "width": 578,
+        "height": 75
+      },
+      "body": {
+        "x": 223,
+        "y": 132,
+        "width": 578,
+        "height": 376
+      },
+      "rail": {
+        "x": 499.53125,
+        "y": 366,
+        "width": 214,
+        "height": 28
+      },
+      "preview": {
+        "x": 247,
+        "y": 194,
+        "width": 530,
+        "height": 156
+      },
+      "opacityLabel": {
+        "x": 430.265625,
+        "y": 372,
+        "width": 49.265625,
+        "height": 16
+      },
+      "opacityValue": {
+        "x": 733.53125,
+        "y": 372,
+        "width": 22,
+        "height": 16
+      },
+      "scrollWidth": 578,
+      "clientWidth": 578,
+      "bodyScrollWidth": 578,
+      "bodyClientWidth": 578
+    },
+    {
+      "id": "chrome-en-390x700",
+      "viewport": {
+        "width": 390,
+        "height": 700
+      },
+      "deviceScaleFactor": 1,
+      "dialog": {
+        "x": 19,
+        "y": 52.6875,
+        "width": 352,
+        "height": 594.625
+      },
+      "header": {
+        "x": 20,
+        "y": 53.6875,
+        "width": 350,
+        "height": 64
+      },
+      "footer": {
+        "x": 20,
+        "y": 571.3125,
+        "width": 350,
+        "height": 75
+      },
+      "body": {
+        "x": 20,
+        "y": 160.6875,
+        "width": 350,
+        "height": 410.625
+      },
+      "rail": {
+        "x": 97.265625,
+        "y": 417.6875,
+        "width": 214,
+        "height": 28
+      },
+      "preview": {
+        "x": 38,
+        "y": 218.6875,
+        "width": 314,
+        "height": 142
+      },
+      "opacityLabel": {
+        "x": 38,
+        "y": 423.6875,
+        "width": 49.265625,
+        "height": 16
+      },
+      "opacityValue": {
+        "x": 321.265625,
+        "y": 423.6875,
+        "width": 22,
+        "height": 16
+      },
+      "scrollWidth": 350,
+      "clientWidth": 350,
+      "bodyScrollWidth": 350,
+      "bodyClientWidth": 350
+    },
+    {
+      "id": "chrome-ru-1280x800",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "deviceScaleFactor": 1,
+      "dialog": {
+        "x": 350,
+        "y": 108.6875,
+        "width": 580,
+        "height": 582.625
+      },
+      "header": {
+        "x": 351,
+        "y": 109.6875,
+        "width": 578,
+        "height": 72
+      },
+      "footer": {
+        "x": 351,
+        "y": 615.3125,
+        "width": 578,
+        "height": 75
+      },
+      "body": {
+        "x": 351,
+        "y": 224.6875,
+        "width": 578,
+        "height": 390.625
+      },
+      "rail": {
+        "x": 708.234375,
+        "y": 458.6875,
+        "width": 154.765625,
+        "height": 28
+      },
+      "preview": {
+        "x": 375,
+        "y": 286.6875,
+        "width": 530,
+        "height": 156
+      },
+      "opacityLabel": {
+        "x": 577.484375,
+        "y": 464.6875,
+        "width": 110.75,
+        "height": 16
+      },
+      "opacityValue": {
+        "x": 883,
+        "y": 464.6875,
+        "width": 22,
+        "height": 16
+      },
+      "scrollWidth": 578,
+      "clientWidth": 578,
+      "bodyScrollWidth": 578,
+      "bodyClientWidth": 578
+    },
+    {
+      "id": "chrome-ru-1024x600",
+      "viewport": {
+        "width": 1024,
+        "height": 600
+      },
+      "deviceScaleFactor": 1,
+      "dialog": {
+        "x": 222,
+        "y": 16,
+        "width": 580,
+        "height": 568
+      },
+      "header": {
+        "x": 223,
+        "y": 17,
+        "width": 578,
+        "height": 72
+      },
+      "footer": {
+        "x": 223,
+        "y": 508,
+        "width": 578,
+        "height": 75
+      },
+      "body": {
+        "x": 223,
+        "y": 132,
+        "width": 578,
+        "height": 376
+      },
+      "rail": {
+        "x": 580.234375,
+        "y": 366,
+        "width": 154.765625,
+        "height": 28
+      },
+      "preview": {
+        "x": 247,
+        "y": 194,
+        "width": 530,
+        "height": 156
+      },
+      "opacityLabel": {
+        "x": 449.484375,
+        "y": 372,
+        "width": 110.75,
+        "height": 16
+      },
+      "opacityValue": {
+        "x": 755,
+        "y": 372,
+        "width": 22,
+        "height": 16
+      },
+      "scrollWidth": 578,
+      "clientWidth": 578,
+      "bodyScrollWidth": 578,
+      "bodyClientWidth": 578
+    },
+    {
+      "id": "chrome-ru-390x700",
+      "viewport": {
+        "width": 390,
+        "height": 700
+      },
+      "deviceScaleFactor": 1,
+      "dialog": {
+        "x": 19,
+        "y": 43.875,
+        "width": 352,
+        "height": 612.25
+      },
+      "header": {
+        "x": 20,
+        "y": 44.875,
+        "width": 350,
+        "height": 64
+      },
+      "footer": {
+        "x": 20,
+        "y": 580.125,
+        "width": 350,
+        "height": 75
+      },
+      "body": {
+        "x": 20,
+        "y": 151.875,
+        "width": 350,
+        "height": 428.25
+      },
+      "rail": {
+        "x": 158.75,
+        "y": 408.875,
+        "width": 161.25,
+        "height": 28
+      },
+      "preview": {
+        "x": 38,
+        "y": 209.875,
+        "width": 314,
+        "height": 142
+      },
+      "opacityLabel": {
+        "x": 38,
+        "y": 414.875,
+        "width": 110.75,
+        "height": 16
+      },
+      "opacityValue": {
+        "x": 330,
+        "y": 414.875,
+        "width": 22,
+        "height": 16
+      },
+      "scrollWidth": 350,
+      "clientWidth": 350,
+      "bodyScrollWidth": 350,
+      "bodyClientWidth": 350
+    },
+    {
+      "id": "firefox-en-1280x800",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "deviceScaleFactor": 1,
+      "dialog": {
+        "x": 350,
+        "y": 63.68333435058594,
+        "width": 580,
+        "height": 672.63330078125
+      },
+      "header": {
+        "x": 351,
+        "y": 64.68333435058594,
+        "width": 578,
+        "height": 72
+      },
+      "footer": {
+        "x": 351,
+        "y": 660.316650390625,
+        "width": 578,
+        "height": 75
+      },
+      "body": {
+        "x": 351,
+        "y": 179.68333435058594,
+        "width": 578,
+        "height": 480.6333312988281
+      },
+      "rail": {
+        "x": 627.5333251953125,
+        "y": 413.683349609375,
+        "width": 214,
+        "height": 28
+      },
+      "preview": {
+        "x": 375,
+        "y": 241.68333435058594,
+        "width": 530,
+        "height": 156
+      },
+      "opacityLabel": {
+        "x": 558.2833251953125,
+        "y": 419.183349609375,
+        "width": 49.25,
+        "height": 17
+      },
+      "opacityValue": {
+        "x": 861.5333251953125,
+        "y": 419.183349609375,
+        "width": 22,
+        "height": 17
+      },
+      "scrollWidth": 578,
+      "clientWidth": 578,
+      "bodyScrollWidth": 578,
+      "bodyClientWidth": 578
+    },
+    {
+      "id": "firefox-en-1024x600",
+      "viewport": {
+        "width": 1024,
+        "height": 600
+      },
+      "deviceScaleFactor": 1,
+      "dialog": {
+        "x": 222,
+        "y": 16,
+        "width": 580,
+        "height": 568
+      },
+      "header": {
+        "x": 223,
+        "y": 17,
+        "width": 578,
+        "height": 72
+      },
+      "footer": {
+        "x": 223,
+        "y": 508,
+        "width": 578,
+        "height": 75
+      },
+      "body": {
+        "x": 223,
+        "y": 132,
+        "width": 578,
+        "height": 376
+      },
+      "rail": {
+        "x": 499.5333251953125,
+        "y": 366,
+        "width": 214,
+        "height": 28
+      },
+      "preview": {
+        "x": 247,
+        "y": 194,
+        "width": 530,
+        "height": 156
+      },
+      "opacityLabel": {
+        "x": 430.2833251953125,
+        "y": 371.5,
+        "width": 49.25,
+        "height": 17
+      },
+      "opacityValue": {
+        "x": 733.5333251953125,
+        "y": 371.5,
+        "width": 22,
+        "height": 17
+      },
+      "scrollWidth": 578,
+      "clientWidth": 578,
+      "bodyScrollWidth": 578,
+      "bodyClientWidth": 578
+    },
+    {
+      "id": "firefox-en-390x700",
+      "viewport": {
+        "width": 390,
+        "height": 700
+      },
+      "deviceScaleFactor": 1,
+      "dialog": {
+        "x": 19,
+        "y": 16,
+        "width": 352,
+        "height": 668
+      },
+      "header": {
+        "x": 20,
+        "y": 17,
+        "width": 350,
+        "height": 64
+      },
+      "footer": {
+        "x": 20,
+        "y": 608,
+        "width": 350,
+        "height": 75
+      },
+      "body": {
+        "x": 20,
+        "y": 124,
+        "width": 350,
+        "height": 484
+      },
+      "rail": {
+        "x": 97.25,
+        "y": 381,
+        "width": 214,
+        "height": 28
+      },
+      "preview": {
+        "x": 38,
+        "y": 182,
+        "width": 314,
+        "height": 142
+      },
+      "opacityLabel": {
+        "x": 38,
+        "y": 386.5,
+        "width": 49.25,
+        "height": 17
+      },
+      "opacityValue": {
+        "x": 321.25,
+        "y": 386.5,
+        "width": 22,
+        "height": 17
+      },
+      "scrollWidth": 350,
+      "clientWidth": 350,
+      "bodyScrollWidth": 350,
+      "bodyClientWidth": 350
+    },
+    {
+      "id": "firefox-ru-1280x800",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "deviceScaleFactor": 1,
+      "dialog": {
+        "x": 350,
+        "y": 63.68333435058594,
+        "width": 580,
+        "height": 672.63330078125
+      },
+      "header": {
+        "x": 351,
+        "y": 64.68333435058594,
+        "width": 578,
+        "height": 72
+      },
+      "footer": {
+        "x": 351,
+        "y": 660.316650390625,
+        "width": 578,
+        "height": 75
+      },
+      "body": {
+        "x": 351,
+        "y": 179.68333435058594,
+        "width": 578,
+        "height": 480.6333312988281
+      },
+      "rail": {
+        "x": 708.2833251953125,
+        "y": 413.683349609375,
+        "width": 154.71665954589844,
+        "height": 28
+      },
+      "preview": {
+        "x": 375,
+        "y": 241.68333435058594,
+        "width": 530,
+        "height": 156
+      },
+      "opacityLabel": {
+        "x": 577.5166625976562,
+        "y": 419.183349609375,
+        "width": 110.76667785644531,
+        "height": 17
+      },
+      "opacityValue": {
+        "x": 883,
+        "y": 419.183349609375,
+        "width": 22,
+        "height": 17
+      },
+      "scrollWidth": 578,
+      "clientWidth": 578,
+      "bodyScrollWidth": 578,
+      "bodyClientWidth": 578
+    },
+    {
+      "id": "firefox-ru-1024x600",
+      "viewport": {
+        "width": 1024,
+        "height": 600
+      },
+      "deviceScaleFactor": 1,
+      "dialog": {
+        "x": 222,
+        "y": 16,
+        "width": 580,
+        "height": 568
+      },
+      "header": {
+        "x": 223,
+        "y": 17,
+        "width": 578,
+        "height": 72
+      },
+      "footer": {
+        "x": 223,
+        "y": 508,
+        "width": 578,
+        "height": 75
+      },
+      "body": {
+        "x": 223,
+        "y": 132,
+        "width": 578,
+        "height": 376
+      },
+      "rail": {
+        "x": 580.2833251953125,
+        "y": 366,
+        "width": 154.71665954589844,
+        "height": 28
+      },
+      "preview": {
+        "x": 247,
+        "y": 194,
+        "width": 530,
+        "height": 156
+      },
+      "opacityLabel": {
+        "x": 449.51666259765625,
+        "y": 371.5,
+        "width": 110.76667785644531,
+        "height": 17
+      },
+      "opacityValue": {
+        "x": 755,
+        "y": 371.5,
+        "width": 22,
+        "height": 17
+      },
+      "scrollWidth": 578,
+      "clientWidth": 578,
+      "bodyScrollWidth": 578,
+      "bodyClientWidth": 578
+    },
+    {
+      "id": "firefox-ru-390x700",
+      "viewport": {
+        "width": 390,
+        "height": 700
+      },
+      "deviceScaleFactor": 1,
+      "dialog": {
+        "x": 19,
+        "y": 16,
+        "width": 352,
+        "height": 668
+      },
+      "header": {
+        "x": 20,
+        "y": 17,
+        "width": 350,
+        "height": 64
+      },
+      "footer": {
+        "x": 20,
+        "y": 608,
+        "width": 350,
+        "height": 75
+      },
+      "body": {
+        "x": 20,
+        "y": 124,
+        "width": 350,
+        "height": 484
+      },
+      "rail": {
+        "x": 158.76666259765625,
+        "y": 381,
+        "width": 161.23333740234375,
+        "height": 28
+      },
+      "preview": {
+        "x": 38,
+        "y": 182,
+        "width": 314,
+        "height": 142
+      },
+      "opacityLabel": {
+        "x": 38,
+        "y": 386.5,
+        "width": 110.76666259765625,
+        "height": 17
+      },
+      "opacityValue": {
+        "x": 330,
+        "y": 386.5,
+        "width": 22,
+        "height": 17
+      },
+      "scrollWidth": 350,
+      "clientWidth": 350,
+      "bodyScrollWidth": 350,
+      "bodyClientWidth": 350
+    }
+  ],
+  "consoleErrors": [],
+  "limitations": [
+    "Storage and Firefox permission APIs are doubled; application/service/builds are unchanged.",
+    "No personal profile, signed add-on, Google account, cross-device sync, or native consent popup is tested.",
+    "Synthetic events are not physical trackpad gestures. Gesture regression is a separate suite.",
+    "125% layout is modeled with a reduced CSS viewport and DPR 1.25, not a native browser zoom control."
+  ],
+  "ok": true
+}

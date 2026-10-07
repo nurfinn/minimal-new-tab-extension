@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>Minimal Tab — soft grid</title>
+  <desc>Rounded four-pane blue mark. The outside frame and both dividers are eight units wide on their straight sections.</desc>
+  <rect width="128" height="128" rx="28" fill="#FAFCFD"/>
+  <g fill="#457B9D">
+    <path d="M28 8 H68 A4 4 0 0 1 72 12 V56 A4 4 0 0 1 68 60 H12 A4 4 0 0 1 8 56 V28 A20 20 0 0 1 28 8 Z"/>
+    <path d="M84 8 H100 A20 20 0 0 1 120 28 V56 A4 4 0 0 1 116 60 H84 A4 4 0 0 1 80 56 V12 A4 4 0 0 1 84 8 Z"/>
+    <path d="M12 68 H68 A4 4 0 0 1 72 72 V116 A4 4 0 0 1 68 120 H28 A20 20 0 0 1 8 100 V72 A4 4 0 0 1 12 68 Z"/>
+    <path d="M84 68 H116 A4 4 0 0 1 120 72 V100 A20 20 0 0 1 100 120 H84 A4 4 0 0 1 80 116 V72 A4 4 0 0 1 84 68 Z"/>
+  </g>
+</svg>

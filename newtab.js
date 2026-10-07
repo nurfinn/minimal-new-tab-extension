@@ -5,10 +5,12 @@ import {
   getFolderScrollState,
   getFolderWheelScrollLeft,
   getGlobalShortcutAction,
+  getVisibleFolderIds,
   getWheelScrollDelta,
   isUsableFavicon,
   moveItemByDelta,
   normalizeLegacyColorBackground,
+  normalizeFolderNavigation,
   renameFolder,
   validateBackgroundImage,
   validateFolderName,
@@ -21,16 +23,24 @@ import {
   parseBackupText,
   serializeBackup
 } from "./backup-service.mjs";
-import { createStorageService } from "./storage-service.mjs";
+import { createStorageService, normalizeWebUrl } from "./storage-service.mjs";
 import { createTranslator, getUiLocale, localizeDocument } from "./i18n-service.mjs";
+import { createFolderGestureRecognizer, getAdjacentFolderId } from "./folder-gestures.mjs";
+import { normalizeSiteEmoji } from "./site-icon.mjs";
+import { getRenderableSiteEmoji } from "./emoji-support.mjs";
+import { createEmojiPicker } from "./emoji-picker.mjs";
+import { createSettingsDraft, restoreDefaultBackground } from "./settings-draft.mjs";
 
 const ROOT_FOLDER_ID = "root";
+const FOLDER_SELECTION_SAVE_DELAY_MS = 1100;
+const FOLDER_SELECTION_RETRY_DELAY_MS = 60_000;
 const t = createTranslator();
 const uiLocale = getUiLocale();
 localizeDocument(document, t, uiLocale);
 
 const defaultState = {
   selectedFolderId: "all",
+  showAllFolder: true,
   folders: [
     {
       id: ROOT_FOLDER_ID,
@@ -82,21 +92,68 @@ let state = structuredClone(defaultState);
 let editingLinkId = null;
 let renamingFolderId = null;
 let savingFolderRenameId = null;
+let savingFolderVisibility = false;
 let folderRenameFocusRequest = null;
 let dragState = null;
 let folderDragState = null;
 let suppressLinkClicksUntil = 0;
 let activeSettingsTab = "background";
+let settingsDraft = null;
+let backgroundPreviewUrl = null;
+let backgroundFileEpoch = 0;
+let backgroundFileError = null;
+let pendingBackgroundSelection = null;
+let savingBackground = false;
 let pendingImport = null;
 let pendingDeleteConfirmation = null;
 let deleteConfirmationReturnFocus = null;
 let renderedFolderSelection = null;
+let renderedFolderStructure = null;
+// Keep decoded icons with their cards for this tab's lifetime. Entries are
+// released when a site changes/disappears or the favicon permission changes.
+const linkCardCache = new Map();
 let folderScrollFrame = null;
 let folderFocusRequest = null;
 let pendingFolderScrollOptions = {};
 let appStatusTimer = null;
+let pendingFolderSelection = null;
+let folderSelectionSaveTimer = null;
+let folderSelectionSaveInFlight = null;
+let folderSelectionRevision = 0;
+let pendingLinkEmoji = "";
+let linkIconPreviewTimer = null;
+let linkIconPreviewEpoch = 0;
+const folderGesture = createFolderGestureRecognizer();
+
+let updateInputLocked = false;
+let updateAppReady = false;
+let activeUpdateOperations = 0;
+// Neutral lifecycle contract; only the Chrome bootstrap consumes it.
+export const updateSafety = {
+  getBlockReason() {
+    if (!updateAppReady) return "initializing";
+    if (document.querySelector("dialog[open]")) return "dialog";
+    if (savingFolderRenameId !== null) return "editing";
+    if (dragState || folderDragState) return "drag";
+    if (activeUpdateOperations || savingBackground) return "saving";
+    if (pendingFolderSelection || folderSelectionSaveInFlight) return "selection";
+    return null;
+  },
+  setInputLocked(locked) {
+    updateInputLocked = Boolean(locked);
+    document.querySelectorAll(".shell, body > footer, dialog").forEach(node => { node.inert = updateInputLocked; });
+  }
+};
+
+async function trackUpdateOperation(action) {
+  if (updateInputLocked) return false;
+  activeUpdateOperations += 1;
+  try { return await action(); }
+  finally { activeUpdateOperations -= 1; }
+}
 
 const elements = {
+  content: document.querySelector(".content"),
   folderRow: document.getElementById("folderRow"),
   folderRowTrack: document.getElementById("folderRowTrack"),
   linksGrid: document.getElementById("linksGrid"),
@@ -124,9 +181,27 @@ const elements = {
   folderForm: document.getElementById("folderForm"),
   folderManager: document.getElementById("folderManager"),
   folderList: document.getElementById("folderList"),
+  showAllFolder: document.getElementById("showAllFolder"),
+  folderVisibilityHelp: document.getElementById("folderVisibilityHelp"),
   backgroundForm: document.getElementById("backgroundForm"),
+  backgroundFields: document.getElementById("backgroundFields"),
+  changeBackgroundImageButton: document.getElementById("changeBackgroundImageButton"),
+  saveBackgroundButton: document.getElementById("saveBackgroundButton"),
+  settingsGeneralActions: document.getElementById("settingsGeneralActions"),
+  settingsBackupActions: document.getElementById("settingsBackupActions"),
   linkTitle: document.getElementById("linkTitle"),
   linkUrl: document.getElementById("linkUrl"),
+  linkIconPreview: document.getElementById("linkIconPreview"),
+  linkIconPreviewImage: document.getElementById("linkIconPreviewImage"),
+  linkIconPreviewLetter: document.getElementById("linkIconPreviewLetter"),
+  linkIconPreviewEmoji: document.getElementById("linkIconPreviewEmoji"),
+  linkIconButton: document.getElementById("linkIconButton"),
+  linkIconPicker: document.getElementById("linkIconPicker"),
+  linkIconAuto: document.getElementById("linkIconAuto"),
+  linkIconAutoPreview: document.getElementById("linkIconAutoPreview"),
+  linkIconAutoImage: document.getElementById("linkIconAutoImage"),
+  linkIconAutoLetter: document.getElementById("linkIconAutoLetter"),
+  siteEmojiGrid: document.getElementById("siteEmojiGrid"),
   linkFolder: document.getElementById("linkFolder"),
   linkTitleError: document.getElementById("linkTitleError"),
   linkUrlError: document.getElementById("linkUrlError"),
@@ -156,6 +231,8 @@ const elements = {
   cancelImportButton: document.getElementById("cancelImportButton")
 };
 const storageService = createStorageService({ logger: null });
+const emojiPicker = createEmojiPicker({ root: elements.linkIconPicker, t, locale: uiLocale,
+  onSelect: selectSiteIconEmoji });
 
 init();
 
@@ -164,10 +241,13 @@ async function init() {
   state = normalizeState(result.state);
   if (!result.ok && result.source === "read-error") {
     showAppStatus(t("storageReadWarning"));
+  } else if (!result.writable) {
+    showAppStatus(t("storageSaveWarning"));
   }
 
   bindEvents();
   render();
+  updateAppReady = true;
 }
 
 function bindEvents() {
@@ -177,12 +257,52 @@ function bindEvents() {
   document.addEventListener("keydown", handleGlobalShortcut);
   elements.linksGrid.addEventListener("keydown", handleLinkReorderKeydown);
   elements.folderList.addEventListener("keydown", handleFolderReorderKeydown);
+  elements.showAllFolder.addEventListener("change", async () => {
+    if (savingFolderVisibility || updateInputLocked) return;
+    const showAllFolder = elements.showAllFolder.checked;
+    savingFolderVisibility = true;
+    // The checked value shows the requested change while busy; navigation
+    // changes only on success. A failure restores the committed checkbox.
+    elements.showAllFolder.disabled = true;
+    elements.showAllFolder.setAttribute("aria-busy", "true");
+    clearFieldError(elements.folderFormError);
+    try {
+      await commitStateChange((latestState) => {
+        latestState.showAllFolder = showAllFolder;
+        return latestState;
+      }, { onError: () => showFieldError(elements.folderFormError, t("storageSaveWarning")) });
+    } finally {
+      savingFolderVisibility = false;
+      elements.showAllFolder.removeAttribute("aria-busy");
+      renderFolderVisibility();
+    }
+  });
 
   elements.linkTitle.addEventListener("input", () => {
     clearInputError(elements.linkTitle, elements.linkTitleError);
+    updateLinkIconLetters();
   });
   elements.linkUrl.addEventListener("input", () => {
     clearInputError(elements.linkUrl, elements.linkUrlError);
+    scheduleLinkIconPreview();
+  });
+  elements.linkIconButton.addEventListener("click", toggleSiteIconPicker);
+  elements.linkIconAuto.addEventListener("click", () => selectSiteIconEmoji(""));
+  document.addEventListener("pointerdown", (event) => {
+    if (elements.linkIconPicker.hidden) return;
+    if (elements.linkIconPicker.contains(event.target)) return;
+    if (elements.linkIconButton.contains(event.target)) return;
+    closeSiteIconPicker();
+  });
+  elements.linkDialog.addEventListener("cancel", (event) => {
+    if (elements.linkIconPicker.hidden) return;
+    event.preventDefault();
+    closeSiteIconPicker({ restoreFocus: true });
+  });
+  elements.linkDialog.addEventListener("close", () => {
+    closeSiteIconPicker();
+    clearTimeout(linkIconPreviewTimer);
+    linkIconPreviewEpoch += 1;
   });
   elements.folderName.addEventListener("input", () => {
     clearInputError(elements.folderName, elements.folderFormError);
@@ -236,6 +356,7 @@ function bindEvents() {
     const url = validation.url;
     const folderId = elements.linkFolder.value || ROOT_FOLDER_ID;
     const linkId = editingLinkId || createId();
+    const emoji = normalizeSiteEmoji(pendingLinkEmoji);
 
     const defaultSubmitLabel = editingLinkId ? t("save") : t("add");
     elements.linkSubmitButton.disabled = true;
@@ -256,18 +377,27 @@ function bindEvents() {
           }
 
           if (editingLinkIndex >= 0) {
-            latestState.links[editingLinkIndex] = {
+            const updatedLink = {
               ...latestState.links[editingLinkIndex],
               title,
               url,
               folderId: resolvedFolderId
             };
+            if (emoji) updatedLink.emoji = emoji;
+            else delete updatedLink.emoji;
+            latestState.links[editingLinkIndex] = updatedLink;
           } else {
-            latestState.links.unshift({ id: linkId, title, url, folderId: resolvedFolderId });
+            latestState.links.unshift({
+              id: linkId,
+              title,
+              url,
+              folderId: resolvedFolderId,
+              ...(emoji ? { emoji } : {})
+            });
           }
 
-          latestState.selectedFolderId =
-            resolvedFolderId === ROOT_FOLDER_ID ? "all" : resolvedFolderId;
+          latestState.selectedFolderId = resolvedFolderId === ROOT_FOLDER_ID && latestState.showAllFolder !== false
+            ? "all" : resolvedFolderId;
           return latestState;
         },
         { onError: () => showFieldError(elements.linkFormError, t("storageSaveWarning")) }
@@ -321,111 +451,85 @@ function bindEvents() {
 
   elements.backgroundForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-
-    const file = elements.backgroundImage.files[0];
-    const overlay = Number(elements.backgroundOverlay.value);
-    const overlayColor = elements.backgroundOverlayColor.value;
-    const shortcutsEnabled = elements.singleKeyShortcuts.checked;
-
-    let nextBackground;
-
-    if (file) {
-      const fileValidation = validateBackgroundImage({ type: file.type, size: file.size });
-      if (!fileValidation.ok) {
-        showBackgroundImageError(fileValidation.error);
+    if (!settingsDraft || savingBackground) return;
+    setBackgroundSaving(true);
+    try {
+      await pendingBackgroundSelection;
+      if (backgroundFileError) {
+        showBackgroundImageError(backgroundFileError);
         return;
       }
-
-      try {
-        const { width, height } = await readImageDimensions(file);
-        const imageValidation = validateBackgroundImage({
-          type: file.type,
-          size: file.size,
-          width,
-          height
-        });
-
-        if (!imageValidation.ok) {
-          showBackgroundImageError(imageValidation.error);
+      const file = settingsDraft.imageFile;
+      const shortcutsEnabled = elements.singleKeyShortcuts.checked;
+      // Preserve customAssetId/availability when the image is unchanged or missing locally.
+      let nextBackground = {
+        ...settingsDraft.background,
+        overlay: Number(elements.backgroundOverlay.value),
+        overlayColor: elements.backgroundOverlayColor.value
+      };
+      if (file) {
+        try {
+          nextBackground = {
+            type: "image",
+            value: await readFileAsDataUrl(file),
+            overlay: nextBackground.overlay,
+            overlayColor: nextBackground.overlayColor
+          };
+        } catch {
+          showBackgroundImageError("decode-failed");
           return;
         }
-
-        const imageValue = await readFileAsDataUrl(file);
-        nextBackground = {
-          type: "image",
-          value: imageValue,
-          overlay,
-          overlayColor
-        };
-      } catch {
-        showBackgroundImageError("decode-failed");
-        return;
       }
-    } else if (state.background.type === "color") {
-      nextBackground = {
-        ...state.background,
-        overlay,
-        overlayColor
-      };
-    } else {
-      const imageValue =
-        state.background.type === "image" ? state.background.value : defaultState.background.value;
-      const customAssetId = state.background.customAssetId;
-      const customAssetAvailable = state.background.customAssetAvailable;
-
-      nextBackground = {
-        type: "image",
-        value: imageValue,
-        overlay,
-        overlayColor,
-        ...(customAssetId ? { customAssetId, customAssetAvailable } : {})
-      };
+      const saved = await commitStateChange(
+        (latestState) => {
+          latestState.background = nextBackground;
+          latestState.shortcutsEnabled = shortcutsEnabled;
+          return latestState;
+        },
+        { onError: () => showBackgroundImageError("save-failed") }
+      );
+      if (!saved) return;
+      clearBackgroundImageError();
+      elements.settingsDialog.close();
+    } finally {
+      setBackgroundSaving(false);
     }
-
-    const saved = await commitStateChange(
-      (latestState) => {
-        latestState.background = nextBackground;
-        latestState.shortcutsEnabled = shortcutsEnabled;
-        return latestState;
-      },
-      { onError: () => showBackgroundImageError("save-failed") }
-    );
-    if (!saved) return;
-
-    clearBackgroundImageError();
-    elements.backgroundForm.reset();
-    elements.settingsDialog.close();
   });
 
-  elements.resetBackgroundButton.addEventListener("click", async () => {
+  elements.resetBackgroundButton.addEventListener("click", () => {
+    if (!settingsDraft || savingBackground) return;
+    backgroundFileEpoch += 1;
+    pendingBackgroundSelection = null;
+    backgroundFileError = null;
+    revokeBackgroundPreviewUrl();
+    settingsDraft = restoreDefaultBackground(settingsDraft, defaultState.background);
+    elements.backgroundImage.value = "";
+    clearPendingBackgroundFile();
     clearBackgroundImageError();
-    const saved = await commitStateChange(
-      (latestState) => {
-        latestState.background = structuredClone(defaultState.background);
-        return latestState;
-      },
-      { onError: () => showBackgroundImageError("save-failed") }
-    );
-    if (!saved) return;
-
-    elements.backgroundForm.reset();
-    elements.settingsDialog.close();
+    syncSettingsDraftControls();
+    previewSettingsDraft();
   });
 
   elements.backgroundOverlay.addEventListener("input", () => {
+    if (!settingsDraft) return;
     const overlay = Number(elements.backgroundOverlay.value);
+    settingsDraft.background.overlay = overlay;
     updateOverlayLabel(overlay);
-
-    document.documentElement.style.setProperty("--bg-overlay-opacity", String(overlay / 100));
+    previewSettingsDraft();
   });
 
   elements.backgroundOverlayColor.addEventListener("input", () => {
-    document.documentElement.style.setProperty(
-      "--bg-overlay-color",
-      elements.backgroundOverlayColor.value
-    );
+    if (!settingsDraft) return;
+    settingsDraft.background.overlayColor = elements.backgroundOverlayColor.value;
+    previewSettingsDraft();
   });
-  elements.backgroundImage.addEventListener("change", updatePendingBackgroundFile);
+  elements.singleKeyShortcuts.addEventListener("change", () => {
+    if (settingsDraft) settingsDraft.shortcutsEnabled = elements.singleKeyShortcuts.checked;
+  });
+  elements.changeBackgroundImageButton.addEventListener("click", () => elements.backgroundImage.click());
+  elements.backgroundImage.addEventListener("change", () => {
+    pendingBackgroundSelection = updatePendingBackgroundFile();
+  });
 
   elements.settingsTabs.forEach((button) => {
     button.addEventListener("click", () => setSettingsTab(button.dataset.settingsTab));
@@ -436,9 +540,13 @@ function bindEvents() {
   elements.confirmImportButton.addEventListener("click", confirmImport);
   elements.cancelImportButton?.addEventListener("click", resetImportState);
   elements.settingsDialog.addEventListener("close", () => {
-    applyBackground();
     resetSettingsDialogState();
+    applyBackground();
   });
+  elements.settingsDialog.addEventListener("cancel", (event) => {
+    if (savingBackground) event.preventDefault();
+  });
+  elements.settingsDialog.addEventListener("keydown", keepSettingsFocusInside);
   elements.folderDialog.addEventListener("close", () => {
     renamingFolderId = null;
     folderRenameFocusRequest = null;
@@ -450,22 +558,44 @@ function bindEvents() {
 
     const selectedFolderId = chip.dataset.folder;
     folderFocusRequest = selectedFolderId;
-    await commitStateChange((latestState) => {
-      const folderExists =
-        selectedFolderId === "all" ||
-        latestState.folders.some((folder) => folder.id === selectedFolderId);
-      latestState.selectedFolderId = folderExists ? selectedFolderId : "all";
-      return latestState;
-    });
+    if (getVisibleFolderIds(state).includes(selectedFolderId)) {
+      selectFolder(selectedFolderId, { saveImmediately: true });
+    }
   });
   elements.folderRow.addEventListener("scroll", updateFolderScrollState, { passive: true });
   elements.folderRow.addEventListener("wheel", handleFolderWheel, { passive: false });
+  elements.content.addEventListener("wheel", handleContentWheel, { passive: false });
+  window.addEventListener("pagehide", () => {
+    if (!pendingFolderSelection) return;
+    if (folderSelectionSaveTimer !== null) window.clearTimeout(folderSelectionSaveTimer);
+    folderSelectionSaveTimer = null;
+    void persistFolderSelection();
+  });
+  document.addEventListener("wheel", (event) => {
+    // A gesture started over the header or a dialog must not turn into a swipe
+    // when its momentum continues over the sites area.
+    if (!elements.content.contains(event.target)) folderGesture.block(event.timeStamp);
+  }, { capture: true, passive: true });
   window.addEventListener("resize", scheduleFolderScrollRefresh);
 
   elements.linksGrid.addEventListener("click", async (event) => {
     const openLink = event.target.closest("[data-open-link]");
     if (openLink && Date.now() < suppressLinkClicksUntil) {
       event.preventDefault();
+      return;
+    }
+    if (
+      openLink && pendingFolderSelection && event.button === 0 &&
+      !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
+    ) {
+      event.preventDefault();
+      // Finish the pending selection before this new-tab page navigates away.
+      // A slow or unavailable sync service must not trap the user on this page.
+      await Promise.race([
+        persistFolderSelection(),
+        new Promise((resolve) => window.setTimeout(resolve, 500))
+      ]).catch(() => {});
+      window.location.assign(openLink.href);
       return;
     }
 
@@ -564,7 +694,7 @@ function bindEvents() {
 }
 
 function render() {
-  applyBackground();
+  applyBackground(settingsDraft && elements.settingsDialog.open ? getDraftPreviewBackground() : state.background);
   renderShortcutPreference();
   renderFolderOptions();
   renderFolders();
@@ -574,7 +704,7 @@ function render() {
 
 function renderShortcutPreference() {
   const enabled = state.shortcutsEnabled;
-  elements.singleKeyShortcuts.checked = enabled;
+  elements.singleKeyShortcuts.checked = settingsDraft?.shortcutsEnabled ?? enabled;
 
   for (const { button, key, titleKey, labelKey } of [
     { button: elements.addLinkButton, key: "A", titleKey: "addSiteShortcut", labelKey: "addSite" },
@@ -596,16 +726,31 @@ function renderShortcutPreference() {
 }
 
 function renderFolders() {
-  const allCount = state.links.length;
-  const chips = [
-    createFolderChip("all", t("allFolders"), allCount),
-    ...getUserFolders().map((folder) => {
-      const count = state.links.filter((link) => link.folderId === folder.id).length;
-      return createFolderChip(folder.id, folder.name, count);
-    })
-  ];
-
-  elements.folderRowTrack.replaceChildren(...chips);
+  const counts = new Map();
+  for (const link of state.links) {
+    counts.set(link.folderId, (counts.get(link.folderId) || 0) + 1);
+  }
+  const folders = getVisibleFolderIds(state).map((id) => [
+    id,
+    id === "all" ? t("allFolders") : id === ROOT_FOLDER_ID ? t("unfiledFolder")
+      : state.folders.find((folder) => folder.id === id).name,
+    id === "all" ? state.links.length : counts.get(id) || 0
+  ]);
+  const structure = JSON.stringify(folders);
+  if (structure !== renderedFolderStructure) {
+    const chips = folders.map(([id, name, count]) => createFolderChip(id, name, count));
+    elements.folderRowTrack.replaceChildren(...chips);
+    renderedFolderStructure = structure;
+  } else {
+    for (const chip of elements.folderRowTrack.children) {
+      const button = chip.querySelector("[data-folder]");
+      const active = button.dataset.folder === state.selectedFolderId;
+      chip.classList.toggle("active", active);
+      if (button.getAttribute("aria-pressed") !== String(active)) {
+        button.setAttribute("aria-pressed", String(active));
+      }
+    }
+  }
 
   const selectionChanged =
     renderedFolderSelection !== null && renderedFolderSelection !== state.selectedFolderId;
@@ -683,6 +828,99 @@ function handleFolderWheel(event) {
   updateFolderScrollState();
 }
 
+function handleContentWheel(event) {
+  const editable = "input, textarea, select, [contenteditable]:not([contenteditable='false'])";
+  const blocked = Boolean(
+    dragState || folderDragState || event.buttons || event.defaultPrevented ||
+    document.querySelector("dialog[open]") ||
+    event.target.closest?.(editable) || document.activeElement?.closest?.(editable)
+  );
+  const { consume, direction } = folderGesture.handle(event, { blocked });
+  if (consume && event.cancelable) event.preventDefault();
+  if (!direction) return;
+
+  const nextFolderId = getAdjacentFolderId(state.folders, state.selectedFolderId, direction, getVisibleFolderIds(state));
+  if (nextFolderId) selectFolder(nextFolderId);
+}
+
+function selectFolder(folderId, { saveImmediately = false } = {}) {
+  if (updateInputLocked) return;
+  if (folderId === state.selectedFolderId) return;
+
+  const baseId = pendingFolderSelection?.baseId ?? state.selectedFolderId;
+  state.selectedFolderId = folderId;
+  pendingFolderSelection = { baseId, folderId, revision: ++folderSelectionRevision };
+  renderFolders();
+  renderLinks();
+  elements.content.scrollTop = 0;
+  scheduleFolderSelectionSave(saveImmediately ? 0 : FOLDER_SELECTION_SAVE_DELAY_MS);
+}
+
+function scheduleFolderSelectionSave(delay = FOLDER_SELECTION_SAVE_DELAY_MS) {
+  if (folderSelectionSaveTimer !== null) window.clearTimeout(folderSelectionSaveTimer);
+  folderSelectionSaveTimer = window.setTimeout(persistFolderSelection, delay);
+}
+
+async function persistFolderSelection() {
+  if (folderSelectionSaveTimer !== null) window.clearTimeout(folderSelectionSaveTimer);
+  folderSelectionSaveTimer = null;
+  if (folderSelectionSaveInFlight) {
+    const completedRevision = await folderSelectionSaveInFlight;
+    if (pendingFolderSelection && pendingFolderSelection.revision !== completedRevision) {
+      return persistFolderSelection();
+    }
+    return;
+  }
+
+  const pending = pendingFolderSelection;
+  if (!pending) return;
+
+  const operation = persistFolderSelectionSnapshot(pending);
+  const tracked = operation.finally(() => {
+    if (folderSelectionSaveInFlight === tracked) folderSelectionSaveInFlight = null;
+  });
+  folderSelectionSaveInFlight = tracked;
+  return tracked;
+}
+
+async function persistFolderSelectionSnapshot(pending) {
+  const result = await storageService.update(defaultState, (latestState) => {
+    latestState = normalizeFolderNavigation(latestState);
+    // A different tab may have selected a folder since this gesture began.
+    if (latestState.selectedFolderId !== pending.baseId) return latestState;
+    const folderExists = getVisibleFolderIds(latestState).includes(pending.folderId);
+    if (folderExists) latestState.selectedFolderId = pending.folderId;
+    return latestState;
+  });
+
+  if (!result.ok) {
+    if (pendingFolderSelection?.revision === pending.revision) {
+      showAppStatus(t("storageSaveWarning"));
+      scheduleFolderSelectionSave(FOLDER_SELECTION_RETRY_DELAY_MS);
+    }
+    return pending.revision;
+  }
+
+  if (pendingFolderSelection?.revision !== pending.revision) {
+    // A newer gesture happened while this write was in progress. It will be
+    // saved separately, using the selection that was actually committed.
+    if (pendingFolderSelection) pendingFolderSelection.baseId = result.state.selectedFolderId;
+    return pending.revision;
+  }
+
+  clearPendingFolderSelection();
+  state = normalizeState(result.state);
+  render();
+  clearAppStatus();
+  return pending.revision;
+}
+
+function clearPendingFolderSelection() {
+  if (folderSelectionSaveTimer !== null) window.clearTimeout(folderSelectionSaveTimer);
+  folderSelectionSaveTimer = null;
+  pendingFolderSelection = null;
+}
+
 function createFolderChip(id, name, count) {
   const chip = document.createElement("div");
   chip.className = `folder-chip${state.selectedFolderId === id ? " active" : ""}`;
@@ -696,8 +934,12 @@ function createFolderChip(id, name, count) {
 
   const label = document.createElement("span");
   label.className = "folder-name";
-  label.textContent = `${name} ${count ? count : ""}`.trim();
-  select.append(label);
+  label.textContent = name;
+  const counter = document.createElement("span");
+  counter.className = "folder-count";
+  counter.textContent = String(count);
+  counter.hidden = count === 0;
+  select.append(label, counter);
   chip.append(select);
 
   return chip;
@@ -740,6 +982,7 @@ function requestFolderRenameFocus(folderId, target) {
 }
 
 function startFolderRename(folderId) {
+  if (updateInputLocked) return;
   if (savingFolderRenameId !== null) return;
 
   const folder = getUserFolders().find((item) => item.id === folderId);
@@ -824,6 +1067,7 @@ function cancelFolderRename(folderId = renamingFolderId) {
 }
 
 function renderFolderList() {
+  renderFolderVisibility();
   const folders = getUserFolders();
   elements.folderManager.hidden = folders.length === 0;
 
@@ -931,15 +1175,50 @@ function renderFolderList() {
   if (focusRequest.target === "input") focusTarget?.select();
 }
 
-function renderLinks() {
-  const visibleLinks = getVisibleLinks();
+function renderFolderVisibility() {
+  const noFolders = getUserFolders().length === 0;
+  elements.showAllFolder.checked = noFolders || state.showAllFolder !== false;
+  elements.showAllFolder.disabled = noFolders || savingFolderVisibility;
+  elements.folderVisibilityHelp.textContent = t(noFolders ? "showAllFolderUnavailable" : "showAllFolderHelp");
+  elements.showAllFolder.parentElement.title = noFolders ? t("showAllFolderUnavailable") : t("showAllFolderHelp");
+}
 
-  const cards = visibleLinks.map((link) => createLinkCard(link));
-  elements.linksGrid.replaceChildren(...cards);
+function renderLinks() {
+  const signatures = new Map(state.links.map((link) => [link.id, JSON.stringify([
+    link.title, link.url, normalizeSiteEmoji(link.emoji),
+    getRenderableSiteEmoji(link.emoji) ? [] : buildFaviconSources(link.url)
+  ])]));
+  for (const [id, entry] of linkCardCache) {
+    if (entry.signature !== signatures.get(id)) {
+      entry.dispose();
+      linkCardCache.delete(id);
+    }
+  }
+  const visibleLinks = getVisibleLinks();
+  const cards = visibleLinks.map((link) => {
+    if (!linkCardCache.has(link.id)) {
+      linkCardCache.set(link.id, { ...createLinkCard(link), signature: signatures.get(link.id) });
+    }
+    return linkCardCache.get(link.id).card;
+  });
+
+  // Move only the nodes whose position/visibility changed. In particular, a
+  // background save must not detach and repaint an unchanged grid of cards.
+  let next = elements.linksGrid.firstChild;
+  for (const card of cards) {
+    if (card === next) next = next.nextSibling;
+    else elements.linksGrid.insertBefore(card, next);
+  }
+  while (next) {
+    const obsolete = next;
+    next = next.nextSibling;
+    obsolete.remove();
+  }
   if (state.selectedFolderId === "all") {
     elements.emptyState.textContent = t("emptyAll");
   } else {
-    const folderName = state.folders.find((folder) => folder.id === state.selectedFolderId)?.name;
+    const folderName = state.selectedFolderId === ROOT_FOLDER_ID ? t("unfiledFolder")
+      : state.folders.find((folder) => folder.id === state.selectedFolderId)?.name;
     elements.emptyState.textContent = t("emptyFolder", [folderName || t("favoriteFolder")]);
   }
   elements.emptyState.hidden = visibleLinks.length > 0;
@@ -990,13 +1269,16 @@ function createLinkCard(link) {
 
   const faviconLetter = document.createElement("span");
   faviconLetter.className = "favicon-letter";
-  faviconLetter.textContent = getInitial(link.title);
+  const emoji = getRenderableSiteEmoji(link.emoji);
+  faviconLetter.textContent = emoji || getInitial(link.title);
   favicon.append(faviconImage, faviconLetter);
 
-  const faviconSources = buildFaviconSources(link.url);
+  const faviconSources = emoji ? [] : buildFaviconSources(link.url);
   let faviconSourceIndex = 0;
+  let disposed = false;
 
   function loadNextFaviconSource() {
+    if (disposed) return;
     const source = faviconSources[faviconSourceIndex];
 
     if (!source) {
@@ -1009,6 +1291,7 @@ function createLinkCard(link) {
   }
 
   faviconImage.addEventListener("load", () => {
+    if (disposed) return;
     if (isUsableFavicon(faviconImage)) {
       favicon.classList.remove("fallback");
       return;
@@ -1018,10 +1301,12 @@ function createLinkCard(link) {
     loadNextFaviconSource();
   });
   faviconImage.addEventListener("error", () => {
+    if (disposed) return;
     faviconSourceIndex += 1;
     loadNextFaviconSource();
   });
-  loadNextFaviconSource();
+  if (emoji) favicon.classList.add("emoji");
+  else loadNextFaviconSource();
 
   const text = document.createElement("span");
   text.className = "link-copy";
@@ -1044,7 +1329,13 @@ function createLinkCard(link) {
   actions.append(edit);
   card.append(dragButton, openLink, actions);
 
-  return card;
+  return {
+    card,
+    dispose() {
+      disposed = true;
+      faviconImage.removeAttribute("src");
+    }
+  };
 }
 
 async function handleLinkReorderKeydown(event) {
@@ -1083,6 +1374,7 @@ async function handleLinkReorderKeydown(event) {
 }
 
 function startLinkDrag(event) {
+  if (updateInputLocked) return;
   const handle = event.target.closest("[data-drag-link]");
   if (!handle || event.button !== 0 || event.isPrimary === false) return;
 
@@ -1287,6 +1579,7 @@ function announceReorder(message) {
 }
 
 function startFolderDrag(event) {
+  if (updateInputLocked) return;
   const handle = event.target.closest("[data-drag-folder]");
   if (!handle || handle.disabled || event.button !== 0 || event.isPrimary === false) return;
 
@@ -1397,32 +1690,149 @@ function reorderFolders(targetState, sourceId, targetId, after) {
   return targetState;
 }
 
-function applyBackground() {
+function applyBackground(background = state.background) {
   const defaultBackgroundColor =
     defaultState.background.type === "color"
       ? defaultState.background.value
       : defaultState.background.overlayColor;
   const backgroundColor =
-    state.background.type === "color" && /^#[0-9a-f]{6}$/i.test(state.background.value)
-      ? state.background.value
+    background.type === "color" && /^#[0-9a-f]{6}$/i.test(background.value)
+      ? background.value
       : defaultBackgroundColor;
-  const hasImageBackground = state.background.type === "image" && Boolean(state.background.value);
+  const hasImageBackground = background.type === "image" && Boolean(background.value);
 
   document.body.classList.toggle("has-image", hasImageBackground);
   document.body.classList.toggle("has-color", !hasImageBackground);
   document.documentElement.style.setProperty("--bg", backgroundColor);
   document.documentElement.style.setProperty(
     "--bg-overlay-color",
-    state.background.overlayColor || defaultState.background.overlayColor
+    background.overlayColor || defaultState.background.overlayColor
   );
   document.documentElement.style.setProperty(
     "--bg-overlay-opacity",
-    String(state.background.overlay / 100)
+    String(background.overlay / 100)
   );
   if (hasImageBackground) {
-    document.documentElement.style.setProperty("--bg-image", `url("${state.background.value}")`);
+    document.documentElement.style.setProperty("--bg-image", `url("${background.value}")`);
   } else {
     document.documentElement.style.removeProperty("--bg-image");
+  }
+}
+
+function updateSiteEmojiSelection() {
+  elements.linkIconAuto.setAttribute("aria-pressed", String(!pendingLinkEmoji));
+  emojiPicker.updateSelection(pendingLinkEmoji);
+}
+
+function toggleSiteIconPicker() {
+  if (!elements.linkIconPicker.hidden) {
+    closeSiteIconPicker({ restoreFocus: true });
+    return;
+  }
+
+  clearTimeout(linkIconPreviewTimer);
+  updateLinkIconPreview();
+  updateSiteEmojiSelection();
+  elements.linkIconPicker.hidden = false;
+  elements.linkIconButton.setAttribute("aria-expanded", "true");
+  emojiPicker.open(pendingLinkEmoji);
+  const selected = pendingLinkEmoji
+    ? [...elements.siteEmojiGrid.querySelectorAll("[data-site-emoji]")].find(
+        (button) => button.dataset.siteEmoji === pendingLinkEmoji
+      )
+    : elements.linkIconPicker.querySelector("#emojiSearch");
+  (selected || elements.linkIconPicker.querySelector("#emojiSearch")).focus({ preventScroll: true });
+}
+
+function closeSiteIconPicker({ restoreFocus = false } = {}) {
+  if (elements.linkIconPicker.hidden) return;
+  emojiPicker.close();
+  elements.linkIconPicker.hidden = true;
+  elements.linkIconButton.setAttribute("aria-expanded", "false");
+  if (restoreFocus) elements.linkIconButton.focus({ preventScroll: true });
+}
+
+function selectSiteIconEmoji(value) {
+  pendingLinkEmoji = normalizeSiteEmoji(value);
+  clearTimeout(linkIconPreviewTimer);
+  updateLinkIconPreview();
+  updateSiteEmojiSelection();
+  closeSiteIconPicker({ restoreFocus: true });
+}
+
+function updateLinkIconLetters() {
+  const url = normalizeWebUrl(elements.linkUrl.value);
+  const title = elements.linkTitle.value.trim() ||
+    (url ? deriveTitleFromUrl(url, t("siteFallback")) : t("siteFallback"));
+  const letter = getInitial(title);
+  elements.linkIconPreviewLetter.textContent = letter;
+  elements.linkIconAutoLetter.textContent = letter;
+}
+
+function resetLinkIconImages() {
+  for (const [preview, image] of [
+    [elements.linkIconPreview, elements.linkIconPreviewImage],
+    [elements.linkIconAutoPreview, elements.linkIconAutoImage]
+  ]) {
+    image.onload = null;
+    image.onerror = null;
+    image.removeAttribute("src");
+    preview.classList.add("fallback");
+  }
+}
+
+function scheduleLinkIconPreview() {
+  clearTimeout(linkIconPreviewTimer);
+  linkIconPreviewEpoch += 1;
+  updateLinkIconLetters();
+  if (getRenderableSiteEmoji(pendingLinkEmoji)) return;
+  resetLinkIconImages();
+  linkIconPreviewTimer = setTimeout(updateLinkIconPreview, 350);
+}
+
+function updateLinkIconPreview() {
+  clearTimeout(linkIconPreviewTimer);
+  const epoch = ++linkIconPreviewEpoch;
+  updateLinkIconLetters();
+  resetLinkIconImages();
+  const emoji = getRenderableSiteEmoji(pendingLinkEmoji);
+  elements.linkIconPreview.classList.toggle("is-emoji", Boolean(emoji));
+  elements.linkIconPreviewEmoji.textContent = emoji;
+  if (emoji) return;
+
+  const url = normalizeWebUrl(elements.linkUrl.value);
+  if (!url) return;
+  const sources = buildFaviconSources(url);
+  for (const [preview, image] of [
+    [elements.linkIconPreview, elements.linkIconPreviewImage],
+    [elements.linkIconAutoPreview, elements.linkIconAutoImage]
+  ]) {
+    let sourceIndex = 0;
+    const loadNext = () => {
+      if (epoch !== linkIconPreviewEpoch) return;
+      const source = sources[sourceIndex];
+      if (!source) {
+        image.removeAttribute("src");
+        preview.classList.add("fallback");
+        return;
+      }
+      image.src = source;
+    };
+    image.onload = () => {
+      if (epoch !== linkIconPreviewEpoch) return;
+      if (isUsableFavicon(image)) {
+        preview.classList.remove("fallback");
+        return;
+      }
+      sourceIndex += 1;
+      loadNext();
+    };
+    image.onerror = () => {
+      if (epoch !== linkIconPreviewEpoch) return;
+      sourceIndex += 1;
+      loadNext();
+    };
+    loadNext();
   }
 }
 
@@ -1438,6 +1848,10 @@ function openLinkDialog(link = null) {
   elements.deleteLinkButton.hidden = !link;
   elements.linkTitle.value = link?.title || "";
   elements.linkUrl.value = link?.url || "";
+  pendingLinkEmoji = normalizeSiteEmoji(link?.emoji);
+  closeSiteIconPicker();
+  updateLinkIconPreview();
+  updateSiteEmojiSelection();
   elements.linkFolder.value = link
     ? link.folderId
     : state.selectedFolderId === "all"
@@ -1454,25 +1868,54 @@ function openFolderDialog() {
 
 function openSettingsDialog() {
   resetSettingsDialogState();
+  settingsDraft = createSettingsDraft(state, defaultState.background);
+  syncSettingsDraftControls();
+  updateBackgroundPreview(settingsDraft.background);
+  openDialog(elements.settingsDialog, elements.settingsTabs[0]);
+}
+
+function syncSettingsDraftControls() {
+  const background = settingsDraft.background;
   const customBackgroundMissing =
-    state.background.customAssetId && state.background.customAssetAvailable === false;
+    background.customAssetId && background.customAssetAvailable === false;
   const hasCustomBackground =
-    state.background.customAssetId || state.background.value.startsWith("data:image/");
-  updateBackgroundPreview();
+    settingsDraft.imageFile || background.customAssetId || background.value.startsWith("data:image/");
   elements.backgroundPreviewName.textContent = customBackgroundMissing
     ? t("missingLocalBackground")
     : hasCustomBackground
       ? t("customImage")
       : t("standardImage");
-  elements.backgroundOverlay.value = state.background.overlay;
+  elements.backgroundOverlay.value = background.overlay;
   elements.backgroundOverlayColor.value =
-    state.background.overlayColor || defaultState.background.overlayColor;
-  elements.singleKeyShortcuts.checked = state.shortcutsEnabled;
-  updateOverlayLabel(state.background.overlay);
-  openDialog(elements.settingsDialog, elements.backgroundImage);
+    background.overlayColor || defaultState.background.overlayColor;
+  elements.singleKeyShortcuts.checked = settingsDraft.shortcutsEnabled;
+  updateOverlayLabel(background.overlay);
+}
+
+function getDraftPreviewBackground() {
+  return backgroundPreviewUrl
+    ? { ...settingsDraft.background, type: "image", value: backgroundPreviewUrl }
+    : settingsDraft.background;
+}
+
+function previewSettingsDraft() {
+  const background = getDraftPreviewBackground();
+  updateBackgroundPreview(background);
+  applyBackground(background);
+}
+
+function setBackgroundSaving(saving) {
+  savingBackground = saving;
+  elements.backgroundFields.disabled = saving;
+  elements.saveBackgroundButton.disabled = saving;
+  elements.settingsDialog.setAttribute("aria-busy", String(saving));
+  elements.settingsDialog.querySelectorAll('[data-close="settingsDialog"]').forEach((button) => {
+    button.disabled = saving;
+  });
 }
 
 function handleGlobalShortcut(event) {
+  if (updateInputLocked) return;
   if (event.defaultPrevented) return;
   if (!state.shortcutsEnabled) return;
 
@@ -1506,14 +1949,16 @@ function isEditableTarget(target) {
   return !ownerDialog || ownerDialog.open;
 }
 
-function updateBackgroundPreview() {
-  const hasImage = state.background.type === "image" && Boolean(state.background.value);
+function updateBackgroundPreview(background) {
+  const hasImage = background.type === "image" && Boolean(background.value);
   elements.backgroundPreviewImage.style.backgroundColor = hasImage
     ? ""
-    : state.background.value;
+    : background.value;
   elements.backgroundPreviewImage.style.backgroundImage = hasImage
-    ? `url("${state.background.value}")`
+    ? `url("${background.value}")`
     : "none";
+  elements.backgroundPreviewImage.style.setProperty("--preview-overlay-color", background.overlayColor);
+  elements.backgroundPreviewImage.style.setProperty("--preview-overlay-opacity", String(background.overlay / 100));
 }
 
 function setSettingsTab(tabName, { focus = false } = {}) {
@@ -1527,6 +1972,9 @@ function setSettingsTab(tabName, { focus = false } = {}) {
 
   elements.backgroundSettingsPanel.hidden = activeSettingsTab !== "background";
   elements.backupSettingsPanel.hidden = activeSettingsTab !== "backup";
+  elements.settingsGeneralActions.hidden = activeSettingsTab !== "background";
+  elements.settingsBackupActions.hidden = activeSettingsTab !== "backup";
+  elements.settingsDialog.querySelector(".settings-body").scrollTop = 0;
 }
 
 function handleSettingsTabKeydown(event) {
@@ -1542,6 +1990,20 @@ function handleSettingsTabKeydown(event) {
         ? tabs.length - 1
         : (currentIndex + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
   setSettingsTab(tabs[nextIndex].dataset.settingsTab, { focus: true });
+}
+
+function keepSettingsFocusInside(event) {
+  if (event.key !== "Tab") return;
+  const controls = [...elements.settingsDialog.querySelectorAll('button, input, select, a[href], [tabindex]')]
+    .filter((element) => element.tabIndex >= 0 && !element.matches(":disabled") && element.getClientRects().length > 0);
+  const first = controls[0];
+  const last = controls.at(-1);
+  const target = event.shiftKey && document.activeElement === first
+    ? last
+    : !event.shiftKey && document.activeElement === last ? first : null;
+  if (!target) return;
+  event.preventDefault();
+  target.focus({ preventScroll: true });
 }
 
 function exportBackup() {
@@ -1563,44 +2025,46 @@ function exportBackup() {
 }
 
 async function loadImportFile(event) {
-  const file = event.target.files?.[0];
-  clearImportPreviewState();
-  if (!file) return;
+  return trackUpdateOperation(async () => {
+    const file = event.target.files?.[0];
+    clearImportPreviewState();
+    if (!file) return;
 
-  if (file.size > MAX_BACKUP_BYTES) {
-    elements.importBackupInput.value = "";
-    showImportError(t("backupTooLargeDetailed"));
-    return;
-  }
+    if (file.size > MAX_BACKUP_BYTES) {
+      elements.importBackupInput.value = "";
+      showImportError(t("backupTooLargeDetailed"));
+      return;
+    }
 
-  let contents;
-  try {
-    contents = await file.text();
-  } catch {
+    let contents;
+    try {
+      contents = await file.text();
+    } catch {
+      resetImportState();
+      showImportError(t("fileReadError"));
+      return;
+    }
+
     resetImportState();
-    showImportError(t("fileReadError"));
-    return;
-  }
+    const result = parseBackupText(contents);
+    if (!result.ok) {
+      showImportError(getImportErrorMessage(result.error));
+      return;
+    }
 
-  resetImportState();
-  const result = parseBackupText(contents);
-  if (!result.ok) {
-    showImportError(getImportErrorMessage(result.error));
-    return;
-  }
-
-  pendingImport = { ...result, fileName: file.name };
-  elements.importSelectedFile.textContent = t("importSelectedFile", [pendingImport.fileName]);
-  elements.importSelectedFile.hidden = false;
-  elements.importPreviewDate.textContent = new Intl.DateTimeFormat(uiLocale, {
-    dateStyle: "medium",
-    timeStyle: "short"
-  }).format(new Date(result.preview.createdAt));
-  elements.importPreviewSites.textContent = String(result.preview.siteCount);
-  elements.importPreviewFolders.textContent = String(result.preview.folderCount);
-  elements.importPreview.hidden = false;
-  elements.confirmImportButton.hidden = false;
-  elements.cancelImportButton.hidden = false;
+    pendingImport = { ...result, fileName: file.name };
+    elements.importSelectedFile.textContent = t("importSelectedFile", [pendingImport.fileName]);
+    elements.importSelectedFile.hidden = false;
+    elements.importPreviewDate.textContent = new Intl.DateTimeFormat(uiLocale, {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(new Date(result.preview.createdAt));
+    elements.importPreviewSites.textContent = String(result.preview.siteCount);
+    elements.importPreviewFolders.textContent = String(result.preview.folderCount);
+    elements.importPreview.hidden = false;
+    elements.confirmImportButton.hidden = false;
+    elements.cancelImportButton.hidden = false;
+  });
 }
 
 async function confirmImport() {
@@ -1612,7 +2076,8 @@ async function confirmImport() {
     (latestState) =>
       normalizeState({
         ...buildImportedState(latestState, importedData),
-        shortcutsEnabled: latestState.shortcutsEnabled
+        shortcutsEnabled: latestState.shortcutsEnabled,
+        showAllFolder: latestState.showAllFolder
       }),
     { onError: () => showImportError(t("importSaveError")) }
   );
@@ -1642,6 +2107,11 @@ function clearImportPreviewState() {
 }
 
 function resetSettingsDialogState() {
+  backgroundFileEpoch += 1;
+  pendingBackgroundSelection = null;
+  backgroundFileError = null;
+  revokeBackgroundPreviewUrl();
+  settingsDraft = null;
   elements.backgroundForm.reset();
   clearPendingBackgroundFile();
   clearBackgroundImageError();
@@ -1682,20 +2152,56 @@ function clearBackgroundImageError() {
   elements.backgroundImage.removeAttribute("aria-invalid");
 }
 
-function updatePendingBackgroundFile() {
-  const file = elements.backgroundImage.files?.[0];
-  clearBackgroundImageError();
+async function updatePendingBackgroundFile() {
+  return trackUpdateOperation(async () => {
+    if (!settingsDraft) return;
+    const draft = settingsDraft;
+    const epoch = ++backgroundFileEpoch;
+    const file = elements.backgroundImage.files?.[0];
+    draft.imageFile = file || null;
+    backgroundFileError = null;
+    clearBackgroundImageError();
 
-  if (!file) {
-    clearPendingBackgroundFile();
-    return;
-  }
+    if (!file) {
+      clearPendingBackgroundFile();
+      revokeBackgroundPreviewUrl();
+      previewSettingsDraft();
+      return;
+    }
 
-  elements.backgroundSelectedFile.textContent = t("backgroundSelectedFile", [file.name]);
-  elements.backgroundSelectedFile.hidden = false;
+    elements.backgroundSelectedFile.textContent = t("backgroundSelectedFile", [file.name]);
+    elements.backgroundSelectedFile.hidden = false;
 
-  const validation = validateBackgroundImage({ type: file.type, size: file.size });
-  if (!validation.ok) showBackgroundImageError(validation.error);
+    const validation = validateBackgroundImage({ type: file.type, size: file.size });
+    if (!validation.ok) {
+      backgroundFileError = validation.error;
+      showBackgroundImageError(validation.error);
+      return;
+    }
+    try {
+      const { width, height } = await readImageDimensions(file);
+      if (epoch !== backgroundFileEpoch || draft !== settingsDraft) return;
+      const imageValidation = validateBackgroundImage({ type: file.type, size: file.size, width, height });
+      if (!imageValidation.ok) {
+        backgroundFileError = imageValidation.error;
+        showBackgroundImageError(imageValidation.error);
+        return;
+      }
+      revokeBackgroundPreviewUrl();
+      backgroundPreviewUrl = URL.createObjectURL(file);
+      syncSettingsDraftControls();
+      previewSettingsDraft();
+    } catch {
+      if (epoch !== backgroundFileEpoch || draft !== settingsDraft) return;
+      backgroundFileError = "decode-failed";
+      showBackgroundImageError("decode-failed");
+    }
+  });
+}
+
+function revokeBackgroundPreviewUrl() {
+  if (backgroundPreviewUrl) URL.revokeObjectURL(backgroundPreviewUrl);
+  backgroundPreviewUrl = null;
 }
 
 function clearPendingBackgroundFile() {
@@ -1711,6 +2217,7 @@ function getImportErrorMessage(error) {
 }
 
 function openDialog(dialog, focusTarget) {
+  if (updateInputLocked) return;
   if (!dialog.open) {
     dialog.showModal();
   }
@@ -1743,20 +2250,40 @@ function resolveDeleteConfirmation(confirmed) {
 }
 
 async function commitStateChange(transform, options = {}) {
-  const result = await storageService.update(defaultState, transform);
-  if (!result.ok) {
-    if (typeof options.onError === "function") {
-      options.onError(result);
-    } else {
-      showAppStatus(t("storageSaveWarning"));
+  return trackUpdateOperation(async () => {
+    let observedSelectionRevision = null;
+    const result = await storageService.update(defaultState, async (latestState) => {
+      latestState = normalizeFolderNavigation(latestState);
+      const pending = pendingFolderSelection;
+      observedSelectionRevision = pending?.revision ?? null;
+      if (pending && latestState.selectedFolderId === pending.baseId) {
+        latestState.selectedFolderId = pending.folderId;
+      }
+      const transformed = await transform(latestState);
+      return normalizeFolderNavigation(transformed === undefined ? latestState : transformed);
+    });
+    if (!result.ok) {
+      if (typeof options.onError === "function") {
+        options.onError(result);
+      } else {
+        showAppStatus(t("storageSaveWarning"));
+      }
+      return false;
     }
-    return false;
-  }
 
-  state = normalizeState(result.state);
-  render();
-  clearAppStatus();
-  return true;
+    if (pendingFolderSelection?.revision === observedSelectionRevision) {
+      clearPendingFolderSelection();
+    } else if (pendingFolderSelection) {
+      pendingFolderSelection.baseId = result.state.selectedFolderId;
+    }
+    state = normalizeState({
+      ...result.state,
+      ...(pendingFolderSelection ? { selectedFolderId: pendingFolderSelection.folderId } : {})
+    });
+    render();
+    clearAppStatus();
+    return true;
+  });
 }
 
 function showAppStatus(message) {
@@ -1838,16 +2365,8 @@ function normalizeState(savedState) {
     folderId: folderIds.has(link.folderId) ? link.folderId : ROOT_FOLDER_ID
   }));
 
-  if (
-    nextState.selectedFolderId === ROOT_FOLDER_ID ||
-    (nextState.selectedFolderId !== "all" && !folderIds.has(nextState.selectedFolderId))
-  ) {
-    nextState.selectedFolderId = "all";
-  }
-
   nextState.shortcutsEnabled = nextState.shortcutsEnabled !== false;
-
-  return nextState;
+  return normalizeFolderNavigation(nextState);
 }
 
 function removeFolder(targetState, folderId) {
@@ -1889,6 +2408,7 @@ function getInitial(title) {
 
 function updateOverlayLabel(value) {
   elements.backgroundOverlayValue.textContent = `${clampOverlay(value)}%`;
+  elements.backgroundOverlay.style.setProperty("--range-progress", `${clampOverlay(value)}%`);
 }
 
 function clampOverlay(value) {

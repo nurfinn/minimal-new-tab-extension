@@ -25,14 +25,23 @@ const defaultSourceRoot = dirname(scriptDirectory);
 export const FIREFOX_RELEASE_FILES = Object.freeze([
   '_locales',
   'backup-service.mjs',
+  'emoji',
+  'emoji-catalog.mjs',
+  'emoji-picker.mjs',
+  'emoji-support.mjs',
   'extension-api.mjs',
   'favicon-service.mjs',
+  'feature-generation.mjs',
+  'feature-state.mjs',
+  'folder-gestures.mjs',
   'i18n-service.mjs',
   'icons',
   'images',
   'newtab-core.mjs',
   'newtab.html',
   'newtab.js',
+  'settings-draft.mjs',
+  'site-icon.mjs',
   'storage-service.mjs',
   'styles.css',
 ]);
@@ -160,7 +169,7 @@ async function applyFirefoxHtmlOverlay({ source, output }) {
   const indentedFragment = fragment
     .trim()
     .split('\n')
-    .map((line) => `        ${line}`)
+    .map((line) => `            ${line}`)
     .join('\n');
 
   let html = await readFile(htmlPath, 'utf8');
@@ -176,8 +185,8 @@ async function applyFirefoxHtmlOverlay({ source, output }) {
   );
   html = replaceExactlyOnce(
     html,
-    '        <div class="settings-tabs"',
-    `${indentedFragment}\n\n        <div class="settings-tabs"`,
+    '            <!-- Firefox site-icon settings -->',
+    indentedFragment,
     'settings fragment',
   );
   html = replaceExactlyOnce(

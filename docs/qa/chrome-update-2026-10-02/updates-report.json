@@ -1,0 +1,89 @@
+{
+  "mode": "all",
+  "output": "/var/folders/9z/bxm8yx1d5dx0f3ltdq0w7bph0000gn/T/minimal-tab-updates-nNqVAo",
+  "checks": [
+    {
+      "name": "native getViews exposes three extension pages in two browser windows",
+      "ok": true
+    },
+    {
+      "name": "native event listener registration works without a background component",
+      "ok": true
+    },
+    {
+      "name": "synchronous peer readiness is visible across actual new-tab contexts",
+      "ok": true
+    },
+    {
+      "name": "real application dialogs and rename drafts in another window block reload",
+      "ok": true
+    },
+    {
+      "name": "file reading remains busy after its dialog closes",
+      "ok": true
+    },
+    {
+      "name": "fulfilled failed folder save still leaves a blocking pending selection",
+      "ok": true
+    },
+    {
+      "name": "background decode and slow selection save remain protected until settled",
+      "ok": true
+    },
+    {
+      "name": "active pointer drag in another page blocks applying",
+      "ok": true
+    },
+    {
+      "name": "unknown new page refuses apply and closing it allows recovery",
+      "ok": true
+    },
+    {
+      "name": "real runtime reload is dispatched once and preserves application storage",
+      "ok": true
+    },
+    {
+      "name": "banner does not steal focus or move header, and hides under dialogs",
+      "ok": true
+    },
+    {
+      "name": "keyboard Later hides all living pages and restores only its own focus",
+      "ok": true
+    },
+    {
+      "name": "desktop and narrow layout reserve space above the last card",
+      "ok": true
+    },
+    {
+      "name": "busy form in another window refuses reload without losing its contents",
+      "ok": true
+    },
+    {
+      "name": "RU labels fit the same narrow layout",
+      "ok": true
+    },
+    {
+      "name": "two actual contexts dispatch once; uncertain outcome stays locked with recovery",
+      "ok": true
+    },
+    {
+      "name": "ordinary preview without extension APIs stays silent and usable",
+      "ok": true
+    }
+  ],
+  "consoleErrors": [],
+  "limitations": [
+    "Isolated unpacked Chromium, no personal profile or signed CWS update.",
+    "Listener registration is native; any emitted update signal in this runner is synthetic."
+  ],
+  "sourceHashes": {
+    "chrome-bootstrap.mjs": "2bee0a387e687d1dd81b2b30f1b6dbeaa9eb2058998eb79e26ca9a0b6f62c3ce",
+    "chrome-update-service.mjs": "3b878e37a97e5c59d01295530ca4e745dbabfdf1f263f9eb8848626b178b2da4",
+    "chrome-update.css": "e118d4a603a2ecfc587b1bf72f14cad54d7228ffb73629eff002de80e8b42a8b",
+    "newtab.js": "f6e95faf222f8f507ca763254819e462f94d3cab6352887331be259a72545dae",
+    "folder-gestures.mjs": "da96ec872bb17d7173494af295ed96f7cd6a9abb5a42fafa0c6e1ac3505e6452",
+    "storage-service.mjs": "be508a389aa3c01e0b8a4a83482db3b45c713d92205bb3877154263a3935ae30",
+    "manifest.json": "685f7afe1c108311737a6ca3d4f7d6593ff8f5b39668ecf3eb08278b3d77b51e",
+    "scripts/build-chrome.mjs": "c32f1a371ed2e4e45a95b6b3f1ddda4b628b098e6580d011980fa09dcc421b79"
+  }
+}

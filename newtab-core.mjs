@@ -7,6 +7,24 @@ export const MAX_BACKGROUND_DIMENSION = 4096;
 export const SITE_TITLE_MAX_LENGTH = 500;
 export const FOLDER_NAME_MAX_LENGTH = 200;
 
+// One navigation model for folder chips, selection recovery and swipe order.
+// The internal root becomes accessible only when All is hidden and has sites.
+export function getVisibleFolderIds({ folders = [], links = [], showAllFolder = true } = {}) {
+  const ids = folders.filter(({ id }) => id !== 'root').map(({ id }) => id);
+  if (showAllFolder !== false || ids.length === 0) return ['all', ...ids];
+  if (links.some(({ folderId }) => folderId === 'root')) ids.push('root');
+  return ids;
+}
+
+export function normalizeFolderNavigation(state) {
+  const showAllFolder = state.showAllFolder !== false ||
+    !state.folders.some(({ id }) => id !== 'root');
+  const next = { ...state, showAllFolder };
+  const ids = getVisibleFolderIds(next);
+  next.selectedFolderId = ids.includes(state.selectedFolderId) ? state.selectedFolderId : ids[0];
+  return next;
+}
+
 export function validateSiteDraft({ title, url } = {}) {
   const normalizedTitle = String(title ?? '').trim();
   if (normalizedTitle.length > SITE_TITLE_MAX_LENGTH) {

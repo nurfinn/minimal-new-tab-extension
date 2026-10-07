@@ -6,7 +6,8 @@
   "siteIconsRemoteToggle": { "message": "Загружать недостающие иконки" },
   "siteIconsOff": { "message": "Выключено" },
   "siteIconsOn": { "message": "Включено" },
-  "siteIconsPrivacy": { "message": "Для загрузки передаётся только домен. Полная ссылка не отправляется." },
+  "siteIconsPending": { "message": "Ожидает разрешения" },
+  "siteIconsPrivacy": { "message": "В Google передаётся только домен. Применяется сразу." },
   "siteIconsUnavailable": { "message": "Загрузка иконок недоступна в этой версии Firefox." },
   "siteIconsPermissionError": { "message": "Firefox не смог изменить разрешение. Локальные иконки и буквы по-прежнему доступны." }
 }

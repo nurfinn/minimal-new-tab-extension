@@ -1,0 +1,29 @@
+#updateNotice {
+  position: fixed;
+  z-index: 15;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  max-width: min(540px, calc(100vw - 32px));
+  padding: 10px 12px 10px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #f7f8f7;
+  color: var(--text);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .16);
+  font-size: 13px;
+  line-height: 1.45;
+}
+#updateNotice[hidden], #updateNotice [hidden] { display: none; }
+#updateNotice p { margin: 0; flex: 1 1 auto; }
+.update-actions { display: flex; align-items: center; gap: 4px; }
+#updateNotice button { min-height: 36px; padding: 7px 12px; border-radius: 7px; }
+#applyUpdateButton { background: var(--accent); color: white; }
+#deferUpdateButton { background: transparent; color: var(--accent); }
+#updateNotice button:hover:not(:disabled) { filter: brightness(.94); }
+#updateNotice button:disabled { cursor: wait; opacity: .6; }
+#updateNotice button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.grid { padding-bottom: calc(var(--scroll-end-gap) + var(--update-notice-space, 0px)); }

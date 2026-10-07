@@ -53,7 +53,7 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
 
   const tempRoot = await mkdtemp(join(tmpdir(), 'minimal-new-tab-firefox-build-'));
   const outputDir = join(tempRoot, 'release');
-  const archivePath = join(tempRoot, 'minimal-new-tab-firefox-v1.6.zip');
+  const archivePath = join(tempRoot, 'minimal-new-tab-firefox-v1.7.zip');
   t.after(() => rm(tempRoot, { recursive: true, force: true }));
 
   await mkdir(outputDir, { recursive: true });
@@ -64,12 +64,19 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
   assert.deepEqual(await readdir(outputDir), [
     '_locales',
     'backup-service.mjs',
+    'emoji',
+    'emoji-catalog.mjs',
+    'emoji-picker.mjs',
+    'emoji-support.mjs',
     'extension-api.mjs',
     'favicon-catalog.mjs',
     'favicon-service.mjs',
     'favicon-settings.css',
     'favicon-settings.mjs',
+    'feature-generation.mjs',
+    'feature-state.mjs',
     'firefox-bootstrap.mjs',
+    'folder-gestures.mjs',
     'i18n-service.mjs',
     'icons',
     'images',
@@ -78,6 +85,8 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
     'newtab.html',
     'newtab.js',
     'platform.css',
+    'settings-draft.mjs',
+    'site-icon.mjs',
     'site-icons',
     'storage-service.mjs',
     'styles.css',
@@ -91,6 +100,18 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
     await readFile(join(outputDir, 'favicon-service.mjs')),
     await readFile(join(sourceRoot, 'firefox/favicon-service.mjs')),
   );
+  assert.deepEqual(
+    await readFile(join(outputDir, 'folder-gestures.mjs')),
+    await readFile(join(sourceRoot, 'folder-gestures.mjs')),
+  );
+  assert.deepEqual(
+    await readFile(join(outputDir, 'site-icon.mjs')),
+    await readFile(join(sourceRoot, 'site-icon.mjs')),
+  );
+  for (const path of ['feature-generation.mjs', 'feature-state.mjs', 'emoji-catalog.mjs', 'emoji-picker.mjs', 'emoji-support.mjs', 'emoji/catalog.json',
+    'emoji/UNICODE-LICENSE.txt', 'emoji/THIRD_PARTY_NOTICES.md']) {
+    assert.deepEqual(await readFile(join(outputDir, path)), await readFile(join(sourceRoot, path)), path);
+  }
 
   const builtHtml = await readFile(join(outputDir, 'newtab.html'), 'utf8');
   const builtScript = await readFile(join(outputDir, 'newtab.js'), 'utf8');
@@ -108,7 +129,11 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
   assert.match(builtHtml, /href="platform\.css"/);
   assert.match(builtHtml, /href="favicon-settings\.css"/);
   assert.match(builtHtml, /id="faviconSettingsRow"/);
+  assert.ok(builtHtml.indexOf('id="faviconSettingsRow"') > builtHtml.indexOf('id="backgroundSettingsPanel"'));
+  assert.ok(builtHtml.indexOf('id="faviconSettingsRow"') < builtHtml.indexOf('id="backupSettingsPanel"'));
+  assert.doesNotMatch(builtHtml, /id="faviconSettingsConfigure"|id="faviconSettingsDisclosure"/);
   assert.match(builtHtml, /src="firefox-bootstrap\.mjs"/);
+  assert.doesNotMatch(builtHtml, /chrome-bootstrap|chrome-update/);
   assert.doesNotMatch(builtHtml, /type="module" src="newtab\.js"/);
   assert.match(
     builtScript,
@@ -128,9 +153,13 @@ test('builds a clean Firefox directory and root-level ZIP from an allowlist', as
 
   for (const relativePath of [
     'styles.css',
+    'settings-draft.mjs',
     'storage-service.mjs',
     'newtab-core.mjs',
     'images/default-background.png',
+    'icons/icon-16.png',
+    'icons/icon-32.png',
+    'icons/icon-48.png',
     'icons/icon-128.png',
   ]) {
     assert.deepEqual(

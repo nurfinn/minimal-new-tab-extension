@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <title>Minimal Tab — optically adjusted 16-pixel favicon</title>
+  <desc>The frame and both dividers are two pixels wide. Equal-height rows and wider left panes preserve the main mark at a small size.</desc>
+  <rect width="16" height="16" rx="3.5" fill="#FAFCFD"/>
+  <g fill="#457B9D">
+    <path d="M3.5 2 H7.5 A0.5 0.5 0 0 1 8 2.5 V6.5 A0.5 0.5 0 0 1 7.5 7 H2.5 A0.5 0.5 0 0 1 2 6.5 V3.5 A1.5 1.5 0 0 1 3.5 2 Z"/>
+    <path d="M10.5 2 H12.5 A1.5 1.5 0 0 1 14 3.5 V6.5 A0.5 0.5 0 0 1 13.5 7 H10.5 A0.5 0.5 0 0 1 10 6.5 V2.5 A0.5 0.5 0 0 1 10.5 2 Z"/>
+    <path d="M2.5 9 H7.5 A0.5 0.5 0 0 1 8 9.5 V13.5 A0.5 0.5 0 0 1 7.5 14 H3.5 A1.5 1.5 0 0 1 2 12.5 V9.5 A0.5 0.5 0 0 1 2.5 9 Z"/>
+    <path d="M10.5 9 H13.5 A0.5 0.5 0 0 1 14 9.5 V12.5 A1.5 1.5 0 0 1 12.5 14 H10.5 A0.5 0.5 0 0 1 10 13.5 V9.5 A0.5 0.5 0 0 1 10.5 9 Z"/>
+  </g>
+</svg>

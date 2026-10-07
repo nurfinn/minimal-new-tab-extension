@@ -1,7 +1,8 @@
 import { normalizeWebUrl } from './storage-service.mjs';
+import { normalizeSiteEmoji } from './site-icon.mjs';
 
 export const BACKUP_FORMAT = 'minimal-new-tab-backup';
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 export const MAX_BACKUP_BYTES = 1024 * 1024;
 export const MAX_BACKUP_SITES = 500;
 export const MAX_BACKUP_FOLDERS = 100;
@@ -12,7 +13,7 @@ const encoder = new TextEncoder();
 
 export function serializeBackup(
   state,
-  { now = new Date(), appVersion = '1.6' } = {},
+  { now = new Date(), appVersion = '1.7' } = {},
 ) {
   if (!isRecord(state) || !Array.isArray(state.folders) || !Array.isArray(state.links)) {
     throw new TypeError('Invalid application state');
@@ -21,11 +22,12 @@ export function serializeBackup(
   const portableData = {
     selectedFolderId: state.selectedFolderId,
     folders: state.folders.map(({ id, name }) => ({ id, name })),
-    links: state.links.map(({ id, title, url, folderId }) => ({
+    links: state.links.map(({ id, title, url, folderId, emoji }) => ({
       id,
       title,
       url,
       folderId,
+      ...(emoji ? { emoji } : {}),
     })),
   };
   const data = normalizeBackupData(portableData);
@@ -65,7 +67,7 @@ export function parseBackupText(text) {
   if (
     !isRecord(document) ||
     document.format !== BACKUP_FORMAT ||
-    document.backupVersion !== BACKUP_VERSION
+    ![1, BACKUP_VERSION].includes(document.backupVersion)
   ) {
     return failure('unsupported-backup');
   }
@@ -78,7 +80,7 @@ export function parseBackupText(text) {
     return failure('invalid-backup-data');
   }
 
-  const data = normalizeBackupData(document.data);
+  const data = normalizeBackupData(document.data, { allowEmoji: document.backupVersion >= 2 });
   if (!data) return failure('invalid-backup-data');
 
   return {
@@ -114,7 +116,7 @@ export function getBackupFilename(now = new Date()) {
   return `minimal-new-tab-backup-${createdAt.slice(0, 10)}.json`;
 }
 
-function normalizeBackupData(value) {
+function normalizeBackupData(value, { allowEmoji = true } = {}) {
   if (
     !isRecord(value) ||
     !hasExactKeys(value, ['selectedFolderId', 'folders', 'links']) ||
@@ -149,7 +151,10 @@ function normalizeBackupData(value) {
   for (const link of value.links) {
     if (
       !isRecord(link) ||
-      !hasExactKeys(link, ['id', 'title', 'url', 'folderId']) ||
+      !hasExactKeys(link, [
+        'id', 'title', 'url', 'folderId',
+        ...(allowEmoji && Object.hasOwn(link, 'emoji') ? ['emoji'] : []),
+      ]) ||
       !isValidId(link.id) ||
       !isNonEmptyString(link.title, 500) ||
       !folderIds.has(link.folderId) ||
@@ -160,12 +165,15 @@ function normalizeBackupData(value) {
 
     const url = normalizeWebUrl(link.url);
     if (!url) return null;
+    const emoji = Object.hasOwn(link, 'emoji') ? normalizeSiteEmoji(link.emoji) : '';
+    if (Object.hasOwn(link, 'emoji') && !emoji) return null;
     linkIds.add(link.id);
     links.push({
       id: link.id,
       title: link.title.trim(),
       url,
       folderId: link.folderId,
+      ...(emoji ? { emoji } : {}),
     });
   }
 

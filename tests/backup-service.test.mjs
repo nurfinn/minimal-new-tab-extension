@@ -61,7 +61,7 @@ test('round-trips ordered sites and folders without background or storage intern
   assert.equal(document.format, BACKUP_FORMAT);
   assert.equal(document.backupVersion, BACKUP_VERSION);
   assert.equal(document.createdAt, fixedDate.toISOString());
-  assert.equal(document.appVersion, '1.6');
+  assert.equal(document.appVersion, '1.7');
   assert.deepEqual(Object.keys(document.data), ['selectedFolderId', 'folders', 'links']);
   assert.deepEqual(document.data.links.map(({ id }) => id), ['second', 'first']);
   assert.deepEqual(document.data.folders.map(({ id }) => id), ['root', 'work']);
@@ -94,11 +94,33 @@ test('buildImportedState preserves the target background', () => {
   assert.notEqual(imported.links, parsed.data.links);
 });
 
+test('preserves an emoji in backup v2 and still imports old backup v1 files', () => {
+  const state = makeState();
+  state.links[0].emoji = '🇦🇪';
+  const current = JSON.parse(serializeBackup(state, { now: fixedDate }));
+  assert.equal(current.backupVersion, 2);
+  assert.equal(current.data.links[0].emoji, '🇦🇪');
+  assert.equal(parseBackupText(JSON.stringify(current)).data.links[0].emoji, '🇦🇪');
+
+  const old = makeDocument();
+  old.backupVersion = 1;
+  const parsed = parseBackupText(JSON.stringify(old));
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.data.links.some((link) => Object.hasOwn(link, 'emoji')), false);
+});
+
+test('rejects invalid emoji in backup v2 without changing the current state', () => {
+  const parsed = parseMutated((document) => {
+    document.data.links[0].emoji = 'two 🚀🚀';
+  });
+  assert.deepEqual(parsed, { ok: false, error: 'invalid-backup-data' });
+});
+
 test('rejects malformed JSON and unsupported versions', () => {
   assert.deepEqual(parseBackupText('{broken'), { ok: false, error: 'invalid-json' });
   assert.deepEqual(
     parseMutated((document) => {
-      document.backupVersion = 2;
+      document.backupVersion = 3;
     }),
     { ok: false, error: 'unsupported-backup' },
   );

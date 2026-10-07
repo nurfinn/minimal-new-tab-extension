@@ -57,7 +57,7 @@ test('builds a complete root-level Chrome archive from an allowlist', async (t) 
 
   const tempRoot = await mkdtemp(join(tmpdir(), 'minimal-new-tab-chrome-build-'));
   const outputDir = join(tempRoot, 'release');
-  const archivePath = join(tempRoot, 'minimal-new-tab-chrome-v1.6.zip');
+  const archivePath = join(tempRoot, 'minimal-new-tab-chrome-v1.7.zip');
   t.after(() => rm(tempRoot, { recursive: true, force: true }));
 
   await mkdir(outputDir, { recursive: true });
@@ -68,8 +68,18 @@ test('builds a complete root-level Chrome archive from an allowlist', async (t) 
   assert.deepEqual((await readdir(outputDir)).sort(), [
     '_locales',
     'backup-service.mjs',
+    'chrome-bootstrap.mjs',
+    'chrome-update-service.mjs',
+    'chrome-update.css',
+    'emoji',
+    'emoji-catalog.mjs',
+    'emoji-picker.mjs',
+    'emoji-support.mjs',
     'extension-api.mjs',
     'favicon-service.mjs',
+    'feature-generation.mjs',
+    'feature-state.mjs',
+    'folder-gestures.mjs',
     'i18n-service.mjs',
     'icons',
     'images',
@@ -77,18 +87,33 @@ test('builds a complete root-level Chrome archive from an allowlist', async (t) 
     'newtab-core.mjs',
     'newtab.html',
     'newtab.js',
+    'settings-draft.mjs',
+    'site-icon.mjs',
     'storage-service.mjs',
     'styles.css',
   ]);
 
   for (const relativePath of [
     'manifest.json',
+    'emoji/catalog.json',
+    'emoji/UNICODE-LICENSE.txt',
+    'emoji-catalog.mjs',
+    'emoji-picker.mjs',
+    'emoji-support.mjs',
     'extension-api.mjs',
     'favicon-service.mjs',
+    'feature-generation.mjs',
+    'feature-state.mjs',
+    'folder-gestures.mjs',
     'newtab-core.mjs',
     'newtab.js',
+    'settings-draft.mjs',
+    'site-icon.mjs',
     'storage-service.mjs',
     'images/default-background.png',
+    'icons/icon-16.png',
+    'icons/icon-32.png',
+    'icons/icon-48.png',
     'icons/icon-128.png',
   ]) {
     assert.deepEqual(
@@ -99,6 +124,13 @@ test('builds a complete root-level Chrome archive from an allowlist', async (t) 
   }
 
   await assertRelativeModuleImportsResolve(outputDir);
+  const html = await readFile(join(outputDir, 'newtab.html'), 'utf8');
+  assert.equal(html.match(/src="chrome-bootstrap\.mjs"/g)?.length, 1);
+  assert.equal(html.match(/href="chrome-update\.css"/g)?.length, 1);
+  assert.doesNotMatch(html, /src="newtab\.js"/);
+  assert.match(await readFile(join(sourceRoot, 'newtab.html'), 'utf8'), /src="newtab\.js"/);
+  const bootstrap = await readFile(join(outputDir, 'chrome-bootstrap.mjs'), 'utf8');
+  assert.doesNotMatch(bootstrap, /__updateSignal|__updateTest|URLSearchParams|requestUpdateCheck/);
 
   const archiveList = spawnSync('/usr/bin/unzip', ['-Z1', archivePath], {
     encoding: 'utf8',

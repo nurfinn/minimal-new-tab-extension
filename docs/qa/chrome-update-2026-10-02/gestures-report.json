@@ -1,0 +1,489 @@
+{
+  "output": "/var/folders/9z/bxm8yx1d5dx0f3ltdq0w7bph0000gn/T/minimal-tab-folder-gestures-RHVSL0",
+  "checks": [
+    {
+      "browser": "chrome",
+      "name": "swipes reuse already loaded cards and icons without rebuilding the page",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "revisiting loaded folders keeps icons available while offline",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "editing and deleting cached sites updates only affected cards and never revives stale data",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "consecutive gestures over cards work without a click or pointer movement",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "rapid folder navigation stays responsive and coalesces sync writes under quota",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "recorded rapid trackpad gestures survive rerenders and 0 ms storage latency without clicks",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "recorded rapid trackpad gestures survive rerenders and 45 ms storage latency without clicks",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "previously missed physical swipes switch exactly once: moderate restart below a strong tail",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "previously missed physical swipes switch exactly once: restart near and above a weak tail",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "previously missed physical swipes switch exactly once: successive light accelerating restarts",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "previously missed physical swipes switch exactly once: strong restarts before the first delay marker",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "previously missed physical swipes switch exactly once: strong restarts before the later delay markers",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "previously missed physical swipes switch exactly once: rapid mixed-strength series including ambiguous onset",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "previously missed physical swipes switch exactly once: rapid leftward series with momentum interruptions",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "previously missed physical swipes switch exactly once: fast strong onset and long decaying tail",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "previously missed physical swipes switch exactly once: modest final rapid series",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "previously missed physical swipes switch exactly once: rapid mixed series at 4x amplitude",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "horizontal swipe changes and persists one folder; momentum never changes another",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "vertical and diagonal movement, zoom and modifiers leave selection alone",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "success resets content to the top; empty folders can also be swiped",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "folder-row scrolling does not switch folders or leak its momentum into content",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "first and last folders are bounded without writes; active chip is revealed",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "dialogs and dragging block navigation, including the remainder of a gesture",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "storage write/read failures keep navigation responsive and preserve saved data",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "a quota failure does not trap navigation and the next gesture can save",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "slow storage does not block multiple folder switches",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "failed manifest write keeps the prior saved folder without blocking navigation",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "refreshes folder order and keeps sites added by another tab",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "reload and a new tab restore the saved folder",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "a quick reload after clicking a folder preserves the selection",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "opening a site immediately after a swipe flushes the selected folder",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "browser-dispatched horizontal wheel works in both directions",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "a newer selection from another tab is not overwritten by a stale swipe",
+      "passed": true
+    },
+    {
+      "browser": "chrome",
+      "name": "fresh installation with no user folders performs no writes on swipe",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "swipes reuse already loaded cards and icons without rebuilding the page",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "revisiting loaded folders keeps icons available while offline",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "editing and deleting cached sites updates only affected cards and never revives stale data",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "Firefox favicon consent changes invalidate visible and detached cards and stop stale image retries",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "consecutive gestures over cards work without a click or pointer movement",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "rapid folder navigation stays responsive and coalesces sync writes under quota",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "recorded rapid trackpad gestures survive rerenders and 0 ms storage latency without clicks",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "recorded rapid trackpad gestures survive rerenders and 45 ms storage latency without clicks",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "previously missed physical swipes switch exactly once: moderate restart below a strong tail",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "previously missed physical swipes switch exactly once: restart near and above a weak tail",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "previously missed physical swipes switch exactly once: successive light accelerating restarts",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "previously missed physical swipes switch exactly once: strong restarts before the first delay marker",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "previously missed physical swipes switch exactly once: strong restarts before the later delay markers",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "previously missed physical swipes switch exactly once: rapid mixed-strength series including ambiguous onset",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "previously missed physical swipes switch exactly once: rapid leftward series with momentum interruptions",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "previously missed physical swipes switch exactly once: fast strong onset and long decaying tail",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "previously missed physical swipes switch exactly once: modest final rapid series",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "previously missed physical swipes switch exactly once: rapid mixed series at 4x amplitude",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "horizontal swipe changes and persists one folder; momentum never changes another",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "vertical and diagonal movement, zoom and modifiers leave selection alone",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "success resets content to the top; empty folders can also be swiped",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "folder-row scrolling does not switch folders or leak its momentum into content",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "first and last folders are bounded without writes; active chip is revealed",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "dialogs and dragging block navigation, including the remainder of a gesture",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "storage write/read failures keep navigation responsive and preserve saved data",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "a quota failure does not trap navigation and the next gesture can save",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "slow storage does not block multiple folder switches",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "failed manifest write keeps the prior saved folder without blocking navigation",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "refreshes folder order and keeps sites added by another tab",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "reload and a new tab restore the saved folder",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "a quick reload after clicking a folder preserves the selection",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "opening a site immediately after a swipe flushes the selected folder",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "browser-dispatched horizontal wheel works in both directions",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "a newer selection from another tab is not overwritten by a stale swipe",
+      "passed": true
+    },
+    {
+      "browser": "firefox",
+      "name": "fresh installation with no user folders performs no writes on swipe",
+      "passed": true
+    },
+    {
+      "browser": "chrome-extension",
+      "name": "installed new-tab extension switches folders and writes real chrome.storage.sync",
+      "passed": true
+    },
+    {
+      "browser": "chrome-extension",
+      "name": "recorded rapid trackpad gestures each switch once with real Chrome storage",
+      "passed": true
+    },
+    {
+      "browser": "chrome-extension",
+      "name": "previously missed same-direction recontact works in an installed Chrome extension",
+      "passed": true
+    },
+    {
+      "browser": "chrome-extension",
+      "name": "strong physical recontacts no longer stall an installed Chrome extension",
+      "passed": true
+    },
+    {
+      "browser": "chrome-extension",
+      "name": "complete fast physical series switches without skips or extra momentum transitions",
+      "passed": true
+    },
+    {
+      "browser": "chrome-extension",
+      "name": "reload restores the selection from real Chrome storage",
+      "passed": true
+    },
+    {
+      "browser": "chrome-extension",
+      "name": "closing and reopening the isolated browser preserves sites and the selected folder",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Synthetic wheel events and browser mouse.wheel are not a physical macOS trackpad.",
+    "The localhost checks use storage API test doubles; the production service and application run unchanged.",
+    "Real Chrome storage is tested only when GESTURE_REAL_CHROME=1; no Google account or cross-device sync is tested.",
+    "Firefox is tested over localhost, not as a signed installed add-on. No personal browser or published package is changed."
+  ],
+  "rendering": [
+    {
+      "browser": "chrome",
+      "samples": [
+        {
+          "retainedCards": 40,
+          "totalCards": 40,
+          "retainedChip": true,
+          "retainedOption": true,
+          "retainedManager": true,
+          "knownIconReady": true
+        },
+        {
+          "retainedCards": 40,
+          "totalCards": 40,
+          "retainedChip": true,
+          "retainedOption": true,
+          "retainedManager": true,
+          "knownIconReady": true
+        },
+        {
+          "retainedCards": 40,
+          "totalCards": 40,
+          "retainedChip": true,
+          "retainedOption": true,
+          "retainedManager": true,
+          "knownIconReady": true
+        }
+      ],
+      "synchronous": [
+        {
+          "renderMs": 2.7000000029802322,
+          "knownIconReady": true
+        },
+        {
+          "renderMs": 1.5,
+          "knownIconReady": true
+        },
+        {
+          "renderMs": 1.3999999985098839,
+          "knownIconReady": true
+        }
+      ],
+      "afterSave": {
+        "retainedCard": true,
+        "retainedChip": true
+      },
+      "extraIconRequests": 0
+    },
+    {
+      "browser": "firefox",
+      "samples": [
+        {
+          "retainedCards": 40,
+          "totalCards": 40,
+          "retainedChip": true,
+          "retainedOption": true,
+          "retainedManager": true,
+          "knownIconReady": true
+        },
+        {
+          "retainedCards": 40,
+          "totalCards": 40,
+          "retainedChip": true,
+          "retainedOption": true,
+          "retainedManager": true,
+          "knownIconReady": true
+        },
+        {
+          "retainedCards": 40,
+          "totalCards": 40,
+          "retainedChip": true,
+          "retainedOption": true,
+          "retainedManager": true,
+          "knownIconReady": true
+        }
+      ],
+      "synchronous": [
+        {
+          "renderMs": 2,
+          "knownIconReady": true
+        },
+        {
+          "renderMs": 5,
+          "knownIconReady": true
+        },
+        {
+          "renderMs": 4,
+          "knownIconReady": true
+        }
+      ],
+      "afterSave": {
+        "retainedCard": true,
+        "retainedChip": true
+      },
+      "extraIconRequests": 0
+    }
+  ]
+}
