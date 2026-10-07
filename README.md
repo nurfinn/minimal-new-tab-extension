@@ -6,12 +6,10 @@ A calm, customizable new tab for Chrome and Firefox. Keep favorite sites in fold
 
 ## Browser releases
 
-| Browser | Source version | Source |
+| Browser | Current version | Source |
 | --- | ---: | --- |
 | Chrome | 1.7 | Shared files in the repository root |
 | Firefox | 1.7 | Shared root files plus the isolated `firefox/` overlay |
-
-The versions above refer to the source code in this repository. Store publication and availability are separate.
 
 Chrome and Firefox live in one repository because most product logic is shared. Browser-specific manifests, favicon providers, permissions, UI additions, and release assets remain isolated. Both store archives are produced from explicit allowlists and validated independently before release.
 

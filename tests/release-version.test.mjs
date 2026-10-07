@@ -4,15 +4,15 @@ import test from 'node:test';
 
 const text = path => readFile(new URL('../' + path, import.meta.url), 'utf8').catch(() => '');
 
-test('README presents current source versions without claiming store publication', async () => {
+test('README presents the current release without separate source and store states', async () => {
   const readme = await text('README.md');
   for (const [browser, path] of [['Chrome', 'manifest.json'], ['Firefox', 'firefox/manifest.json']]) {
     const manifest = JSON.parse(await text(path));
     assert.ok(readme.includes(`| ${browser} | ${manifest.version} |`));
   }
-  assert.match(readme, /versions.*source code in this repository/i);
-  assert.match(readme, /store publication.*separate/i);
-  assert.doesNotMatch(readme, /latest published version|prepared release|in this branch/i);
+  assert.ok(readme.includes('| Browser | Current version | Source |'));
+  assert.doesNotMatch(readme, /source version|latest published version|prepared release|in this branch|not yet published/i);
+  assert.doesNotMatch(readme, /store publication.*separate|versions.*source code in this repository/i);
   assert.match(readme, /\(docs\/release-1\.7\.md\)/);
 });
 
@@ -46,7 +46,7 @@ test('README retains backup compatibility and browser installation caveats', asy
   assert.match(readme, /not a signed.*XPI/i);
 });
 
-test('all README build examples target the prepared 1.7 archives', async () => {
+test('all README build examples target the current 1.7 archives', async () => {
   const readme = await text('README.md');
   const examples = [...readme.matchAll(/--archive \/absolute\/path\/minimal-new-tab-(chrome|firefox)-v([^\s]+)\.zip/g)];
   assert.equal(examples.length, 4);
