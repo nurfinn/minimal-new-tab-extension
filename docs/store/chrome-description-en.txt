@@ -1,0 +1,47 @@
+Minimal New Tab is a clean, customizable new tab page for your favorite websites. Keep everyday links within reach with a simple speed dial, folders, emoji icons and your own background — without extra widgets or clutter.
+
+Your sites, organized
+
+- Add, edit and reorder website shortcuts.
+- Group sites into folders and arrange folders in your preferred order.
+- Switch folders with horizontal trackpad swipes.
+- Hide the “All” view without deleting sites. Sites outside folders remain accessible.
+
+Make it yours
+
+- Keep website icons or choose emoji from a built-in offline catalog with search, categories and skin-tone variants.
+- Add your own background image and adjust the overlay color and opacity.
+- Use optional keyboard shortcuts: A for Add site, F for Folders, S for Settings.
+- The interface automatically uses English or Russian based on your browser language.
+
+Move your setup
+
+Export and import your sites, folders, their order and chosen emoji as a JSON backup when moving to another browser running Minimal Tab. Custom background images stay in the current browser and are not included in backups.
+
+When Chrome Sync is enabled for extensions, saved sites and lightweight preferences can sync between Chrome installations using the same Google account. Chrome and Firefox use separate sync systems; use export and import to move data between them.
+
+Privacy and permissions
+
+No separate account, advertising or analytics. The extension does not collect your browsing history or request access to all websites.
+
+Only two permissions are requested:
+
+- Storage: save sites, folders, preferences and the local background.
+- Favicon: display icons for saved websites.
+
+What’s new in version 1.7
+
+- Emoji icons: choose from a built-in catalog with search, categories and skin-tone variants.
+- Horizontal trackpad swipes to switch folders.
+- An option to hide “All” in the folder manager without deleting any sites.
+- Refined Settings and more consistent form controls.
+- A softer app icon with the same familiar shape.
+- JSON backups now include your chosen emoji.
+- An update-ready notice with Update and Later options when Chrome has downloaded an extension update.
+- Improved saving reliability and safer replacement of custom backgrounds.
+
+Backup compatibility
+
+Before importing a new backup, update Minimal Tab in the receiving browser. Versions 1.6 and earlier cannot import the new backup format. Older backup files can still be imported. Background images stay in their browser and are not included in JSON backups.
+
+Emoji appearance and availability depend on your operating system.

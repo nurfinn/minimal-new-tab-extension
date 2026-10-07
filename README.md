@@ -1,6 +1,6 @@
 # Minimal New Tab by nurfinn
 
-A calm, customizable new tab for Chrome and Firefox. Keep favorite sites in folders, change the background, use keyboard shortcuts, and move your setup between browsers without an account or backend.
+A calm, customizable new tab for Chrome and Firefox. Keep favorite sites in folders, choose emoji icons, swipe between folders, change the background, and move your setup between browsers without an account or backend.
 
 [Visit nurfinn.com](https://nurfinn.com/?utm_source=github&utm_medium=referral)
 
@@ -40,6 +40,12 @@ What's New: [Chrome EN](docs/whats-new-1.7-chrome-en.txt),
 [Firefox EN](docs/whats-new-1.7-firefox-en.txt),
 [Firefox RU](docs/whats-new-1.7-firefox-ru.txt).
 
+Store-ready full descriptions, including What's New 1.7:
+[Chrome EN](docs/store/chrome-description-en.txt) and
+[Chrome RU](docs/store/chrome-description-ru.txt).
+[Updated EN/RU screenshots and promotional banners](design/store/v1.7/README.md)
+are stored separately from the browser runtime and release ZIPs.
+
 Backups now export format v2 to preserve emoji. This code still imports v1 files, but the published 1.6 cannot import v2 backups. The Export panel explains this in English and Russian. Custom background images remain local and are excluded from backups.
 
 The working code now protects emoji and All visibility from ordinary writes by the actual published Chrome/Firefox 1.6 serializers using a bounded, independent sync layer. Old edits still apply; explicit favicon/All resets are preserved. This is verified with both immutable packages and disposable native Chromium, not real account cross-device delivery or signed store updates. Protection requires valid protected data to be present; an identical old import cannot express a new reset, and unknown/unsupported data stays read-only. [Verification and limits](docs/mixed-version-feature-protection-verification-2026-10-04.md).
@@ -64,11 +70,14 @@ folders, and settings remain compatible. Permissions have not changed.
 
 - Add, edit, delete, and reorder favorite sites.
 - Organize sites into folders and arrange folders in your preferred order.
+- Switch folders with trackpad swipes and optionally hide the All view.
+- Choose emoji from a built-in offline catalog or keep automatic website icons.
 - Use a bundled background or choose a local image and overlay.
 - Open Add site with `A`, Create folder with `F`, and Settings with `S` on any keyboard layout.
 - Keep a visible letter fallback whenever a site icon is unavailable.
 - Automatically use English or Russian based on the browser language.
 - Export and import sites and folders when moving between browsers.
+- Include site order and chosen emoji in portable JSON backups.
 - Keep the page stable and responsive with larger site and folder collections.
 
 ## Site icons

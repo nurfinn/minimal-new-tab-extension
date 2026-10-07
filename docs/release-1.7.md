@@ -45,6 +45,12 @@ What's New is provided separately for [Chrome EN](whats-new-1.7-chrome-en.txt),
 and [Firefox RU](whats-new-1.7-firefox-ru.txt). The existing EN/RU Chrome media is
 also the user's selected image set for Firefox; no new wallpaper was approved.
 
+Full Chrome store descriptions with the integrated 1.7 changelog are now available
+in [English](store/chrome-description-en.txt) and [Russian](store/chrome-description-ru.txt).
+The [publication media index](../design/store/v1.7/README.md) contains the refreshed
+five-scene EN/RU screenshots and the two Chrome promotional PNGs. These are listing
+materials only and are excluded from both extension archives.
+
 ## Verification scope
 
 Fresh checks on the exact 1.7 packages on 5 October 2026:
