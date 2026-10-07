@@ -6,10 +6,12 @@ A calm, customizable new tab for Chrome and Firefox. Keep favorite sites in fold
 
 ## Browser releases
 
-| Browser | Latest published version | Prepared version | Source |
-| --- | ---: | ---: | --- |
-| Chrome | 1.6 | 1.7 | Shared files in the repository root |
-| Firefox | 1.6 | 1.7 | Shared root files plus the isolated `firefox/` overlay |
+| Browser | Source version | Source |
+| --- | ---: | --- |
+| Chrome | 1.7 | Shared files in the repository root |
+| Firefox | 1.7 | Shared root files plus the isolated `firefox/` overlay |
+
+The versions above refer to the source code in this repository. Store publication and availability are separate.
 
 Chrome and Firefox live in one repository because most product logic is shared. Browser-specific manifests, favicon providers, permissions, UI additions, and release assets remain isolated. Both store archives are produced from explicit allowlists and validated independently before release.
 
@@ -18,53 +20,23 @@ Release tags and archives should include the platform:
 - `chrome-v1.7` → `minimal-new-tab-chrome-v1.7.zip`
 - `firefox-v1.7` → `minimal-new-tab-firefox-v1.7.zip`
 
-## Prepared release 1.7
+## What's new in 1.7
 
-Version 1.7 is prepared in this branch, **not yet published** to either store.
-It includes the accepted improvements beyond the published 1.6 packages:
+- Choose emoji instead of website icons from a built-in catalog with search, categories, and skin-tone variants.
+- Switch folders with horizontal trackpad swipes.
+- Hide the All view from the folder manager without deleting any sites.
+- Refined Settings and more consistent form controls, including clearer Firefox icon-permission status.
+- A softer app icon with the same familiar shape.
+- JSON backups now include your chosen emoji.
+- An update-ready notice lets you choose Update or Later when Chrome has downloaded an update. Firefox uses its own update handling.
+- Improved saving reliability and safer replacement of custom backgrounds.
 
-- An optional offline emoji catalog inside the site's address field, with categories, English/Russian search, tone variants, unsupported-glyph filtering and a way back to automatic favicons.
-- Fast trackpad navigation between folders, reusing loaded cards and icons and coalescing selection saves.
-- More compact General settings, consistent controls and a clearer Firefox icon-permission state.
-- A Chrome-only notification for an update the browser has already downloaded, with Later and checks for unfinished work before applying it. Firefox keeps its existing update behavior.
-- An optional Show “All” checkbox in the folder manager; unfiled sites remain accessible when All is hidden.
-- The approved softer grid icon and explicit local 16/32 px tab favicons in both builds.
-- Safer local background replacement: stage and verify the new image before publishing settings, retaining readable copies after a failed or interrupted save.
+Both browser editions use version **1.7**. Existing sites and settings are preserved, and permissions have not changed.
 
-Both manifests and default exported `appVersion` now use `1.7`. The published 1.6
-ZIPs, existing installations and bundled wallpaper have not been replaced.
-[Release 1.7 notes and verification limits](docs/release-1.7.md).
-
-What's New: [Chrome EN](docs/whats-new-1.7-chrome-en.txt),
-[Chrome RU](docs/whats-new-1.7-chrome-ru.txt),
-[Firefox EN](docs/whats-new-1.7-firefox-en.txt),
-[Firefox RU](docs/whats-new-1.7-firefox-ru.txt).
-
-Store-ready full descriptions, including What's New 1.7:
-[Chrome EN](docs/store/chrome-description-en.txt) and
-[Chrome RU](docs/store/chrome-description-ru.txt).
-[Updated EN/RU screenshots and promotional banners](design/store/v1.7/README.md)
-are stored separately from the browser runtime and release ZIPs.
-
-Backups now export format v2 to preserve emoji. This code still imports v1 files, but the published 1.6 cannot import v2 backups. The Export panel explains this in English and Russian. Custom background images remain local and are excluded from backups.
-
-The working code now protects emoji and All visibility from ordinary writes by the actual published Chrome/Firefox 1.6 serializers using a bounded, independent sync layer. Old edits still apply; explicit favicon/All resets are preserved. This is verified with both immutable packages and disposable native Chromium, not real account cross-device delivery or signed store updates. Protection requires valid protected data to be present; an identical old import cannot express a new reset, and unknown/unsupported data stays read-only. [Verification and limits](docs/mixed-version-feature-protection-verification-2026-10-04.md).
-
-The separately approved background-safety stage now fixes replacement overwriting the previous local image before sync commit. It stages a separate copy, verifies publication and only then promotes/cleans up; interrupted commits remain readable by the current code. Verified with 388 unit/contract, 251 browser and 17 artifact checks plus independent re-review. This bounded local guarantee uses the existing serialized mutation path, not unlocked concurrent writers or distributed atomicity. A subsequent isolated native Firefox check passed 14 UI checkpoints with two human-confirmed page reloads after quota rejection and successful retry; full Firefox restart persistence and signed delivery remain unverified. [Background verification and limits](docs/background-transaction-verification-2026-10-04.md), [native Firefox evidence and UI observation](docs/firefox-background-native-verification-2026-10-04.md). Earlier intermittent emoji UI and 100 ms reload observations remain disclosed in the preceding verification report, not claimed fixed by this change.
-
-Verification records: [Chrome update handling](docs/chrome-update-notification-verification-2026-10-02.md), [Firefox native checks and limitations](docs/firefox-transfer-verification-2026-10-02.md), [release checks and mixed-version limits](docs/release-acceptance-2026-10-04.md).
-
-## What's new in 1.6
-
-- A lighter header with floating folder buttons and more breathing room.
-- Sites scroll below the fixed navigation, with comfortable bottom spacing and the familiar frosted-glass cards.
-- More reliable saving when several new tabs are open.
-- Reorder sites and folders with the keyboard, and turn single-key shortcuts off in Settings.
-- Clearer messages for invalid addresses, background uploads, backups, and saving errors.
-- More consistent typography and easier-to-use dialogs across Chrome and Firefox.
-
-Both browser editions now use the same version number. Your existing sites,
-folders, and settings remain compatible. Permissions have not changed.
+[Release notes and verification details](docs/release-1.7.md).
+Store materials: [English description](docs/store/chrome-description-en.txt),
+[Russian description](docs/store/chrome-description-ru.txt),
+[screenshots and promotional images](design/store/v1.7/README.md).
 
 ## Highlights
 
@@ -76,8 +48,7 @@ folders, and settings remain compatible. Permissions have not changed.
 - Open Add site with `A`, Create folder with `F`, and Settings with `S` on any keyboard layout.
 - Keep a visible letter fallback whenever a site icon is unavailable.
 - Automatically use English or Russian based on the browser language.
-- Export and import sites and folders when moving between browsers.
-- Include site order and chosen emoji in portable JSON backups.
+- Export and import sites, folders, their order, and chosen emoji in portable JSON backups.
 - Keep the page stable and responsive with larger site and folder collections.
 
 ## Site icons
@@ -89,6 +60,8 @@ Firefox includes local icons for popular services, so they work without a networ
 ## Sync and moving between browsers
 
 Lightweight settings use the browser’s sync storage. Chrome Sync and Firefox Sync are separate systems and do not transfer extension data between browser families. Use Export in one browser and Import in another to move sites, folders, and their order.
+
+Version 1.7 exports backup format v2, which includes emoji. Versions 1.6 and earlier cannot import v2; update the receiving browser's extension first. Older v1 backups can still be imported.
 
 Custom background files stay in local browser storage on the current device. They are never placed in sync storage or JSON backups. If a local image is unavailable, the interface safely falls back to the bundled background.
 
@@ -142,8 +115,7 @@ node scripts/build-chrome.mjs \
   --archive /absolute/path/minimal-new-tab-chrome-v1.7.zip
 ```
 
-The generated directory can be loaded unpacked in Chrome. The ZIP has root-level
-packaging for the prepared 1.7 release. Store submission and approval remain separate.
+Load the generated directory unpacked in Chrome, or submit the root-level ZIP to the Chrome Web Store.
 
 ## Build Firefox
 
@@ -155,9 +127,8 @@ node scripts/build-firefox.mjs \
   --archive /absolute/path/minimal-new-tab-firefox-v1.7.zip
 ```
 
-Load the output directory temporarily from `about:debugging#/runtime/this-firefox`.
-The prepared ZIP is for Firefox Add-ons submission; it is not yet signed and is
-not a persistently installed Firefox add-on. Submission and approval are separate.
+Load the output directory temporarily from `about:debugging#/runtime/this-firefox`,
+or submit the ZIP to Firefox Add-ons. The generated ZIP is not a signed installable XPI.
 
 ## Validation
 
