@@ -39,6 +39,34 @@ jobs:
             --archive "$RUNNER_TEMP/minimal-new-tab-chrome-v1.7.zip"
           unzip -t "$RUNNER_TEMP/minimal-new-tab-chrome-v1.7.zip"
 
+  browser-regressions:
+    name: Review regressions in Chromium and Firefox
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned test browsers
+        run: |
+          npm install --prefix "$RUNNER_TEMP/browser-qa" --no-package-lock --ignore-scripts playwright@1.62.1
+          node "$RUNNER_TEMP/browser-qa/node_modules/playwright/cli.js" install --with-deps chromium firefox
+      - name: Run cross-browser and native extension regressions
+        run: |
+          export PLAYWRIGHT_MODULE="$RUNNER_TEMP/browser-qa/node_modules/playwright/index.js"
+          node scripts/verify-review-regressions.mjs all
+          node scripts/verify-review-native-chrome.mjs
+      - name: Retain diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-regression-reports
+          path: |
+            /tmp/minimal-tab-review-regressions-*/report.json
+            /tmp/minimal-tab-native-review-*/report.json
+          if-no-files-found: ignore
+
   firefox-release:
     name: Firefox release
     runs-on: ubuntu-latest
