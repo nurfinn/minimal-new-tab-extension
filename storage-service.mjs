@@ -283,6 +283,12 @@ export function createStorageService({
         writable = false;
         return { ok: true, writable: false, source: "defaults", state: safeDefaults };
       }
+      if (Object.hasOwn(stored, STORAGE_KEYS.manifest) || Object.hasOwn(stored, STORAGE_KEYS.backupManifest)) {
+        // Existing metadata without any readable generation is not a fresh
+        // installation. Keep it intact and never present defaults as a backup.
+        writable = false;
+        return { ok: false, writable: false, source: "defaults", error: "invalid-data", state: safeDefaults };
+      }
       const migration = await migrateLegacyState(safeDefaults, allowWrites);
       if (migration) return migration;
       return { ok: true, writable: true, source: "defaults", state: safeDefaults };
@@ -519,12 +525,15 @@ export function createStorageService({
     assertSameHeads(lastStored, stored);
     const current = lastValidManifest?.active;
     const read = readGeneration(stored, current);
-    const features = readFeatureGeneration(stored, lastFeatureDescriptor);
-    if (!read || !features || !chunkReferences(stored)) throw new StorageCapacityError("Cannot safely compact recovery data");
+    const features = lastFeatureDescriptor ? readFeatureGeneration(stored, lastFeatureDescriptor) : null;
+    const safeFeatures = lastFeatureDescriptor ? Boolean(features) : readFeatureLayer(stored).status === "absent";
+    if (!read || !safeFeatures || !chunkReferences(stored)) throw new StorageCapacityError("Cannot safely compact recovery data");
     const coreHead = { storageVersion: 1, active: current, previous: null };
-    const featureHead = { featureVersion: 1, active: lastFeatureDescriptor, previous: null };
-    const backups = { [STORAGE_KEYS.backupManifest]: coreHead, [FEATURE_KEYS.backupManifest]: featureHead };
-    const heads = { [STORAGE_KEYS.manifest]: coreHead, [FEATURE_KEYS.manifest]: featureHead };
+    const featureHead = lastFeatureDescriptor ? { featureVersion: 1, active: lastFeatureDescriptor, previous: null } : null;
+    const backups = { [STORAGE_KEYS.backupManifest]: coreHead,
+      ...(featureHead ? { [FEATURE_KEYS.backupManifest]: featureHead } : {}) };
+    const heads = { [STORAGE_KEYS.manifest]: coreHead,
+      ...(featureHead ? { [FEATURE_KEYS.manifest]: featureHead } : {}) };
     // Both references point to already-verified data, never to staging. On any
     // partial rejection, stop before removal; at least the current copy remains.
     // Remember retiring generations before removing their references so a
@@ -537,7 +546,8 @@ export function createStorageService({
       if (JSON.stringify(verified[key]) !== JSON.stringify(value)) throw new Error("Recovery compaction readback failed");
     }
     if (readGeneration(verified, current)?.json !== read.json ||
-      readFeatureGeneration(verified, lastFeatureDescriptor)?.json !== features.json) throw new Error("Compaction changed active data");
+      (features ? readFeatureGeneration(verified, lastFeatureDescriptor)?.json !== features.json
+        : readFeatureLayer(verified).status !== "absent")) throw new Error("Compaction changed active data");
     lastStored = verified;
     await cleanupOwnedChunks();
   }

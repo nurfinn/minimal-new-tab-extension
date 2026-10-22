@@ -96,8 +96,23 @@ test("a large collection from the old writer can be safely reduced", async () =>
   assert.equal((await service(area, local).update(state, current => { current.links.pop(); })).ok, true);
 });
 
-for (const phase of ["backup", "head", "readback", "remove"]) {
-  test(`interrupted capacity compaction at ${phase} preserves the last confirmed collection`, async () => {
+test("a two-snapshot 1.6 collection can shrink before its first protected-feature write", async () => {
+  const area = limitedArea(), local = makeArea(), state = collection(300);
+  const old = releasedService({ syncArea: area, localArea: local, logger: null });
+  assert.equal((await old.save(state)).ok, true);
+  state.links[0].title = "Saved by 1.6";
+  assert.equal((await old.save(state)).ok, true);
+  assert.equal(area.data[FEATURE_KEYS.manifest], undefined);
+  const reduced = await service(area, local).update(state, current => { current.links.pop(); });
+  assert.equal(reduced.ok, true);
+  const loaded = await service(area, local).load(state);
+  assert.equal(loaded.state.links.length, 299);
+  assert.equal(loaded.state.links[0].title, "Saved by 1.6");
+  assert.ok(area.data[FEATURE_KEYS.manifest]);
+});
+
+for (const writerName of ["current", "published 1.6"]) for (const phase of ["backup", "head", "readback", "remove"]) {
+  test(`interrupted ${writerName} capacity compaction at ${phase} preserves the last confirmed collection`, async () => {
     let enabled = false, readFailure = false, triggered = false;
     const area = limitedArea({
       beforeSet(items) {
@@ -112,17 +127,37 @@ for (const phase of ["backup", "head", "readback", "remove"]) {
       beforeGet() { if (readFailure) throw new Error("Read unavailable"); },
       beforeRemove() { if (enabled && phase === "remove") { triggered = true; throw new Error("Removal unavailable"); } }
     }), local = makeArea(), state = collection(300);
-    assert.equal((await service(area, local).save(state)).ok, true);
+    const writer = writerName === "current" ? service(area, local)
+      : releasedService({ syncArea: area, localArea: local, logger: null });
+    assert.equal((await writer.save(state)).ok, true);
     state.links[0].title = "Last confirmed";
-    assert.equal((await service(area, local).save(state)).ok, true);
+    assert.equal((await writer.save(state)).ok, true);
     enabled = true;
     const failed = await service(area, local).update(state, current => { current.links[0].title = "Not confirmed"; });
     assert.equal(failed.ok, false);
     assert.equal(triggered, true);
+    if (writerName === "published 1.6") assert.equal(area.data[FEATURE_KEYS.manifest], undefined);
     enabled = false; readFailure = false;
     assert.equal((await service(area, local).load(state)).state.links[0].title, "Last confirmed");
     assert.equal(core(area).sites["site-0"].title, "Last confirmed");
     assert.equal((await service(area, local).update(state, current => { current.links.pop(); })).ok, true);
+  });
+}
+
+for (const damage of ["missing chunks", "corrupt payload", "unknown manifest"]) {
+  test(`unreadable 1.6 data (${damage}) is not a successful default snapshot`, async () => {
+    const area = limitedArea(), local = makeArea(), state = collection(2);
+    assert.equal((await releasedService({ syncArea: area, localArea: local, logger: null }).save(state)).ok, true);
+    const head = area.data[STORAGE_KEYS.manifest];
+    if (damage === "missing chunks") head.active.chunkKeys.forEach(key => delete area.data[key]);
+    if (damage === "corrupt payload") area.data[head.active.chunkKeys[0]] = "corrupted";
+    if (damage === "unknown manifest") head.storageVersion = 99;
+    const before = structuredClone(area.data);
+    const loaded = await service(area, local).load(collection(0));
+    assert.equal(loaded.ok, false);
+    assert.equal(loaded.writable, false);
+    assert.equal((await service(area, local).update(collection(0), current => current)).ok, false);
+    assert.deepEqual(area.data, before);
   });
 }
 

@@ -16,6 +16,10 @@ Admission estimates the escaped JSON/key costs of two complete core/feature snap
 
 If the candidate fits this admission budget but an obsolete third recovery generation blocks staging, the writer first points both recovery heads at the already-verified current snapshot. It verifies those references and payloads before removing any retired chunks. The new snapshot is then staged normally; the current snapshot remains available throughout. Compaction is journaled before its first head write so an interrupted cleanup can finish after restart.
 
+Core-only 1.6 collections can retire redundant recovery generations before their first protected-feature write. Compaction verifies that the feature layer is genuinely absent and omits feature-head writes in that case; unknown feature metadata is not treated as absence.
+
+If core manifests exist but no referenced generation is readable, the loader returns an unsuccessful, read-only fallback. Standard first-install sites may still be displayed, but they are not a confirmed backup and cannot overwrite the unreadable collection. Genuinely empty storage remains writable and exportable.
+
 An existing oversized collection may need a sufficiently large reduction to fit alongside its previous snapshot; the sole valid snapshot is never deleted to make room. This is a sync storage limit, not an import-file limit (backup files remain bounded to 1 MiB).
 
 Limits match the [Chrome storage API](https://developer.chrome.com/docs/extensions/reference/api/storage#property-sync): 102,400 total bytes, 8,192 bytes per item, 512 items. No new permissions, version bump, automatic store publication, or change to personal browser profiles is involved.

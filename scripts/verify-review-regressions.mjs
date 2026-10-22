@@ -10,6 +10,7 @@ import { buildFirefoxRelease } from "./build-firefox.mjs";
 import { createStorageService, STORAGE_KEYS } from "../storage-service.mjs";
 import { serializeBackup } from "../backup-service.mjs";
 import { makeArea } from "../tests/helpers/feature-storage-fixtures.mjs";
+import { createStorageService as releasedService } from "../tests/fixtures/published-v1.6/storage-service.mjs";
 
 const require = createRequire(process.env.PLAYWRIGHT_MODULE || import.meta.url);
 const { chromium, firefox } = require("playwright");
@@ -190,6 +191,33 @@ try {
         await p.locator("#importError").waitFor({ state: "visible" });
         assert.equal(downloads.length, 0);
         assert.equal(await p.locator("#exportBackupButton").isEnabled(), true);
+      });
+      await check("backups", "incomplete legacy data cannot be exported as a successful default backup", async f => {
+        const p = await f.page(), legacy = makeArea();
+        assert.equal((await releasedService({ syncArea: legacy, localArea: makeArea(), logger: null }).save(seed())).ok, true);
+        legacy.data[STORAGE_KEYS.manifest].active.chunkKeys.forEach(key => delete legacy.data[key]);
+        f.sync.data = structuredClone(legacy.data);
+        const before = structuredClone(f.sync.data), downloads = [];
+        p.on("download", download => downloads.push(download));
+        await p.locator("#settingsButton").click();
+        await p.locator("#backupSettingsTab").click();
+        await p.locator("#exportBackupButton").click();
+        await p.locator("#importError").waitFor({ state: "visible" });
+        assert.equal(downloads.length, 0);
+        assert.deepEqual(f.sync.data, before);
+      });
+      await check("backups", "a genuinely empty installation can export its default sites", async f => {
+        const p = await f.page();
+        f.sync.data = {};
+        await p.reload();
+        await p.locator('[data-edit-link="default-google"]').waitFor({ state: "attached" });
+        await p.locator("#settingsButton").click();
+        await p.locator("#backupSettingsTab").click();
+        const pending = p.waitForEvent("download");
+        await p.locator("#exportBackupButton").click();
+        const document = JSON.parse(await readFile(await (await pending).path(), "utf8"));
+        assert.equal(document.data.links.length, 5);
+        assert.equal(document.data.links[0].id, "default-google");
       });
       await check("capacity", "oversized import explains the capacity limit and preserves current sites", async f => {
         const p = await f.page(), large = seed();
