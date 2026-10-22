@@ -13,7 +13,7 @@ import { makeArea } from "../tests/helpers/feature-storage-fixtures.mjs";
 
 const require = createRequire(process.env.PLAYWRIGHT_MODULE || import.meta.url);
 const { chromium, firefox } = require("playwright");
-const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const sourceRoot = process.env.REVIEW_SOURCE_ROOT || resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const output = await mkdtemp(join(tmpdir(), "minimal-tab-review-regressions-"));
 const group = process.argv[2] || "all";
 const results = [];
@@ -27,6 +27,9 @@ const server = createServer(async (req, res) => {
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function idle(page) {
+  await until(() => page.evaluate(async () => (await import("./newtab.js")).updateSafety.getBlockReason() === null));
+}
 async function until(predicate) {
   for (let i = 0; i < 200; i++) { if (await predicate()) return; await pause(25); }
   assert.fail("Timed out waiting for the operation to finish");
@@ -200,6 +203,87 @@ try {
         assert.match(await p.locator("#importError").textContent(), /sync space/i);
         assert.deepEqual((await f.current()).links.map(s => s.title), ["Alpha", "Beta"]);
         assert.equal(await p.locator("#confirmImportButton").isEnabled(), true);
+      });
+      await check("navigation", "a new selection in a stale tab wins on the first click", async f => {
+        const first = await f.page(), second = await f.page();
+        await first.locator('[data-folder="work"]').click(); await idle(first);
+        await second.locator('[data-folder="personal"]').click(); await idle(second);
+        assert.equal((await f.current()).selectedFolderId, "personal");
+        assert.equal(await second.locator('[data-folder][aria-pressed="true"]').getAttribute("data-folder"), "personal");
+      });
+      await check("navigation", "an older deferred swipe cannot overwrite a newer selection", async f => {
+        const first = await f.page(), second = await f.page();
+        await first.locator(".content").dispatchEvent("wheel", { deltaX: 80, deltaY: 0, bubbles: true, cancelable: true });
+        await second.locator('[data-folder="personal"]').click(); await idle(second);
+        await idle(first);
+        assert.equal((await f.current()).selectedFolderId, "personal");
+      });
+      await check("navigation", "a new explicit choice of the already-visible folder supersedes an older swipe", async f => {
+        const first = await f.page(), second = await f.page();
+        await first.locator(".content").dispatchEvent("wheel", { deltaX: 80, deltaY: 0, bubbles: true, cancelable: true });
+        await second.locator('[data-folder="all"]').click();
+        await idle(second); await idle(first);
+        assert.equal((await f.current()).selectedFolderId, "all");
+      });
+      await check("navigation", "the last rapid local choice survives an in-flight save", async f => {
+        const p = await f.page(); f.hold();
+        await p.locator('[data-folder="work"]').click(); await f.held();
+        await p.locator('[data-folder="personal"]').click();
+        await p.locator('[data-folder="work"]').click();
+        await p.locator('[data-folder="personal"]').click();
+        f.release(); await idle(p);
+        assert.equal((await f.current()).selectedFolderId, "personal");
+        await p.reload(); await idle(p);
+        assert.equal(await p.locator('[data-folder][aria-pressed="true"]').getAttribute("data-folder"), "personal");
+      });
+      await check("navigation", "a deferred selection cannot resurrect a deleted folder", async f => {
+        const p = await f.page();
+        await p.locator(".content").dispatchEvent("wheel", { deltaX: 80, deltaY: 0, bubbles: true, cancelable: true });
+        assert.equal((await f.service.update(seed(), latest => ({
+          ...latest, selectedFolderId: "all",
+          folders: latest.folders.filter(folder => folder.id !== "work"),
+          links: latest.links.map(site => site.folderId === "work" ? { ...site, folderId: "root" } : site)
+        }))).ok, true);
+        await idle(p);
+        assert.equal((await f.current()).selectedFolderId, "all");
+        assert.equal(await p.locator('[data-folder="work"]').count(), 0);
+      });
+      await check("navigation", "a deferred selection cannot reopen hidden All", async f => {
+        const p = await f.page();
+        await p.locator('[data-folder="work"]').click(); await idle(p);
+        await p.locator(".content").dispatchEvent("wheel", { deltaX: -80, deltaY: 0, bubbles: true, cancelable: true });
+        assert.equal((await f.service.update(seed(), latest => ({
+          ...latest, showAllFolder: false, selectedFolderId: "work"
+        }))).ok, true);
+        await idle(p);
+        assert.equal((await f.current()).selectedFolderId, "work");
+        assert.equal(await p.locator('[data-folder="all"]').count(), 0);
+      });
+      await check("navigation", "saving a site in another tab supersedes an older swipe", async f => {
+        const first = await f.page(), second = await f.page();
+        await second.locator("#addLinkButton").click();
+        await second.locator("#linkTitle").fill("New personal site");
+        await second.locator("#linkUrl").fill("https://example.net/new");
+        await second.locator("#linkFolder").selectOption("personal");
+        await first.locator(".content").dispatchEvent("wheel", { deltaX: 80, deltaY: 0, bubbles: true, cancelable: true });
+        await second.locator("#linkSubmitButton").click();
+        await second.locator("#linkDialog").waitFor({ state: "hidden" });
+        await idle(first);
+        const state = await f.current();
+        assert.equal(state.selectedFolderId, "personal");
+        assert.equal(state.links.find(site => site.title === "New personal site").folderId, "personal");
+      });
+      await check("navigation", "deferred folder reveal cannot steal newer keyboard focus", async f => {
+        const p = await f.page();
+        await p.evaluate(() => {
+          document.querySelector('[data-folder="work"]').click();
+          document.querySelector('[data-folder="personal"]').focus();
+        });
+        await p.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        assert.equal(await p.evaluate(() => document.activeElement?.dataset.folder), "personal");
+        await p.keyboard.press("Enter");
+        await idle(p);
+        assert.equal((await f.current()).selectedFolderId, "personal");
       });
     } finally { await browser.close(); }
   }

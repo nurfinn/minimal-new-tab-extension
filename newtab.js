@@ -121,6 +121,7 @@ let pendingFolderSelection = null;
 let folderSelectionSaveTimer = null;
 let folderSelectionSaveInFlight = null;
 let folderSelectionRevision = 0;
+const FOLDER_SELECTION_INTENT_KEY = "minimalNewTabFolderSelectionIntent";
 let pendingLinkEmoji = "";
 let linkIconPreviewTimer = null;
 let linkIconPreviewEpoch = 0;
@@ -405,7 +406,7 @@ function bindEvents() {
             ? "all" : resolvedFolderId;
           return latestState;
         },
-        { onError: result => {
+        { selectsFolder: true, onError: result => {
           if (isCurrentEdit()) showFieldError(elements.linkFormError, getStorageSaveWarning(result));
           else showAppStatus(getStorageSaveWarning(result));
         } }
@@ -451,7 +452,7 @@ function bindEvents() {
         latestState.selectedFolderId = folder.id;
         return latestState;
       },
-      { onError: result => showFieldError(elements.folderFormError, getStorageSaveWarning(result)) }
+      { selectsFolder: true, onError: result => showFieldError(elements.folderFormError, getStorageSaveWarning(result)) }
     );
     if (!saved) return;
 
@@ -773,7 +774,8 @@ function renderFolders() {
 }
 
 function refreshFolderScroll(options = {}) {
-  if (options.focusFolderId) {
+  // Do not steal focus if the user reached another control before this frame.
+  if (options.focusFolderId && document.activeElement === options.focusOrigin) {
     const focusTarget = [...elements.folderRowTrack.querySelectorAll("[data-folder]")].find(
       (button) => button.dataset.folder === options.focusFolderId
     );
@@ -808,7 +810,8 @@ function refreshFolderScroll(options = {}) {
 function scheduleFolderScrollRefresh(options = {}) {
   pendingFolderScrollOptions = {
     animate: Boolean(pendingFolderScrollOptions.animate || options.animate),
-    focusFolderId: options.focusFolderId ?? pendingFolderScrollOptions.focusFolderId ?? null
+    focusFolderId: options.focusFolderId ?? pendingFolderScrollOptions.focusFolderId ?? null,
+    focusOrigin: options.focusFolderId ? document.activeElement : pendingFolderScrollOptions.focusOrigin
   };
 
   if (folderScrollFrame !== null) return;
@@ -856,15 +859,29 @@ function handleContentWheel(event) {
 
 function selectFolder(folderId, { saveImmediately = false } = {}) {
   if (updateInputLocked) return;
-  if (folderId === state.selectedFolderId) return;
+  if (folderId === state.selectedFolderId && !saveImmediately) return;
 
-  const baseId = pendingFolderSelection?.baseId ?? state.selectedFolderId;
   state.selectedFolderId = folderId;
-  pendingFolderSelection = { baseId, folderId, revision: ++folderSelectionRevision };
+  pendingFolderSelection = { intent: claimFolderSelectionIntent(), folderId, revision: ++folderSelectionRevision };
   renderFolders();
   renderLinks();
   elements.content.scrollTop = 0;
   scheduleFolderSelectionSave(saveImmediately ? 0 : FOLDER_SELECTION_SAVE_DELAY_MS);
+}
+
+function claimFolderSelectionIntent() {
+  // This is same-profile coordination, not user data. A synchronous token
+  // orders actual input across tabs without clocks, network writes or waiting
+  // for the debounced save. An old tab's cached folder is not an input order.
+  const intent = createId();
+  try { localStorage.setItem(FOLDER_SELECTION_INTENT_KEY, intent); return intent; }
+  catch { return null; } // Storage restrictions must not disable navigation.
+}
+
+function isLatestFolderSelection(intent) {
+  if (!intent) return true;
+  try { return localStorage.getItem(FOLDER_SELECTION_INTENT_KEY) === intent; }
+  catch { return true; }
 }
 
 function scheduleFolderSelectionSave(delay = FOLDER_SELECTION_SAVE_DELAY_MS) {
@@ -897,8 +914,7 @@ async function persistFolderSelection() {
 async function persistFolderSelectionSnapshot(pending) {
   const result = await storageService.update(defaultState, (latestState) => {
     latestState = normalizeFolderNavigation(latestState);
-    // A different tab may have selected a folder since this gesture began.
-    if (latestState.selectedFolderId !== pending.baseId) return latestState;
+    if (!isLatestFolderSelection(pending.intent)) return latestState;
     const folderExists = getVisibleFolderIds(latestState).includes(pending.folderId);
     if (folderExists) latestState.selectedFolderId = pending.folderId;
     return latestState;
@@ -914,8 +930,7 @@ async function persistFolderSelectionSnapshot(pending) {
 
   if (pendingFolderSelection?.revision !== pending.revision) {
     // A newer gesture happened while this write was in progress. It will be
-    // saved separately, using the selection that was actually committed.
-    if (pendingFolderSelection) pendingFolderSelection.baseId = result.state.selectedFolderId;
+    // saved separately. Do not replace that newer local choice with this result.
     return pending.revision;
   }
 
@@ -2132,7 +2147,7 @@ async function confirmImport() {
         shortcutsEnabled: latestState.shortcutsEnabled,
         showAllFolder: latestState.showAllFolder
       }),
-    { onError: result => showImportError(getStorageSaveWarning(result, "importSaveError")) }
+    { selectsFolder: true, onError: result => showImportError(getStorageSaveWarning(result, "importSaveError")) }
   );
   elements.confirmImportButton.disabled = false;
 
@@ -2305,16 +2320,22 @@ function resolveDeleteConfirmation(confirmed) {
 
 async function commitStateChange(transform, options = {}) {
   return trackUpdateOperation(async () => {
+    const selectionIntent = options.selectsFolder ? claimFolderSelectionIntent() : null;
     let observedSelectionRevision = null;
     const result = await storageService.update(defaultState, async (latestState) => {
       latestState = normalizeFolderNavigation(latestState);
       const pending = pendingFolderSelection;
       observedSelectionRevision = pending?.revision ?? null;
-      if (pending && latestState.selectedFolderId === pending.baseId) {
+      if (pending && isLatestFolderSelection(pending.intent) && getVisibleFolderIds(latestState).includes(pending.folderId)) {
         latestState.selectedFolderId = pending.folderId;
       }
+      const previousFolderId = latestState.selectedFolderId;
       const transformed = await transform(latestState);
-      return normalizeFolderNavigation(transformed === undefined ? latestState : transformed);
+      const candidate = transformed === undefined ? latestState : transformed;
+      if (options.selectsFolder && !isLatestFolderSelection(selectionIntent)) {
+        candidate.selectedFolderId = previousFolderId;
+      }
+      return normalizeFolderNavigation(candidate);
     });
     if (!result.ok) {
       if (typeof options.onError === "function") {
@@ -2327,8 +2348,6 @@ async function commitStateChange(transform, options = {}) {
 
     if (pendingFolderSelection?.revision === observedSelectionRevision) {
       clearPendingFolderSelection();
-    } else if (pendingFolderSelection) {
-      pendingFolderSelection.baseId = result.state.selectedFolderId;
     }
     state = normalizeState({
       ...result.state,

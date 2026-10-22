@@ -366,7 +366,13 @@ test('delegates persistence to the isolated sync storage service', () => {
     /import\s*\{[^}]*\bcreateStorageService\b[^}]*\}\s*from\s*["']\.\/storage-service\.mjs["']\s*;/s,
   );
   assert.match(script, /const\s+storageService\s*=\s*createStorageService\s*\(/);
-  assert.doesNotMatch(script, /\blocalStorage\b/);
+  // Only a same-profile input-order token may use synchronous localStorage.
+  // User data and all collection persistence still belong to storageService.
+  const claimIntent = getCssBlock(script, /function\s+claimFolderSelectionIntent\s*\(\s*\)/);
+  const checkIntent = getCssBlock(script, /function\s+isLatestFolderSelection\s*\(\s*intent\s*\)/);
+  assert.match(claimIntent, /localStorage\.setItem\(FOLDER_SELECTION_INTENT_KEY, intent\)/);
+  assert.match(checkIntent, /localStorage\.getItem\(FOLDER_SELECTION_INTENT_KEY\)/);
+  assert.doesNotMatch(script.replace(claimIntent, "").replace(checkIntent, ""), /\blocalStorage\b/);
   assert.doesNotMatch(script, /\bchrome\.storage\b/);
   assert.doesNotMatch(script, /\b(?:chunk|generation|backupManifest|SyncManifest)\b/i);
   assert.match(
