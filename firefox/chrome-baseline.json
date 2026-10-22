@@ -1,13 +1,13 @@
 {
   "files": {
     "manifest.json": "49e07ce91c3f36e6f3f647d0c129ff3cab2058fca61bb5df62970f43d01cf8b3",
-    "backup-service.mjs": "1da0e9f9d499396e9f266e8ed7429f88ffe1ad2eef9371ca044e6769f6f8469d",
+    "backup-service.mjs": "91d739abd9981b41386e2311504aa5f944a8ce72ae08de6a54b825650e3c95ea",
     "favicon-service.mjs": "69f5215fb94e93505be864700031a9a257e19b6b02c8b60ac06581a09389bc66",
     "folder-gestures.mjs": "f4e3ec7717badd22ad66e7b162c7cb50d8047d7beb93661e720c4cbde8129fbb",
     "i18n-service.mjs": "029cd8c002da481c97863e5f8306318f6d3ad74d7f03d65b071d4100650cf82b",
     "newtab-core.mjs": "ec2af58cea772f06da371f852e554789c1a92de107a32b3dcf379f9ee1a6cdee",
     "newtab.html": "8e7da29de7aa746cf2e9b03181fa8fcc6caedb4a3f8e31921b3df33e0e08c2b1",
-    "newtab.js": "731b1c274387f15a49b16ab7ddebda85f7ae22352f81e4413328374ded2a0875",
+    "newtab.js": "754a28e3eabd5f35be3e070b006cfba999efbd2ac1600703bb28194942cbec13",
     "site-icon.mjs": "b86acc05e6e71532257a991a59ebc005210f188d7cccb6a6fdbb3b2a32cda23d",
     "storage-service.mjs": "61e793a8760349929a2e4ac95de8970ea823e154edb4ea1d6dd1c3fa86b6e6bc",
     "styles.css": "6081ce6e95a4ecd6a945028d10e8c5acb50dca5af690ddab0cffa923066844f2",

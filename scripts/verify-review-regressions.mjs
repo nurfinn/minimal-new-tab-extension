@@ -160,6 +160,33 @@ try {
         await p.locator('[data-save-folder-rename="work"]').click();
         await until(async () => (await f.current()).folders.find(x => x.id === "work").name === "Work draft");
       });
+      await check("backups", "export reads changes already saved by a different tab", async f => {
+        const oldPage = await f.page(), newPage = await f.page();
+        await newPage.locator("#addLinkButton").click();
+        await newPage.locator("#linkTitle").fill("Gamma");
+        await newPage.locator("#linkUrl").fill("https://example.net/gamma");
+        await newPage.locator("#linkSubmitButton").click();
+        await newPage.locator("#linkDialog").waitFor({ state: "hidden" });
+        await oldPage.locator("#settingsButton").click();
+        await oldPage.locator("#backupSettingsTab").click();
+        const waiting = oldPage.waitForEvent("download");
+        await oldPage.locator("#exportBackupButton").click();
+        const download = await waiting;
+        const contents = JSON.parse(await readFile(await download.path(), "utf8"));
+        assert.deepEqual(contents.data.links.map(s => s.title), ["Gamma", "Alpha", "Beta"]);
+      });
+      await check("backups", "a failed export read reports an error without downloading defaults", async f => {
+        const p = await f.page();
+        await p.locator("#settingsButton").click();
+        await p.locator("#backupSettingsTab").click();
+        const downloads = [];
+        p.on("download", download => downloads.push(download));
+        f.faults.read = true;
+        await p.locator("#exportBackupButton").click();
+        await p.locator("#importError").waitFor({ state: "visible" });
+        assert.equal(downloads.length, 0);
+        assert.equal(await p.locator("#exportBackupButton").isEnabled(), true);
+      });
     } finally { await browser.close(); }
   }
 } finally {

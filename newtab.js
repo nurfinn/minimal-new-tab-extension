@@ -2044,22 +2044,37 @@ function keepSettingsFocusInside(event) {
   target.focus({ preventScroll: true });
 }
 
-function exportBackup() {
-  try {
-    const contents = serializeBackup(state);
-    const blob = new Blob([contents], { type: "application/json;charset=utf-8" });
-    const objectUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = objectUrl;
-    anchor.download = getBackupFilename();
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-    showSettingsStatus(t("exportSuccess"));
-  } catch {
-    showImportError(t("exportError"));
-  }
+async function exportBackup() {
+  if (elements.exportBackupButton.disabled) return;
+  return trackUpdateOperation(async () => {
+    elements.exportBackupButton.disabled = true;
+    elements.exportBackupButton.setAttribute("aria-busy", "true");
+    try {
+      await persistFolderSelection();
+      // load shares the storage queue/lock with writes, including a save from a
+      // dialog that has since closed. Never export a stale tab's cached state.
+      const snapshot = await storageService.load(defaultState);
+      if (!snapshot.ok || (snapshot.source === "defaults" && !snapshot.writable)) {
+        throw new Error("Could not read a confirmed backup snapshot");
+      }
+      const contents = serializeBackup(snapshot.state);
+      const blob = new Blob([contents], { type: "application/json;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = getBackupFilename();
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      showSettingsStatus(t("exportSuccess"));
+    } catch {
+      showImportError(t("exportError"));
+    } finally {
+      elements.exportBackupButton.disabled = false;
+      elements.exportBackupButton.removeAttribute("aria-busy");
+    }
+  });
 }
 
 async function loadImportFile(event) {

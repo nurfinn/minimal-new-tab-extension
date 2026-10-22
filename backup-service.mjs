@@ -4,8 +4,6 @@ import { normalizeSiteEmoji } from './site-icon.mjs';
 export const BACKUP_FORMAT = 'minimal-new-tab-backup';
 export const BACKUP_VERSION = 2;
 export const MAX_BACKUP_BYTES = 1024 * 1024;
-export const MAX_BACKUP_SITES = 500;
-export const MAX_BACKUP_FOLDERS = 100;
 
 const ROOT_FOLDER_ID = 'root';
 const ID_PATTERN = /^[a-z\d][a-z\d._:-]{0,127}$/i;
@@ -38,7 +36,7 @@ export function serializeBackup(
     throw new TypeError('Invalid backup metadata');
   }
 
-  return JSON.stringify(
+  const contents = JSON.stringify(
     {
       format: BACKUP_FORMAT,
       backupVersion: BACKUP_VERSION,
@@ -49,6 +47,10 @@ export function serializeBackup(
     null,
     2,
   );
+  if (encoder.encode(contents).length > MAX_BACKUP_BYTES) {
+    throw new RangeError('Backup exceeds the file size limit');
+  }
+  return contents;
 }
 
 export function parseBackupText(text) {
@@ -122,9 +124,7 @@ function normalizeBackupData(value, { allowEmoji = true } = {}) {
     !hasExactKeys(value, ['selectedFolderId', 'folders', 'links']) ||
     !Array.isArray(value.folders) ||
     !Array.isArray(value.links) ||
-    value.folders.length === 0 ||
-    value.folders.length > MAX_BACKUP_FOLDERS ||
-    value.links.length > MAX_BACKUP_SITES
+    value.folders.length === 0
   ) {
     return null;
   }

@@ -835,7 +835,7 @@ test('stages portable imports and commits them before replacing application stat
   assert.doesNotMatch(backgroundSubmitBlock, /activeBackgroundMode|backgroundColor/);
 
   const exportBlock = getCssBlock(script, /function\s+exportBackup\s*\(\s*\)/);
-  assert.match(exportBlock, /serializeBackup\s*\(\s*state\s*\)/);
+  // Freshness and read failures are exercised by verify-review-regressions.mjs.
   assert.match(exportBlock, /new\s+Blob\s*\(/);
   assert.match(exportBlock, /getBackupFilename\s*\(/);
   assert.match(exportBlock, /URL\.revokeObjectURL\s*\(/);
