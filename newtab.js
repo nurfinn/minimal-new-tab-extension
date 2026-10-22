@@ -90,6 +90,7 @@ const defaultState = {
 
 let state = structuredClone(defaultState);
 let editingLinkId = null;
+let linkDialogSession = 0;
 let renamingFolderId = null;
 let savingFolderRenameId = null;
 let savingFolderVisibility = false;
@@ -335,6 +336,7 @@ function bindEvents() {
 
   elements.linkForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (elements.linkSubmitButton.disabled) return;
 
     const validation = validateSiteDraft({
       title: elements.linkTitle.value,
@@ -355,7 +357,10 @@ function bindEvents() {
     const enteredTitle = elements.linkTitle.value.trim();
     const url = validation.url;
     const folderId = elements.linkFolder.value || ROOT_FOLDER_ID;
-    const linkId = editingLinkId || createId();
+    const editingId = editingLinkId;
+    const linkId = editingId || createId();
+    const session = linkDialogSession;
+    const isCurrentEdit = () => session === linkDialogSession && elements.linkDialog.open;
     const emoji = normalizeSiteEmoji(pendingLinkEmoji);
 
     const defaultSubmitLabel = editingLinkId ? t("save") : t("add");
@@ -370,9 +375,9 @@ function bindEvents() {
           const resolvedFolderId = latestState.folders.some((folder) => folder.id === folderId)
             ? folderId
             : ROOT_FOLDER_ID;
-          const editingLinkIndex = latestState.links.findIndex((link) => link.id === editingLinkId);
+          const editingLinkIndex = latestState.links.findIndex((link) => link.id === editingId);
 
-          if (editingLinkId && editingLinkIndex === -1) {
+          if (editingId && editingLinkIndex === -1) {
             throw new Error("The site no longer exists");
           }
 
@@ -400,18 +405,24 @@ function bindEvents() {
             ? "all" : resolvedFolderId;
           return latestState;
         },
-        { onError: () => showFieldError(elements.linkFormError, t("storageSaveWarning")) }
+        { onError: () => {
+          if (isCurrentEdit()) showFieldError(elements.linkFormError, t("storageSaveWarning"));
+          else showAppStatus(t("storageSaveWarning"));
+        } }
       );
       if (!saved) return;
+      if (!isCurrentEdit()) return;
 
       clearFieldError(elements.linkFormError);
       editingLinkId = null;
       elements.linkForm.reset();
       elements.linkDialog.close();
     } finally {
-      elements.linkSubmitButton.disabled = false;
-      elements.linkSubmitButton.removeAttribute("aria-busy");
-      elements.linkSubmitButton.textContent = editingLinkId ? t("save") : t("add");
+      if (session === linkDialogSession) {
+        elements.linkSubmitButton.disabled = false;
+        elements.linkSubmitButton.removeAttribute("aria-busy");
+        elements.linkSubmitButton.textContent = editingLinkId ? t("save") : t("add");
+      }
     }
   });
 
@@ -946,6 +957,7 @@ function createFolderChip(id, name, count) {
 }
 
 function renderFolderOptions() {
+  const selectedFolderId = elements.linkFolder.value;
   const unfiledOption = document.createElement("option");
   unfiledOption.value = ROOT_FOLDER_ID;
   unfiledOption.textContent = t("noFolder");
@@ -957,7 +969,13 @@ function renderFolderOptions() {
     return option;
   });
 
-  elements.linkFolder.replaceChildren(unfiledOption, ...options);
+  const nextOptions = [unfiledOption, ...options];
+  const currentOptions = [...elements.linkFolder.options];
+  if (currentOptions.length === nextOptions.length && currentOptions.every((option, index) =>
+    option.value === nextOptions[index].value && option.textContent === nextOptions[index].textContent)) return;
+  elements.linkFolder.replaceChildren(...nextOptions);
+  elements.linkFolder.value = nextOptions.some(option => option.value === selectedFolderId)
+    ? selectedFolderId : ROOT_FOLDER_ID;
 }
 
 function setFolderRenameControlsDisabled(folderId, disabled) {
@@ -1073,6 +1091,16 @@ function renderFolderList() {
 
   const rows = folders.map((folder) => {
     const isEditing = renamingFolderId === folder.id;
+    // Keep the live input (including selection, composition and error state)
+    // when a background save refreshes the list beneath an open dialog.
+    const editingRow = isEditing && [...elements.folderList.children].find(row =>
+      row.dataset.folderId === folder.id && row.querySelector("[data-folder-rename-input]"));
+    if (editingRow) {
+      editingRow.querySelector(".folder-list-count").textContent = String(
+        state.links.filter(link => link.folderId === folder.id).length
+      );
+      return editingRow;
+    }
     const row = document.createElement("div");
     row.className = "folder-list-item";
     row.dataset.folderId = folder.id;
@@ -1156,7 +1184,14 @@ function renderFolderList() {
     return row;
   });
 
-  elements.folderList.replaceChildren(...rows);
+  for (const row of [...elements.folderList.children]) {
+    if (!rows.includes(row)) row.remove();
+  }
+  rows.forEach((row, index) => {
+    if (elements.folderList.children[index] !== row) {
+      elements.folderList.insertBefore(row, elements.folderList.children[index] || null);
+    }
+  });
 
   const focusRequest = folderRenameFocusRequest;
   folderRenameFocusRequest = null;
@@ -1837,6 +1872,9 @@ function updateLinkIconPreview() {
 }
 
 function openLinkDialog(link = null) {
+  linkDialogSession += 1;
+  elements.linkSubmitButton.disabled = false;
+  elements.linkSubmitButton.removeAttribute("aria-busy");
   renderFolderOptions();
 
   clearInputError(elements.linkTitle, elements.linkTitleError);

@@ -1214,10 +1214,8 @@ test('manages the inline folder rename lifecycle and focus', () => {
   assert.match(cancelRenameBlock, /requestFolderRenameFocus\s*\(\s*folderId\s*,\s*["']button["']\s*\)\s*;/);
   assert.match(cancelRenameBlock, /renderFolderList\s*\(\s*\)\s*;/);
 
-  assert.match(
-    renderFolderListBlock,
-    /elements\.folderList\.replaceChildren\s*\(\s*\.\.\.rows\s*\)\s*;[\s\S]*folderRenameFocusRequest\s*=\s*null\s*;/,
-  );
+  // Draft/focus preservation is exercised in verify-review-regressions.mjs;
+  // replacing every row here would discard the user's live input.
   assert.match(renderFolderListBlock, /\.dataset\.folderRenameInput\s*===\s*focusRequest\.folderId/);
   assert.match(renderFolderListBlock, /\.dataset\.renameFolder\s*===\s*focusRequest\.folderId/);
   assert.doesNotMatch(renderFolderListBlock, /CSS\.escape/);
