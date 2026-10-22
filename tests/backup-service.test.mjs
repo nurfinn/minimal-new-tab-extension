@@ -61,7 +61,7 @@ test('round-trips ordered sites and folders without background or storage intern
   assert.equal(document.format, BACKUP_FORMAT);
   assert.equal(document.backupVersion, BACKUP_VERSION);
   assert.equal(document.createdAt, fixedDate.toISOString());
-  assert.equal(document.appVersion, '1.7');
+  assert.equal(document.appVersion, '1.7.1');
   assert.deepEqual(Object.keys(document.data), ['selectedFolderId', 'folders', 'links']);
   assert.deepEqual(document.data.links.map(({ id }) => id), ['second', 'first']);
   assert.deepEqual(document.data.folders.map(({ id }) => id), ['root', 'work']);
@@ -175,29 +175,43 @@ test('normalizes scheme-less web URLs during import', () => {
   assert.equal(parsed.data.links[0].url, 'https://example.com/path');
 });
 
-test('enforces site and folder count limits', () => {
-  const tooManySites = parseMutated((document) => {
-    document.data.links = Array.from({ length: 501 }, (_, index) => ({
+test('round-trips a byte-bounded collection beyond the former 500-site cap', () => {
+  const state = makeState();
+  state.links = Array.from({ length: 501 }, (_, index) => ({
       id: `site-${index}`,
       title: `Site ${index}`,
       url: `https://example.com/${index}`,
       folderId: 'root',
-    }));
-  });
-  assert.deepEqual(tooManySites, { ok: false, error: 'invalid-backup-data' });
+  }));
+  const parsed = parseBackupText(serializeBackup(state));
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.data.links, state.links);
+});
 
-  const tooManyFolders = parseMutated((document) => {
-    document.data.folders = [
+test('round-trips 100 user folders plus the internal root folder', () => {
+  const state = makeState();
+  state.folders = [
       { id: 'root', name: 'Избранное' },
       ...Array.from({ length: 100 }, (_, index) => ({
         id: `folder-${index}`,
         name: `Folder ${index}`,
       })),
     ];
-    document.data.links = [];
-    document.data.selectedFolderId = 'all';
-  });
-  assert.deepEqual(tooManyFolders, { ok: false, error: 'invalid-backup-data' });
+  state.links = [];
+  state.selectedFolderId = 'all';
+  const parsed = parseBackupText(serializeBackup(state));
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.data.folders, state.folders);
+  assert.equal(parsed.preview.folderCount, 100);
+});
+
+test('never exports a file larger than the importer can accept', () => {
+  const state = makeState();
+  state.links = Array.from({ length: 300 }, (_, index) => ({
+    id: `site-${index}`, title: 'A'.repeat(500),
+    url: `https://example.com/${'a'.repeat(3500)}?id=${index}`, folderId: 'root'
+  }));
+  assert.throws(() => serializeBackup(state), /Backup exceeds the file size limit/);
 });
 
 test('uses a stable dated backup filename', () => {

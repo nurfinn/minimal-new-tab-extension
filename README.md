@@ -8,30 +8,27 @@ A calm, customizable new tab for Chrome and Firefox. Keep favorite sites in fold
 
 | Browser | Current version | Source |
 | --- | ---: | --- |
-| Chrome | 1.7 | Shared files in the repository root |
-| Firefox | 1.7 | Shared root files plus the isolated `firefox/` overlay |
+| Chrome | 1.7.1 | Shared files in the repository root |
+| Firefox | 1.7.1 | Shared root files plus the isolated `firefox/` overlay |
 
 Chrome and Firefox live in one repository because most product logic is shared. Browser-specific manifests, favicon providers, permissions, UI additions, and release assets remain isolated. Both store archives are produced from explicit allowlists and validated independently before release.
 
 Release tags and archives should include the platform:
 
-- `chrome-v1.7` → `minimal-new-tab-chrome-v1.7.zip`
-- `firefox-v1.7` → `minimal-new-tab-firefox-v1.7.zip`
+- `chrome-v1.7.1` → `minimal-new-tab-chrome-v1.7.1.zip`
+- `firefox-v1.7.1` → `minimal-new-tab-firefox-v1.7.1.zip`
 
-## What's new in 1.7
+## What's new in 1.7.1
 
-- Choose emoji instead of website icons from a built-in catalog with search, categories, and skin-tone variants.
-- Switch folders with horizontal trackpad swipes.
-- Hide the All view from the folder manager without deleting any sites.
-- Refined Settings and more consistent form controls, including clearer Firefox icon-permission status.
-- A softer app icon with the same familiar shape.
-- JSON backups now include your chosen emoji.
-- An update-ready notice lets you choose Update or Later when Chrome has downloaded an update. Firefox uses its own update handling.
-- Improved saving reliability and safer replacement of custom backgrounds.
+- More reliable site editing when several dialogs or tabs are used in succession.
+- Site and folder drafts stay intact during background saves.
+- JSON export includes the latest saved changes from other tabs and handles larger collections consistently.
+- Safer recovery after interrupted saves and clearer feedback when browser storage is full.
+- Folder selection and keyboard focus stay consistent across open tabs.
 
-Both browser editions use version **1.7**. Existing sites and settings are preserved, and permissions have not changed.
+Both browser editions use version **1.7.1**. Existing sites and settings are preserved, and permissions have not changed.
 
-[Release notes and verification details](docs/release-1.7.md).
+[Release notes and verification details](docs/release-1.7.1.md).
 Store materials: [English description](docs/store/chrome-description-en.txt),
 [Russian description](docs/store/chrome-description-ru.txt),
 [screenshots and promotional images](design/store/v1.7/README.md).
@@ -59,7 +56,7 @@ Firefox includes local icons for popular services, so they work without a networ
 
 Lightweight settings use the browser’s sync storage. Chrome Sync and Firefox Sync are separate systems and do not transfer extension data between browser families. Use Export in one browser and Import in another to move sites, folders, and their order.
 
-Version 1.7 exports backup format v2, which includes emoji. Versions 1.6 and earlier cannot import v2; update the receiving browser's extension first. Older v1 backups can still be imported.
+Versions 1.7 and 1.7.1 export backup format v2, which includes emoji. Versions 1.6 and earlier cannot import v2; update the receiving browser's extension first. Older v1 backups can still be imported.
 
 Custom background files stay in local browser storage on the current device. They are never placed in sync storage or JSON backups. If a local image is unavailable, the interface safely falls back to the bundled background.
 
@@ -110,7 +107,7 @@ The output directory and ZIP must be outside the source tree, and the archive na
 ```bash
 node scripts/build-chrome.mjs \
   --output-dir /absolute/path/minimal-new-tab-chrome \
-  --archive /absolute/path/minimal-new-tab-chrome-v1.7.zip
+  --archive /absolute/path/minimal-new-tab-chrome-v1.7.1.zip
 ```
 
 Load the generated directory unpacked in Chrome, or submit the root-level ZIP to the Chrome Web Store.
@@ -122,7 +119,7 @@ The output directory and ZIP must be outside the source tree, and the archive na
 ```bash
 node scripts/build-firefox.mjs \
   --output-dir /absolute/path/minimal-new-tab-firefox \
-  --archive /absolute/path/minimal-new-tab-firefox-v1.7.zip
+  --archive /absolute/path/minimal-new-tab-firefox-v1.7.1.zip
 ```
 
 Load the output directory temporarily from `about:debugging#/runtime/this-firefox`,
@@ -136,10 +133,10 @@ GitHub Actions runs the complete tests, builds both browser archives, verifies Z
 node --test tests/*.test.mjs
 node scripts/build-chrome.mjs \
   --output-dir /absolute/path/minimal-new-tab-chrome \
-  --archive /absolute/path/minimal-new-tab-chrome-v1.7.zip
+  --archive /absolute/path/minimal-new-tab-chrome-v1.7.1.zip
 node scripts/build-firefox.mjs \
   --output-dir /absolute/path/minimal-new-tab-firefox \
-  --archive /absolute/path/minimal-new-tab-firefox-v1.7.zip
+  --archive /absolute/path/minimal-new-tab-firefox-v1.7.1.zip
 npx web-ext lint --source-dir /absolute/path/minimal-new-tab-firefox
 ```
 

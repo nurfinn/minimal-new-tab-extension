@@ -14,6 +14,8 @@ const ID_PATTERN = /^[a-z\d][a-z\d._:-]{0,127}$/i;
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const IMAGE_DATA_URL_PATTERN = /^data:image\/[a-z\d.+-]+;base64,[a-z\d+/=\s]+$/i;
 const encoder = new TextEncoder();
+const EDIT_RESERVE_BYTES = 2048;
+class StorageCapacityError extends Error {}
 
 export const STORAGE_KEYS = Object.freeze({
   manifest: "minimalNewTabSyncManifest",
@@ -21,6 +23,7 @@ export const STORAGE_KEYS = Object.freeze({
   chunkPrefix: "minimalNewTabSyncChunk:",
   localBackground: "minimalNewTabLocalBackground",
   pendingBackground: "minimalNewTabLocalBackgroundPending",
+  pendingSyncWrites: "minimalNewTabPendingSyncWrites",
   legacyState: "minimalNewTabState"
 });
 
@@ -108,6 +111,9 @@ export function createStorageService({
   let pendingBootstrap = false;
   let retryInitialFeatures = false;
   const ownedFeatureChunks = new Set();
+  const ownedCoreChunks = new Set();
+  const pendingSyncChunks = new Set();
+  let pendingJournalReadable = !localArea;
   let localBackground = null;
   let saveQueue = Promise.resolve();
 
@@ -186,13 +192,14 @@ export function createStorageService({
       }
 
       lastStored = stored;
+      await restorePendingChunks();
       writable = true;
       pendingBootstrap = false;
       let layer = readFeatureLayer(stored);
       const featureKeys = Object.keys(stored).filter(key => key.startsWith("minimalNewTabFeature"));
-      // Only an operation this service actually attempted can retry orphan staging.
-      // Unknown chunks in a fresh service remain read-only rather than being guessed away.
-      if (retryInitialFeatures && layer.status === "invalid" &&
+      // Only staging proved to belong to this installation can be retried.
+      // The local journal carries that proof across restarts; foreign chunks do not.
+      if ((retryInitialFeatures || pendingSyncChunks.size) && layer.status === "invalid" &&
         !Object.hasOwn(stored, FEATURE_KEYS.manifest) && !Object.hasOwn(stored, FEATURE_KEYS.backupManifest) &&
         featureKeys.every(key => ownedFeatureChunks.has(key))) {
         layer = { status: "absent", payload: null, descriptor: null };
@@ -205,6 +212,11 @@ export function createStorageService({
       }
       const primaryManifest = normalizeManifest(stored[STORAGE_KEYS.manifest]);
       const backupManifest = normalizeManifest(stored[STORAGE_KEYS.backupManifest]);
+      for (const manifest of [primaryManifest, backupManifest]) {
+        for (const descriptor of [manifest?.active, manifest?.previous]) {
+          if (readGeneration(stored, descriptor)) descriptor.chunkKeys.forEach(key => ownedCoreChunks.add(key));
+        }
+      }
       const candidates = [
         { descriptor: primaryManifest?.active, source: "sync" },
         { descriptor: primaryManifest?.previous, source: "recovered" },
@@ -270,6 +282,12 @@ export function createStorageService({
       if (layer.status !== "absent") {
         writable = false;
         return { ok: true, writable: false, source: "defaults", state: safeDefaults };
+      }
+      if (Object.hasOwn(stored, STORAGE_KEYS.manifest) || Object.hasOwn(stored, STORAGE_KEYS.backupManifest)) {
+        // Existing metadata without any readable generation is not a fresh
+        // installation. Keep it intact and never present defaults as a backup.
+        writable = false;
+        return { ok: false, writable: false, source: "defaults", error: "invalid-data", state: safeDefaults };
       }
       const migration = await migrateLegacyState(safeDefaults, allowWrites);
       if (migration) return migration;
@@ -353,7 +371,15 @@ export function createStorageService({
       if (Object.keys(backups).length) stages.push(backups);
       const heads = { [STORAGE_KEYS.manifest]: manifest, ...(feature ? { [FEATURE_KEYS.manifest]: feature.manifest } : {}) };
       stages.push(heads);
+      checkEditCapacity(descriptor, Object.assign({}, ...stages.slice(0, chunks.length)), featurePayload, featureDescriptor, feature);
+      await cleanupOwnedChunks();
+      try { checkWriteBudget(stages); }
+      catch (error) {
+        if (!(error instanceof StorageCapacityError)) throw error;
+        await compactRecoveryHeads();
+      }
       checkWriteBudget(stages);
+      await rememberPendingChunks([...chunkKeys, ...(feature?.descriptor.chunkKeys ?? [])]);
       await stageBackground(preparedBackground);
       if (feature) feature.descriptor.chunkKeys.forEach(key => ownedFeatureChunks.add(key));
       for (const items of stages) await syncArea.set(items);
@@ -373,15 +399,15 @@ export function createStorageService({
       retryInitialFeatures = false;
       localBackground = preparedBackground.localBackground;
       await finalizeBackground(preparedBackground);
-      await cleanupUnreferencedChunks(syncArea, manifest, backupManifest, logger);
-      await cleanupFeatureChunks();
+      try { await cleanupOwnedChunks(); }
+      catch (error) { warn(logger, "Не удалось очистить прежние поколения настроек.", error); }
       return { ok: true, changed: true };
     } catch (error) {
       // Rejection can follow partial application. Do not roll back or remove prepared generations.
       if (initialFeaturePublication) retryInitialFeatures = true;
       try { lastStored = await syncArea.get(null); } catch { writable = false; }
       warn(logger, "Не удалось сохранить синхронизированные настройки.", error);
-      return { ok: false, changed: false, error: "write-failed" };
+      return { ok: false, changed: false, error: error instanceof StorageCapacityError ? "capacity-exceeded" : "write-failed" };
     }
   }
 
@@ -390,7 +416,7 @@ export function createStorageService({
     for (const items of stages) {
       const usage = estimateSyncUsage(simulated, items);
       if (usage.totalBytes > 102400 || usage.maxItemBytes > 8192 || usage.itemCount > 512) {
-        throw new RangeError("Sync storage quota exceeded");
+        throw new StorageCapacityError("Sync storage quota exceeded");
       }
       simulated = { ...simulated, ...items };
     }
@@ -400,6 +426,7 @@ export function createStorageService({
     const feature = prepareFeatureGeneration(lastFeaturePayload, { generationId: createGenerationId(), createdAt: Date.now() });
     const stages = [feature.chunks, { [FEATURE_KEYS.manifest]: feature.manifest }];
     checkWriteBudget(stages);
+    await rememberPendingChunks(feature.descriptor.chunkKeys);
     feature.descriptor.chunkKeys.forEach(key => ownedFeatureChunks.add(key));
     for (const items of stages) await syncArea.set(items);
     const stored = await syncArea.get(null);
@@ -407,6 +434,122 @@ export function createStorageService({
     if (stored[FEATURE_KEYS.manifest]?.active?.generationId !== feature.descriptor.generationId ||
       !read.payload || canonicalFeatureJson(read.payload) !== feature.json) throw new Error("Feature bootstrap readback failed");
     await cleanupFeatureChunks();
+  }
+
+  async function restorePendingChunks() {
+    if (!localArea) return;
+    pendingJournalReadable = false;
+    try {
+      const journal = (await localArea.get(STORAGE_KEYS.pendingSyncWrites))[STORAGE_KEYS.pendingSyncWrites];
+      pendingJournalReadable = journal === undefined || validPendingJournal(journal);
+      if (!validPendingJournal(journal)) return;
+      for (const key of journal.chunkKeys) {
+        pendingSyncChunks.add(key);
+        (key.startsWith(STORAGE_KEYS.chunkPrefix) ? ownedCoreChunks : ownedFeatureChunks).add(key);
+      }
+    } catch (error) { warn(logger, "Не удалось прочитать журнал незавершённой записи.", error); }
+  }
+
+  async function rememberPendingChunks(keys) {
+    for (const key of keys) {
+      pendingSyncChunks.add(key);
+      (key.startsWith(STORAGE_KEYS.chunkPrefix) ? ownedCoreChunks : ownedFeatureChunks).add(key);
+    }
+    await writePendingJournal();
+  }
+
+  async function writePendingJournal() {
+    if (!localArea) return;
+    if (!pendingJournalReadable) throw new Error("Recovery journal could not be read safely");
+    const existing = (await localArea.get(STORAGE_KEYS.pendingSyncWrites))[STORAGE_KEYS.pendingSyncWrites];
+    if (existing !== undefined && !validPendingJournal(existing)) throw new Error("Unknown pending sync journal");
+    if (pendingSyncChunks.size) {
+      await localArea.set({ [STORAGE_KEYS.pendingSyncWrites]: { version: 1, chunkKeys: [...pendingSyncChunks] } });
+    } else {
+      await localArea.remove(STORAGE_KEYS.pendingSyncWrites);
+    }
+  }
+
+  async function cleanupOwnedChunks() {
+    const stored = await syncArea.get(null);
+    assertSameHeads(lastStored, stored);
+    lastStored = stored;
+    const references = chunkReferences(stored);
+    if (!references) return;
+    const stale = [...ownedCoreChunks, ...ownedFeatureChunks].filter(key =>
+      Object.hasOwn(stored, key) && !references.direct.has(key) &&
+      !references.featurePrefixes.some(prefix => key.startsWith(prefix)));
+    if (stale.length) await syncArea.remove(stale);
+    for (const key of stale) delete lastStored[key];
+    for (const owned of [ownedCoreChunks, ownedFeatureChunks]) {
+      for (const key of owned) if (!Object.hasOwn(lastStored, key)) owned.delete(key);
+    }
+    // Referenced chunks are discoverable on the next load. Keep journal entries
+    // only for staging that could not yet be retired (including partial heads).
+    for (const key of pendingSyncChunks) {
+      if (!Object.hasOwn(lastStored, key) || references.direct.has(key)) pendingSyncChunks.delete(key);
+    }
+    if (localArea && (await localArea.get(STORAGE_KEYS.pendingSyncWrites))[STORAGE_KEYS.pendingSyncWrites]) {
+      try { await writePendingJournal(); }
+      catch (error) { warn(logger, "Не удалось очистить журнал завершённой записи.", error); }
+    }
+  }
+
+  function checkEditCapacity(descriptor, coreChunks, featurePayload, featureDescriptor, feature) {
+    // Admission reserves two complete snapshots plus small-edit headroom. A
+    // collection that merely fits once must not strand its owner afterwards.
+    const simulated = { ...lastStored };
+    for (const key of [...ownedCoreChunks, ...ownedFeatureChunks, ...SYNC_HEAD_KEYS]) delete simulated[key];
+    const reserveId = `${descriptor.generationId}-reserve`;
+    const reserveKeys = descriptor.chunkKeys.map((_, index) => `${STORAGE_KEYS.chunkPrefix}${reserveId}:${index}`);
+    const reserveCore = { ...descriptor, generationId: reserveId, chunkKeys: reserveKeys };
+    const currentFeatures = feature?.chunks ?? Object.fromEntries(featureDescriptor.chunkKeys.map(key => [key, lastStored[key]]));
+    const reserveFeatures = prepareFeatureGeneration(featurePayload, {
+      generationId: `${featureDescriptor.generationId}-reserve`, createdAt: Date.now(), previousDescriptor: featureDescriptor
+    });
+    Object.assign(simulated, coreChunks, currentFeatures, reserveFeatures.chunks,
+      Object.fromEntries(descriptor.chunkKeys.map((key, index) => [reserveKeys[index], coreChunks[key]])), {
+        [STORAGE_KEYS.manifest]: { storageVersion: 1, active: reserveCore, previous: descriptor },
+        [STORAGE_KEYS.backupManifest]: { storageVersion: 1, active: descriptor, previous: null },
+        [FEATURE_KEYS.manifest]: reserveFeatures.manifest,
+        [FEATURE_KEYS.backupManifest]: reserveFeatures.backupManifest
+      });
+    const usage = estimateSyncUsage(simulated, {});
+    if (usage.totalBytes + EDIT_RESERVE_BYTES > 102400 || usage.maxItemBytes > 8192 || usage.itemCount > 512) {
+      throw new StorageCapacityError("Not enough sync space for subsequent edits");
+    }
+  }
+
+  async function compactRecoveryHeads() {
+    const stored = await syncArea.get(null);
+    assertSameHeads(lastStored, stored);
+    const current = lastValidManifest?.active;
+    const read = readGeneration(stored, current);
+    const features = lastFeatureDescriptor ? readFeatureGeneration(stored, lastFeatureDescriptor) : null;
+    const safeFeatures = lastFeatureDescriptor ? Boolean(features) : readFeatureLayer(stored).status === "absent";
+    if (!read || !safeFeatures || !chunkReferences(stored)) throw new StorageCapacityError("Cannot safely compact recovery data");
+    const coreHead = { storageVersion: 1, active: current, previous: null };
+    const featureHead = lastFeatureDescriptor ? { featureVersion: 1, active: lastFeatureDescriptor, previous: null } : null;
+    const backups = { [STORAGE_KEYS.backupManifest]: coreHead,
+      ...(featureHead ? { [FEATURE_KEYS.backupManifest]: featureHead } : {}) };
+    const heads = { [STORAGE_KEYS.manifest]: coreHead,
+      ...(featureHead ? { [FEATURE_KEYS.manifest]: featureHead } : {}) };
+    // Both references point to already-verified data, never to staging. On any
+    // partial rejection, stop before removal; at least the current copy remains.
+    // Remember retiring generations before removing their references so a
+    // restarted service can finish cleanup after a readback/remove failure.
+    await rememberPendingChunks([...ownedCoreChunks, ...ownedFeatureChunks].filter(key => Object.hasOwn(stored, key)));
+    await syncArea.set(backups);
+    await syncArea.set(heads);
+    const verified = await syncArea.get(null);
+    for (const [key, value] of Object.entries({ ...backups, ...heads })) {
+      if (JSON.stringify(verified[key]) !== JSON.stringify(value)) throw new Error("Recovery compaction readback failed");
+    }
+    if (readGeneration(verified, current)?.json !== read.json ||
+      (features ? readFeatureGeneration(verified, lastFeatureDescriptor)?.json !== features.json
+        : readFeatureLayer(verified).status !== "absent")) throw new Error("Compaction changed active data");
+    lastStored = verified;
+    await cleanupOwnedChunks();
   }
 
   async function cleanupFeatureChunks() {
@@ -914,23 +1057,50 @@ function splitUtf8(value, maxBytes) {
   return chunks;
 }
 
-async function cleanupUnreferencedChunks(syncArea, primaryManifest, backupManifest, logger) {
-  const referencedKeys = new Set();
-  for (const manifest of [primaryManifest, backupManifest]) {
-    for (const descriptor of [manifest?.active, manifest?.previous]) {
-      for (const key of descriptor?.chunkKeys || []) referencedKeys.add(key);
+const SYNC_HEAD_KEYS = [STORAGE_KEYS.manifest, STORAGE_KEYS.backupManifest, FEATURE_KEYS.manifest, FEATURE_KEYS.backupManifest];
+
+function assertSameHeads(before, after) {
+  if (SYNC_HEAD_KEYS.some(key => JSON.stringify(before[key]) !== JSON.stringify(after[key]))) {
+    throw new Error("Stored generations changed while preparing a write");
+  }
+}
+
+function isOwnedChunkKey(key) {
+  return typeof key === "string" && /^minimalNewTab(?:Sync|Feature)Chunk:[a-z\d._:-]{1,200}:\d+$/i.test(key);
+}
+
+function validPendingJournal(value) {
+  return isRecord(value) && value.version === 1 && Array.isArray(value.chunkKeys) &&
+    value.chunkKeys.length <= 1024 && value.chunkKeys.every(isOwnedChunkKey);
+}
+
+function chunkReferences(stored) {
+  const direct = new Set(), featurePrefixes = new Set();
+  for (const key of [STORAGE_KEYS.manifest, STORAGE_KEYS.backupManifest]) {
+    if (!Object.hasOwn(stored, key)) continue;
+    const manifest = normalizeManifest(stored[key]);
+    if (!manifest) return null;
+    for (const descriptor of [manifest.active, manifest.previous]) {
+      if (!descriptor) continue;
+      const read = readGeneration(stored, descriptor);
+      if (!read) return null;
+      descriptor.chunkKeys.forEach(key => direct.add(key));
+      if (read.payload.featureState?.generationId) {
+        featurePrefixes.add(`${FEATURE_KEYS.chunkPrefix}${read.payload.featureState.generationId}:`);
+      }
     }
   }
-
-  try {
-    const stored = await syncArea.get(null);
-    const staleKeys = Object.keys(stored).filter(
-      (key) => key.startsWith(STORAGE_KEYS.chunkPrefix) && !referencedKeys.has(key)
-    );
-    if (staleKeys.length > 0) await syncArea.remove(staleKeys);
-  } catch (error) {
-    warn(logger, "Не удалось очистить старые поколения настроек.", error);
+  for (const key of [FEATURE_KEYS.manifest, FEATURE_KEYS.backupManifest]) {
+    if (!Object.hasOwn(stored, key)) continue;
+    const manifest = stored[key];
+    if (manifest?.featureVersion !== 1 || !manifest.active) return null;
+    for (const descriptor of [manifest.active, manifest.previous]) {
+      if (!descriptor) continue;
+      if (!readFeatureGeneration(stored, descriptor)) return null;
+      descriptor.chunkKeys.forEach(key => direct.add(key));
+    }
   }
+  return { direct, featurePrefixes: [...featurePrefixes] };
 }
 
 function hasExactOrder(order, ids) {

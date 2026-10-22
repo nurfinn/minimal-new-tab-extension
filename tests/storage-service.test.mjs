@@ -313,7 +313,7 @@ test("a failed visibility save retains the last valid snapshot and local backgro
   const loaded = await createStorageService({ syncArea, localArea, logger: null }).load(state);
   assert.equal(loaded.state.showAllFolder, true);
   assert.deepEqual(loaded.state.links, state.links);
-  assert.deepEqual(localArea.data, {});
+  assert.deepEqual(Object.keys(localArea.data).filter(key => key !== STORAGE_KEYS.pendingSyncWrites), []);
 });
 
 test("prefers the Promise-based Firefox browser storage namespace", async () => {

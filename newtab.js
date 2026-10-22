@@ -90,6 +90,7 @@ const defaultState = {
 
 let state = structuredClone(defaultState);
 let editingLinkId = null;
+let linkDialogSession = 0;
 let renamingFolderId = null;
 let savingFolderRenameId = null;
 let savingFolderVisibility = false;
@@ -120,6 +121,7 @@ let pendingFolderSelection = null;
 let folderSelectionSaveTimer = null;
 let folderSelectionSaveInFlight = null;
 let folderSelectionRevision = 0;
+const FOLDER_SELECTION_INTENT_KEY = "minimalNewTabFolderSelectionIntent";
 let pendingLinkEmoji = "";
 let linkIconPreviewTimer = null;
 let linkIconPreviewEpoch = 0;
@@ -270,7 +272,7 @@ function bindEvents() {
       await commitStateChange((latestState) => {
         latestState.showAllFolder = showAllFolder;
         return latestState;
-      }, { onError: () => showFieldError(elements.folderFormError, t("storageSaveWarning")) });
+      }, { onError: result => showFieldError(elements.folderFormError, getStorageSaveWarning(result)) });
     } finally {
       savingFolderVisibility = false;
       elements.showAllFolder.removeAttribute("aria-busy");
@@ -335,6 +337,7 @@ function bindEvents() {
 
   elements.linkForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (elements.linkSubmitButton.disabled) return;
 
     const validation = validateSiteDraft({
       title: elements.linkTitle.value,
@@ -355,7 +358,10 @@ function bindEvents() {
     const enteredTitle = elements.linkTitle.value.trim();
     const url = validation.url;
     const folderId = elements.linkFolder.value || ROOT_FOLDER_ID;
-    const linkId = editingLinkId || createId();
+    const editingId = editingLinkId;
+    const linkId = editingId || createId();
+    const session = linkDialogSession;
+    const isCurrentEdit = () => session === linkDialogSession && elements.linkDialog.open;
     const emoji = normalizeSiteEmoji(pendingLinkEmoji);
 
     const defaultSubmitLabel = editingLinkId ? t("save") : t("add");
@@ -370,9 +376,9 @@ function bindEvents() {
           const resolvedFolderId = latestState.folders.some((folder) => folder.id === folderId)
             ? folderId
             : ROOT_FOLDER_ID;
-          const editingLinkIndex = latestState.links.findIndex((link) => link.id === editingLinkId);
+          const editingLinkIndex = latestState.links.findIndex((link) => link.id === editingId);
 
-          if (editingLinkId && editingLinkIndex === -1) {
+          if (editingId && editingLinkIndex === -1) {
             throw new Error("The site no longer exists");
           }
 
@@ -400,18 +406,24 @@ function bindEvents() {
             ? "all" : resolvedFolderId;
           return latestState;
         },
-        { onError: () => showFieldError(elements.linkFormError, t("storageSaveWarning")) }
+        { selectsFolder: true, onError: result => {
+          if (isCurrentEdit()) showFieldError(elements.linkFormError, getStorageSaveWarning(result));
+          else showAppStatus(getStorageSaveWarning(result));
+        } }
       );
       if (!saved) return;
+      if (!isCurrentEdit()) return;
 
       clearFieldError(elements.linkFormError);
       editingLinkId = null;
       elements.linkForm.reset();
       elements.linkDialog.close();
     } finally {
-      elements.linkSubmitButton.disabled = false;
-      elements.linkSubmitButton.removeAttribute("aria-busy");
-      elements.linkSubmitButton.textContent = editingLinkId ? t("save") : t("add");
+      if (session === linkDialogSession) {
+        elements.linkSubmitButton.disabled = false;
+        elements.linkSubmitButton.removeAttribute("aria-busy");
+        elements.linkSubmitButton.textContent = editingLinkId ? t("save") : t("add");
+      }
     }
   });
 
@@ -440,7 +452,7 @@ function bindEvents() {
         latestState.selectedFolderId = folder.id;
         return latestState;
       },
-      { onError: () => showFieldError(elements.folderFormError, t("storageSaveWarning")) }
+      { selectsFolder: true, onError: result => showFieldError(elements.folderFormError, getStorageSaveWarning(result)) }
     );
     if (!saved) return;
 
@@ -486,7 +498,7 @@ function bindEvents() {
           latestState.shortcutsEnabled = shortcutsEnabled;
           return latestState;
         },
-        { onError: () => showBackgroundImageError("save-failed") }
+        { onError: result => showBackgroundImageError(result.error === "capacity-exceeded" ? result.error : "save-failed") }
       );
       if (!saved) return;
       clearBackgroundImageError();
@@ -762,7 +774,8 @@ function renderFolders() {
 }
 
 function refreshFolderScroll(options = {}) {
-  if (options.focusFolderId) {
+  // Do not steal focus if the user reached another control before this frame.
+  if (options.focusFolderId && document.activeElement === options.focusOrigin) {
     const focusTarget = [...elements.folderRowTrack.querySelectorAll("[data-folder]")].find(
       (button) => button.dataset.folder === options.focusFolderId
     );
@@ -797,7 +810,8 @@ function refreshFolderScroll(options = {}) {
 function scheduleFolderScrollRefresh(options = {}) {
   pendingFolderScrollOptions = {
     animate: Boolean(pendingFolderScrollOptions.animate || options.animate),
-    focusFolderId: options.focusFolderId ?? pendingFolderScrollOptions.focusFolderId ?? null
+    focusFolderId: options.focusFolderId ?? pendingFolderScrollOptions.focusFolderId ?? null,
+    focusOrigin: options.focusFolderId ? document.activeElement : pendingFolderScrollOptions.focusOrigin
   };
 
   if (folderScrollFrame !== null) return;
@@ -845,15 +859,29 @@ function handleContentWheel(event) {
 
 function selectFolder(folderId, { saveImmediately = false } = {}) {
   if (updateInputLocked) return;
-  if (folderId === state.selectedFolderId) return;
+  if (folderId === state.selectedFolderId && !saveImmediately) return;
 
-  const baseId = pendingFolderSelection?.baseId ?? state.selectedFolderId;
   state.selectedFolderId = folderId;
-  pendingFolderSelection = { baseId, folderId, revision: ++folderSelectionRevision };
+  pendingFolderSelection = { intent: claimFolderSelectionIntent(), folderId, revision: ++folderSelectionRevision };
   renderFolders();
   renderLinks();
   elements.content.scrollTop = 0;
   scheduleFolderSelectionSave(saveImmediately ? 0 : FOLDER_SELECTION_SAVE_DELAY_MS);
+}
+
+function claimFolderSelectionIntent() {
+  // This is same-profile coordination, not user data. A synchronous token
+  // orders actual input across tabs without clocks, network writes or waiting
+  // for the debounced save. An old tab's cached folder is not an input order.
+  const intent = createId();
+  try { localStorage.setItem(FOLDER_SELECTION_INTENT_KEY, intent); return intent; }
+  catch { return null; } // Storage restrictions must not disable navigation.
+}
+
+function isLatestFolderSelection(intent) {
+  if (!intent) return true;
+  try { return localStorage.getItem(FOLDER_SELECTION_INTENT_KEY) === intent; }
+  catch { return true; }
 }
 
 function scheduleFolderSelectionSave(delay = FOLDER_SELECTION_SAVE_DELAY_MS) {
@@ -886,8 +914,7 @@ async function persistFolderSelection() {
 async function persistFolderSelectionSnapshot(pending) {
   const result = await storageService.update(defaultState, (latestState) => {
     latestState = normalizeFolderNavigation(latestState);
-    // A different tab may have selected a folder since this gesture began.
-    if (latestState.selectedFolderId !== pending.baseId) return latestState;
+    if (!isLatestFolderSelection(pending.intent)) return latestState;
     const folderExists = getVisibleFolderIds(latestState).includes(pending.folderId);
     if (folderExists) latestState.selectedFolderId = pending.folderId;
     return latestState;
@@ -895,7 +922,7 @@ async function persistFolderSelectionSnapshot(pending) {
 
   if (!result.ok) {
     if (pendingFolderSelection?.revision === pending.revision) {
-      showAppStatus(t("storageSaveWarning"));
+      showAppStatus(getStorageSaveWarning(result));
       scheduleFolderSelectionSave(FOLDER_SELECTION_RETRY_DELAY_MS);
     }
     return pending.revision;
@@ -903,8 +930,7 @@ async function persistFolderSelectionSnapshot(pending) {
 
   if (pendingFolderSelection?.revision !== pending.revision) {
     // A newer gesture happened while this write was in progress. It will be
-    // saved separately, using the selection that was actually committed.
-    if (pendingFolderSelection) pendingFolderSelection.baseId = result.state.selectedFolderId;
+    // saved separately. Do not replace that newer local choice with this result.
     return pending.revision;
   }
 
@@ -946,6 +972,7 @@ function createFolderChip(id, name, count) {
 }
 
 function renderFolderOptions() {
+  const selectedFolderId = elements.linkFolder.value;
   const unfiledOption = document.createElement("option");
   unfiledOption.value = ROOT_FOLDER_ID;
   unfiledOption.textContent = t("noFolder");
@@ -957,7 +984,13 @@ function renderFolderOptions() {
     return option;
   });
 
-  elements.linkFolder.replaceChildren(unfiledOption, ...options);
+  const nextOptions = [unfiledOption, ...options];
+  const currentOptions = [...elements.linkFolder.options];
+  if (currentOptions.length === nextOptions.length && currentOptions.every((option, index) =>
+    option.value === nextOptions[index].value && option.textContent === nextOptions[index].textContent)) return;
+  elements.linkFolder.replaceChildren(...nextOptions);
+  elements.linkFolder.value = nextOptions.some(option => option.value === selectedFolderId)
+    ? selectedFolderId : ROOT_FOLDER_ID;
 }
 
 function setFolderRenameControlsDisabled(folderId, disabled) {
@@ -1034,7 +1067,7 @@ async function saveFolderRename(folderId, value) {
         latestState.folders = latestResult.folders;
         return latestState;
       },
-      { onError: () => showFieldError(elements.folderFormError, t("storageSaveWarning")) }
+      { onError: result => showFieldError(elements.folderFormError, getStorageSaveWarning(result)) }
     );
     if (!saved) {
       renamingFolderId = folderId;
@@ -1073,6 +1106,16 @@ function renderFolderList() {
 
   const rows = folders.map((folder) => {
     const isEditing = renamingFolderId === folder.id;
+    // Keep the live input (including selection, composition and error state)
+    // when a background save refreshes the list beneath an open dialog.
+    const editingRow = isEditing && [...elements.folderList.children].find(row =>
+      row.dataset.folderId === folder.id && row.querySelector("[data-folder-rename-input]"));
+    if (editingRow) {
+      editingRow.querySelector(".folder-list-count").textContent = String(
+        state.links.filter(link => link.folderId === folder.id).length
+      );
+      return editingRow;
+    }
     const row = document.createElement("div");
     row.className = "folder-list-item";
     row.dataset.folderId = folder.id;
@@ -1156,7 +1199,14 @@ function renderFolderList() {
     return row;
   });
 
-  elements.folderList.replaceChildren(...rows);
+  for (const row of [...elements.folderList.children]) {
+    if (!rows.includes(row)) row.remove();
+  }
+  rows.forEach((row, index) => {
+    if (elements.folderList.children[index] !== row) {
+      elements.folderList.insertBefore(row, elements.folderList.children[index] || null);
+    }
+  });
 
   const focusRequest = folderRenameFocusRequest;
   folderRenameFocusRequest = null;
@@ -1837,6 +1887,9 @@ function updateLinkIconPreview() {
 }
 
 function openLinkDialog(link = null) {
+  linkDialogSession += 1;
+  elements.linkSubmitButton.disabled = false;
+  elements.linkSubmitButton.removeAttribute("aria-busy");
   renderFolderOptions();
 
   clearInputError(elements.linkTitle, elements.linkTitleError);
@@ -2006,22 +2059,37 @@ function keepSettingsFocusInside(event) {
   target.focus({ preventScroll: true });
 }
 
-function exportBackup() {
-  try {
-    const contents = serializeBackup(state);
-    const blob = new Blob([contents], { type: "application/json;charset=utf-8" });
-    const objectUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = objectUrl;
-    anchor.download = getBackupFilename();
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-    showSettingsStatus(t("exportSuccess"));
-  } catch {
-    showImportError(t("exportError"));
-  }
+async function exportBackup() {
+  if (elements.exportBackupButton.disabled) return;
+  return trackUpdateOperation(async () => {
+    elements.exportBackupButton.disabled = true;
+    elements.exportBackupButton.setAttribute("aria-busy", "true");
+    try {
+      await persistFolderSelection();
+      // load shares the storage queue/lock with writes, including a save from a
+      // dialog that has since closed. Never export a stale tab's cached state.
+      const snapshot = await storageService.load(defaultState);
+      if (!snapshot.ok || (snapshot.source === "defaults" && !snapshot.writable)) {
+        throw new Error("Could not read a confirmed backup snapshot");
+      }
+      const contents = serializeBackup(snapshot.state);
+      const blob = new Blob([contents], { type: "application/json;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = getBackupFilename();
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      showSettingsStatus(t("exportSuccess"));
+    } catch {
+      showImportError(t("exportError"));
+    } finally {
+      elements.exportBackupButton.disabled = false;
+      elements.exportBackupButton.removeAttribute("aria-busy");
+    }
+  });
 }
 
 async function loadImportFile(event) {
@@ -2079,7 +2147,7 @@ async function confirmImport() {
         shortcutsEnabled: latestState.shortcutsEnabled,
         showAllFolder: latestState.showAllFolder
       }),
-    { onError: () => showImportError(t("importSaveError")) }
+    { selectsFolder: true, onError: result => showImportError(getStorageSaveWarning(result, "importSaveError")) }
   );
   elements.confirmImportButton.disabled = false;
 
@@ -2137,7 +2205,8 @@ function showBackgroundImageError(error) {
     "file-too-large": "backgroundTooLarge",
     "dimensions-too-large": "backgroundDimensionsTooLarge",
     "decode-failed": "backgroundDecodeFailed",
-    "save-failed": "backgroundSaveFailed"
+    "save-failed": "backgroundSaveFailed",
+    "capacity-exceeded": "storageCapacityWarning"
   };
   elements.backgroundImageError.textContent = t(
     messageKeys[error] || "backgroundDecodeFailed"
@@ -2251,30 +2320,34 @@ function resolveDeleteConfirmation(confirmed) {
 
 async function commitStateChange(transform, options = {}) {
   return trackUpdateOperation(async () => {
+    const selectionIntent = options.selectsFolder ? claimFolderSelectionIntent() : null;
     let observedSelectionRevision = null;
     const result = await storageService.update(defaultState, async (latestState) => {
       latestState = normalizeFolderNavigation(latestState);
       const pending = pendingFolderSelection;
       observedSelectionRevision = pending?.revision ?? null;
-      if (pending && latestState.selectedFolderId === pending.baseId) {
+      if (pending && isLatestFolderSelection(pending.intent) && getVisibleFolderIds(latestState).includes(pending.folderId)) {
         latestState.selectedFolderId = pending.folderId;
       }
+      const previousFolderId = latestState.selectedFolderId;
       const transformed = await transform(latestState);
-      return normalizeFolderNavigation(transformed === undefined ? latestState : transformed);
+      const candidate = transformed === undefined ? latestState : transformed;
+      if (options.selectsFolder && !isLatestFolderSelection(selectionIntent)) {
+        candidate.selectedFolderId = previousFolderId;
+      }
+      return normalizeFolderNavigation(candidate);
     });
     if (!result.ok) {
       if (typeof options.onError === "function") {
         options.onError(result);
       } else {
-        showAppStatus(t("storageSaveWarning"));
+        showAppStatus(getStorageSaveWarning(result));
       }
       return false;
     }
 
     if (pendingFolderSelection?.revision === observedSelectionRevision) {
       clearPendingFolderSelection();
-    } else if (pendingFolderSelection) {
-      pendingFolderSelection.baseId = result.state.selectedFolderId;
     }
     state = normalizeState({
       ...result.state,
@@ -2284,6 +2357,10 @@ async function commitStateChange(transform, options = {}) {
     clearAppStatus();
     return true;
   });
+}
+
+function getStorageSaveWarning(result, fallback = "storageSaveWarning") {
+  return t(result?.error === "capacity-exceeded" ? "storageCapacityWarning" : fallback);
 }
 
 function showAppStatus(message) {

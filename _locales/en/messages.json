@@ -178,6 +178,7 @@
   "invalidBackupJson": { "message": "The selected file is not a valid settings JSON file." },
   "storageReadWarning": { "message": "Could not read synchronized settings." },
   "storageSaveWarning": { "message": "Could not save synchronized settings." },
+  "storageCapacityWarning": { "message": "Not enough sync space for this change and future edits. Export a backup, then try a smaller collection." },
   "backgroundImageError": { "message": "Choose a valid image up to 3 MB and 4096 px per side." },
   "backgroundInvalidType": { "message": "Choose an image file." },
   "backgroundTooLarge": { "message": "The image must be 3 MB or smaller." },

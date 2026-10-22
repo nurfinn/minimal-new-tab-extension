@@ -692,14 +692,26 @@ async function run(browserName, build) {
       await expectFolder('personal');
     });
     await page.screenshot({ path: join(output, `${browserName}-folder-swipe.png`) });
-    await check('a newer selection from another tab is not overwritten by a stale swipe', async () => {
-      const changed = await service.update(seed, (latest) => ({ ...latest, selectedFolderId: 'work' }));
-      assert.equal(changed.ok, true);
-      const before = syncArea.commits;
-      await dispatch({ dx: -100 });
-      await expectFolder('work');
-      assert.equal(syncArea.commits, before);
-      assert.equal((await service.load(seed)).state.selectedFolderId, 'work');
+    await check('a newer selection from another tab is not overwritten by an older deferred swipe', async () => {
+      // The preceding case uses real wheel timestamps. Start a fresh recognizer
+      // before returning to the synthetic timestamp sequence.
+      await page.reload();
+      clock = 0;
+      await page.locator('[data-folder="all"]').waitFor();
+      await page.locator('[data-folder="all"]').click();
+      await settleSelection();
+      const second = await context.newPage();
+      try {
+        await second.goto(url);
+        await second.locator('[data-folder="all"][aria-pressed="true"]').waitFor();
+        await dispatch();
+        // The earlier reorder check moved Personal ahead of Work.
+        await expectFolder('personal');
+        await second.locator('[data-folder="work"]').click();
+        await settleSelection();
+        assert.equal((await service.load(seed)).state.selectedFolderId, 'work');
+        await expectFolder('work');
+      } finally { await second.close(); }
     });
     await check('fresh installation with no user folders performs no writes on swipe', async () => {
       syncArea.data = {};

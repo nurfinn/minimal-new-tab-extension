@@ -8,6 +8,7 @@ import { makeArea, makeState, corePayload, seedCore } from "./helpers/feature-st
 const defaults = () => makeState({ emoji: null, showAllFolder: true });
 const service = (area, localArea = makeArea()) => createStorageService({ syncArea: area, localArea, logger: null });
 const sets = area => area.calls.filter(call => call.method === "set");
+const localUserData = area => Object.fromEntries(Object.entries(area.data).filter(([key]) => key !== STORAGE_KEYS.pendingSyncWrites));
 async function protectedArea(hooks = {}) {
   const area = makeArea({}, hooks), local = makeArea();
   assert.equal((await service(area, local).save(makeState())).ok, true);
@@ -51,7 +52,7 @@ for (const phase of ["core-chunk", "feature-chunk", "backup", "heads"]) {
     assert.equal(loaded.state.links[0].title, "Example");
     assert.equal(loaded.state.links[0].emoji, "🗺️");
     assert.equal(area.data["minimalNewTabFeatureChunk:foreign-pending:0"], "unpublished");
-    assert.deepEqual(local.data, beforeLocal);
+    assert.deepEqual(localUserData(local), beforeLocal);
   });
 }
 
@@ -255,7 +256,7 @@ test("failed writes with an unchanged existing local image never alter its bytes
   fail = true;
   state.links[0].emoji = "🚀";
   assert.equal((await service(area, local).save(state)).ok, false);
-  assert.deepEqual(local.data, before);
+  assert.deepEqual(localUserData(local), before);
 });
 
 for (const limit of ["items", "total-peak", "escaped-item"]) {

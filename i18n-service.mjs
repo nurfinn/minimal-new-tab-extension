@@ -180,6 +180,7 @@ export const ENGLISH_FALLBACKS = Object.freeze({
   invalidBackupJson: 'The selected file is not a valid settings JSON file.',
   storageReadWarning: 'Could not read synchronized settings.',
   storageSaveWarning: 'Could not save synchronized settings.',
+  storageCapacityWarning: 'Not enough sync space for this change and future edits. Export a backup, then try a smaller collection.',
   backgroundImageError: 'Choose a valid image up to 3 MB and 4096 px per side.',
   backgroundInvalidType: 'Choose an image file.',
   backgroundTooLarge: 'The image must be 3 MB or smaller.',
