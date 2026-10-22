@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const text = path => readFile(new URL('../' + path, import.meta.url), 'utf8').catch(() => '');
+const releaseVersion = '1.7.1';
 
 test('README presents the current release without separate source and store states', async () => {
   const readme = await text('README.md');
@@ -13,14 +14,14 @@ test('README presents the current release without separate source and store stat
   assert.ok(readme.includes('| Browser | Current version | Source |'));
   assert.doesNotMatch(readme, /source version|latest published version|prepared release|in this branch|not yet published/i);
   assert.doesNotMatch(readme, /store publication.*separate|versions.*source code in this repository/i);
-  assert.match(readme, /\(docs\/release-1\.7\.md\)/);
+  assert.ok(readme.includes(`(docs/release-${releaseVersion}.md)`));
 });
 
 test('README keeps the familiar product structure and one current changelog', async () => {
   const readme = await text('README.md');
   assert.deepEqual([...readme.matchAll(/^## (.+)$/gm)].map(match => match[1]), [
     'Browser releases',
-    "What's new in 1.7",
+    `What's new in ${releaseVersion}`,
     'Highlights',
     'Site icons',
     'Sync and moving between browsers',
@@ -46,18 +47,30 @@ test('README retains backup compatibility and browser installation caveats', asy
   assert.match(readme, /not a signed.*XPI/i);
 });
 
-test('all README build examples target the current 1.7 archives', async () => {
+test('all README build examples target the current release archives', async () => {
   const readme = await text('README.md');
   const examples = [...readme.matchAll(/--archive \/absolute\/path\/minimal-new-tab-(chrome|firefox)-v([^\s]+)\.zip/g)];
   assert.equal(examples.length, 4);
-  assert.ok(examples.every(match => match[2] === '1.7'));
+  assert.ok(examples.every(match => match[2] === releaseVersion));
 });
 
-test('GitHub validates the release branch and names 1.7 archives', async () => {
+test('GitHub validates the release branch and names current release archives', async () => {
   const workflow = await text('.github/workflows/validate-releases.yml');
   assert.match(workflow, /^\s+- "codex\/\*\*"$/m);
   for (const platform of ['chrome', 'firefox']) {
-    assert.equal(workflow.split(`minimal-new-tab-${platform}-v1.7.zip`).length - 1, 2);
+    assert.equal(workflow.split(`minimal-new-tab-${platform}-v${releaseVersion}.zip`).length - 1, 2);
+  }
+});
+
+test('patch release notes describe stability fixes without changing backup compatibility', async () => {
+  const notes = await text(`docs/release-${releaseVersion}.md`);
+  assert.ok(notes.startsWith(`# Minimal New Tab ${releaseVersion}\n`));
+  assert.match(notes, /stability/i);
+  assert.match(notes, /backup format v2.*unchanged/i);
+  assert.match(notes, /permissions.*unchanged/i);
+  assert.match(notes, /1\.7.*archives.*unchanged/i);
+  for (const platform of ['chrome', 'firefox']) {
+    assert.ok(notes.includes(`minimal-new-tab-${platform}-v${releaseVersion}.zip`));
   }
 });
 
