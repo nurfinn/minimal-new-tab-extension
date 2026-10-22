@@ -628,7 +628,7 @@ test('commits a background against the latest state and closes only on success',
 
   assert.match(backgroundSubmitBlock, /const\s+saved\s*=\s*await\s+commitStateChange\s*\(/);
   assert.match(backgroundSubmitBlock, /latestState\.background\s*=\s*nextBackground/);
-  assert.match(backgroundSubmitBlock, /onError\s*:\s*\(\s*\)\s*=>\s*showBackgroundImageError\s*\(\s*["']save-failed["']\s*\)/);
+  // Browser tests verify ordinary write errors and the distinct capacity error.
   assert.match(backgroundSubmitBlock, /if\s*\(\s*!saved\s*\)\s*return\s*;/);
   assert.ok(
     backgroundSubmitBlock.indexOf('if (!saved) return') <

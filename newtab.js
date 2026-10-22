@@ -271,7 +271,7 @@ function bindEvents() {
       await commitStateChange((latestState) => {
         latestState.showAllFolder = showAllFolder;
         return latestState;
-      }, { onError: () => showFieldError(elements.folderFormError, t("storageSaveWarning")) });
+      }, { onError: result => showFieldError(elements.folderFormError, getStorageSaveWarning(result)) });
     } finally {
       savingFolderVisibility = false;
       elements.showAllFolder.removeAttribute("aria-busy");
@@ -405,9 +405,9 @@ function bindEvents() {
             ? "all" : resolvedFolderId;
           return latestState;
         },
-        { onError: () => {
-          if (isCurrentEdit()) showFieldError(elements.linkFormError, t("storageSaveWarning"));
-          else showAppStatus(t("storageSaveWarning"));
+        { onError: result => {
+          if (isCurrentEdit()) showFieldError(elements.linkFormError, getStorageSaveWarning(result));
+          else showAppStatus(getStorageSaveWarning(result));
         } }
       );
       if (!saved) return;
@@ -451,7 +451,7 @@ function bindEvents() {
         latestState.selectedFolderId = folder.id;
         return latestState;
       },
-      { onError: () => showFieldError(elements.folderFormError, t("storageSaveWarning")) }
+      { onError: result => showFieldError(elements.folderFormError, getStorageSaveWarning(result)) }
     );
     if (!saved) return;
 
@@ -497,7 +497,7 @@ function bindEvents() {
           latestState.shortcutsEnabled = shortcutsEnabled;
           return latestState;
         },
-        { onError: () => showBackgroundImageError("save-failed") }
+        { onError: result => showBackgroundImageError(result.error === "capacity-exceeded" ? result.error : "save-failed") }
       );
       if (!saved) return;
       clearBackgroundImageError();
@@ -906,7 +906,7 @@ async function persistFolderSelectionSnapshot(pending) {
 
   if (!result.ok) {
     if (pendingFolderSelection?.revision === pending.revision) {
-      showAppStatus(t("storageSaveWarning"));
+      showAppStatus(getStorageSaveWarning(result));
       scheduleFolderSelectionSave(FOLDER_SELECTION_RETRY_DELAY_MS);
     }
     return pending.revision;
@@ -1052,7 +1052,7 @@ async function saveFolderRename(folderId, value) {
         latestState.folders = latestResult.folders;
         return latestState;
       },
-      { onError: () => showFieldError(elements.folderFormError, t("storageSaveWarning")) }
+      { onError: result => showFieldError(elements.folderFormError, getStorageSaveWarning(result)) }
     );
     if (!saved) {
       renamingFolderId = folderId;
@@ -2132,7 +2132,7 @@ async function confirmImport() {
         shortcutsEnabled: latestState.shortcutsEnabled,
         showAllFolder: latestState.showAllFolder
       }),
-    { onError: () => showImportError(t("importSaveError")) }
+    { onError: result => showImportError(getStorageSaveWarning(result, "importSaveError")) }
   );
   elements.confirmImportButton.disabled = false;
 
@@ -2190,7 +2190,8 @@ function showBackgroundImageError(error) {
     "file-too-large": "backgroundTooLarge",
     "dimensions-too-large": "backgroundDimensionsTooLarge",
     "decode-failed": "backgroundDecodeFailed",
-    "save-failed": "backgroundSaveFailed"
+    "save-failed": "backgroundSaveFailed",
+    "capacity-exceeded": "storageCapacityWarning"
   };
   elements.backgroundImageError.textContent = t(
     messageKeys[error] || "backgroundDecodeFailed"
@@ -2319,7 +2320,7 @@ async function commitStateChange(transform, options = {}) {
       if (typeof options.onError === "function") {
         options.onError(result);
       } else {
-        showAppStatus(t("storageSaveWarning"));
+        showAppStatus(getStorageSaveWarning(result));
       }
       return false;
     }
@@ -2337,6 +2338,10 @@ async function commitStateChange(transform, options = {}) {
     clearAppStatus();
     return true;
   });
+}
+
+function getStorageSaveWarning(result, fallback = "storageSaveWarning") {
+  return t(result?.error === "capacity-exceeded" ? "storageCapacityWarning" : fallback);
 }
 
 function showAppStatus(message) {

@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { buildChromeRelease } from "./build-chrome.mjs";
 import { buildFirefoxRelease } from "./build-firefox.mjs";
 import { createStorageService, STORAGE_KEYS } from "../storage-service.mjs";
+import { serializeBackup } from "../backup-service.mjs";
 import { makeArea } from "../tests/helpers/feature-storage-fixtures.mjs";
 
 const require = createRequire(process.env.PLAYWRIGHT_MODULE || import.meta.url);
@@ -186,6 +187,19 @@ try {
         await p.locator("#importError").waitFor({ state: "visible" });
         assert.equal(downloads.length, 0);
         assert.equal(await p.locator("#exportBackupButton").isEnabled(), true);
+      });
+      await check("capacity", "oversized import explains the capacity limit and preserves current sites", async f => {
+        const p = await f.page(), large = seed();
+        large.links = Array.from({ length: 500 }, (_, i) => ({ id: `site-${i}`, title: `Example ${i}`,
+          url: `https://example.com/${i}`, folderId: "work" }));
+        await p.locator("#settingsButton").click();
+        await p.locator("#backupSettingsTab").click();
+        await p.locator("#importBackupInput").setInputFiles({ name: "large-backup.json", mimeType: "application/json", buffer: Buffer.from(serializeBackup(large)) });
+        await p.locator("#confirmImportButton").click();
+        await p.locator("#importError").waitFor({ state: "visible" });
+        assert.match(await p.locator("#importError").textContent(), /sync space/i);
+        assert.deepEqual((await f.current()).links.map(s => s.title), ["Alpha", "Beta"]);
+        assert.equal(await p.locator("#confirmImportButton").isEnabled(), true);
       });
     } finally { await browser.close(); }
   }
